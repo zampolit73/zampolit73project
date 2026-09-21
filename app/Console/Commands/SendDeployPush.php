@@ -13,15 +13,24 @@ class SendDeployPush extends Command
 
     public function handle(WebPushService $webPush): int
     {
+        $subscriptions = PushSubscription::query()
+            ->whereHas('user', fn ($query) => $query->where('role', 'admin'))
+            ->get();
+
         $sent = 0;
-        foreach (PushSubscription::whereHas('user', fn ($query) => $query->where('role', 'admin'))->get() as $subscription) {
+
+        foreach ($subscriptions as $subscription) {
             if ($webPush->sendToSubscription($subscription, [
-                'title' => config('app.name'),
-                'body' => 'Деплой успешно завершён',
+                'title' => 'Zampolit73 — деплой готов',
+                'body' => 'Новая версия успешно прошла проверку и опубликована.',
                 'url' => '/',
-            ])) $sent++;
+            ])) {
+                $sent++;
+            }
         }
-        $this->info("Deployment push sent: {$sent}");
+
+        $this->info("Administrator push subscriptions: {$subscriptions->count()}; sent: {$sent}");
+
         return self::SUCCESS;
     }
 }

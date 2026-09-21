@@ -403,3 +403,15 @@ jobs:
           esac
 
           echo "Public HTTPS, redirect and PWA endpoint checks passed."
+
+      - name: Notify administrators about successful deploy
+        env:
+          SSHPASS: ${{ secrets.VPS_PWD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          sshpass -e ssh \
+            -p 22 \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "cd /var/www/zampolit73project/current && php8.3 artisan push:deploy-success"
