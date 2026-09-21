@@ -4,181 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Привет, Валера!</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      --ink: #111111;
-      --paper: #efe6d2;
-      --accent: #b31217;
-    }
-
-    * { box-sizing: border-box; }
-
-    html, body {
-      margin: 0;
-      min-height: 100%;
-    }
-
-    body {
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      overflow-x: hidden;
-      background:
-        linear-gradient(135deg, transparent 0 44%, rgba(179,18,23,.20) 44% 56%, transparent 56% 100%),
-        var(--paper);
-      color: var(--ink);
-      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
-      padding: 24px 0 120px;
-    }
-
-    .frame {
-      position: relative;
-      width: min(92vw, 980px);
-      min-height: min(72vh, 620px);
-      display: grid;
-      place-items: center;
-      padding: 72px 48px;
-      border: 14px solid var(--ink);
-      background:
-        linear-gradient(90deg, var(--accent) 0 18px, transparent 18px calc(100% - 18px), var(--accent) calc(100% - 18px)),
-        var(--paper);
-      box-shadow: 18px 18px 0 var(--accent);
-      text-align: center;
-      text-transform: uppercase;
-    }
-
-    .frame::before,
-    .frame::after {
-      content: "";
-      position: absolute;
-      background: var(--ink);
-    }
-
-    .frame::before {
-      width: 38%;
-      height: 18px;
-      top: 34px;
-      left: 0;
-    }
-
-    .frame::after {
-      width: 38%;
-      height: 18px;
-      bottom: 34px;
-      right: 0;
-    }
-
-    h1 {
-      margin: 0;
-      max-width: 900px;
-      font-size: clamp(3rem, 10vw, 8rem);
-      line-height: .9;
-      letter-spacing: .02em;
-      text-wrap: balance;
-      text-shadow: 5px 5px 0 rgba(179,18,23,.22);
-    }
-
-    .slash {
-      position: absolute;
-      width: 34%;
-      height: 28px;
-      background: var(--accent);
-      transform: rotate(-11deg);
-      right: -6%;
-      top: 18%;
-    }
-
-    .caption {
-      position: absolute;
-      left: 48px;
-      bottom: 50px;
-      font-family: Arial, Helvetica, sans-serif;
-      font-weight: 900;
-      letter-spacing: .28em;
-      font-size: .78rem;
-    }
-
-    .clocks {
-      position: fixed;
-      left: 50%;
-      bottom: 18px;
-      transform: translateX(-50%);
-      width: min(94vw, 980px);
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      z-index: 10;
-    }
-
-    .clock {
-      border: 4px solid var(--ink);
-      background: rgba(239, 230, 210, .95);
-      padding: 10px 12px 12px;
-      text-align: center;
-      box-shadow: 6px 6px 0 var(--accent);
-      text-transform: uppercase;
-    }
-
-    .clock-city {
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: .72rem;
-      font-weight: 900;
-      letter-spacing: .18em;
-      margin-bottom: 4px;
-    }
-
-    .clock-time {
-      font-variant-numeric: tabular-nums;
-      font-size: clamp(1.4rem, 4vw, 2.5rem);
-      letter-spacing: .05em;
-      line-height: 1;
-    }
-
-    @media (max-width: 640px) {
-      body {
-        padding-bottom: 220px;
-      }
-
-      .frame {
-        padding: 56px 24px;
-        border-width: 10px;
-        box-shadow: 10px 10px 0 var(--accent);
-      }
-
-      .caption {
-        left: 24px;
-        bottom: 28px;
-        letter-spacing: .16em;
-      }
-
-      .clocks {
-        grid-template-columns: 1fr;
-        width: min(92vw, 420px);
-        gap: 7px;
-      }
-
-      .clock {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        align-items: center;
-        text-align: left;
-        padding: 8px 10px;
-        box-shadow: 4px 4px 0 var(--accent);
-      }
-
-      .clock-city {
-        margin: 0;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <main class="frame" aria-label="Приветствие">
-    <div class="slash" aria-hidden="true"></div>
-    <h1>Привет,<br>Валера!</h1>
-    <div class="caption">ZAMPOLIT73PROJECT</div>
-  </main>
+  <nav class="site-nav" aria-label="Навигация по страницам">
+    <div class="site-nav__brand">ZAMPOLIT73PROJECT</div>
+    <a href="/" aria-current="page">01 — Главная</a>
+    <a href="/page2.html">02 — Страница 2</a>
+  </nav>
+
+  <div class="page-shell">
+    <main class="poster" aria-label="Приветствие">
+      <div class="poster__slash" aria-hidden="true"></div>
+      <h1>Привет,<br>Валера!</h1>
+      <div class="poster__caption">ZAMPOLIT73PROJECT</div>
+    </main>
+  </div>
 
   <section class="clocks" aria-label="Мировое время">
     <div class="clock">
@@ -195,25 +36,6 @@
     </div>
   </section>
 
-  <script>
-    const clocks = document.querySelectorAll('[data-timezone]');
-
-    function updateClocks() {
-      const now = new Date();
-
-      clocks.forEach((clock) => {
-        clock.textContent = new Intl.DateTimeFormat('ru-RU', {
-          timeZone: clock.dataset.timezone,
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        }).format(now);
-      });
-    }
-
-    updateClocks();
-    setInterval(updateClocks, 1000);
-  </script>
+  <script src="/main.js"></script>
 </body>
 </html>
