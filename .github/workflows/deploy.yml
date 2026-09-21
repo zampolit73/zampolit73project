@@ -166,3 +166,12 @@ jobs:
 
           test "$response" = "ok"
           echo "Public health check passed."
+
+          page="$(curl -fsS \
+            --retry 10 \
+            --retry-delay 2 \
+            --retry-connrefused \
+            "http://$VPS_HOST/")"
+
+          printf '%s' "$page" | grep -Fq 'Привет, Валера!'
+          echo "Main page content check passed."
