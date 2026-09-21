@@ -57,7 +57,15 @@ jobs:
 
       - name: Package release
         run: |
-          tar             --exclude='.git'             --exclude='.github'             --exclude='node_modules'             --exclude='vendor'             --exclude='.env'             --exclude='database/database.sqlite'             --exclude='release.tar.gz'             -czf release.tar.gz .
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='.env' \
+            --exclude='database/database.sqlite' \
+            -czf /tmp/release.tar.gz .
+          mv /tmp/release.tar.gz release.tar.gz
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
