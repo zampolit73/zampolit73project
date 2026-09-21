@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import AppLayout from '../layouts/AppLayout.vue';
 </script>
 
@@ -8,8 +8,8 @@ import AppLayout from '../layouts/AppLayout.vue';
 <main class="projects-page">
 <header class="projects-header"><p class="projects-header__eyebrow">TOOLS / PROJECTS</p><h1>ПРОЕКТЫ</h1><p>Отдельные инструменты и маленькие эксперименты внутри одного приложения. Выбирай проект — каждый живёт своей жизнью.</p></header>
 <section class="projects-grid" aria-label="Список проектов">
-<Link href="/projects/bmp-to-mip" class="project-card"><span class="project-card__index">01</span><div><p class="project-card__meta">QUAKE 1 / TEXTURES</p><h2>BMP → MIP</h2><p>Пакетная конвертация BMP в Quake 1 miptex с оригинальной палитрой и ZIP-выгрузкой.</p></div><span class="project-card__arrow" aria-hidden="true">→</span></Link>
-<Link href="/projects/cio-presentations" class="project-card project-card--internal"><span class="project-card__index">02</span><div><p class="project-card__meta">SALES / OPEN SOURCES / ACCOUNT</p><h2>CIO PRESENTATIONS</h2><p>Каталог публичных презентаций ИТ-директоров: источники, лёгкий поиск прямых PDF/PPT/PPTX ссылок и ручная квалификация лидов.</p></div><span class="project-card__arrow" aria-hidden="true">→</span></Link>
-<Link href="/projects/pushkin-fairytales" class="project-card project-card--storybook"><span class="project-card__index">03</span><div><p class="project-card__meta">LITERATURE / MOTION / EXPERIMENT</p><h2>СКАЗКИ ПУШКИНА</h2><p>Живая книга с перелистыванием страниц, сказочными миниатюрами и атмосферой старой типографии.</p></div><span class="project-card__arrow" aria-hidden="true">→</span></Link>\n<Link href="/projects/dog-training-ground" class="project-card project-card--dogs"><span class="project-card__index">04</span><div><p class="project-card__meta">DOGS / AGILITY / MOTION</p><h2>КИНОЛОГИЧЕСКАЯ ПЛОЩАДКА</h2><p>Анимированная agility-трасса: собаки бегут, прыгают через барьеры и проходят тренировочные зоны.</p></div><span class="project-card__arrow" aria-hidden="true">→</span></Link>\n</section></main>
+<a href="/projects/bmp-to-mip" class="project-card"><span class="project-card__index">01</span><div><p class="project-card__meta">QUAKE 1 / TEXTURES</p><h2>BMP → MIP</h2><p>Пакетная конвертация BMP в Quake 1 miptex с оригинальной палитрой и ZIP-выгрузкой.</p></div><span class="project-card__arrow" aria-hidden="true">→</span></a>
+<a href="/projects/cio-presentations" class="project-card project-card--internal"><span class="project-card__index">02</span><div><p class="project-card__meta">SALES / OPEN SOURCES / ACCOUNT</p><h2>CIO PRESENTATIONS</h2><p>Каталог публичных презентаций ИТ-директоров: источники, лёгкий поиск прямых PDF/PPT/PPTX ссылок и ручная квалификация лидов.</p></div><span class="project-card__arrow" aria-hidden="true">→</span></a>
+<a href="/projects/pushkin-fairytales" class="project-card project-card--storybook"><span class="project-card__index">03</span><div><p class="project-card__meta">LITERATURE / MOTION / EXPERIMENT</p><h2>СКАЗКИ ПУШКИНА</h2><p>Живая книга с перелистыванием страниц, сказочными миниатюрами и атмосферой старой типографии.</p></div><span class="project-card__arrow" aria-hidden="true">→</span></a>\n<a href="/projects/dog-training-ground" class="project-card project-card--dogs"><span class="project-card__index">04</span><div><p class="project-card__meta">DOGS / AGILITY / MOTION</p><h2>КИНОЛОГИЧЕСКАЯ ПЛОЩАДКА</h2><p>Анимированная agility-трасса: собаки бегут, прыгают через барьеры и проходят тренировочные зоны.</p></div><span class="project-card__arrow" aria-hidden="true">→</span></a>\n</section></main>
 </AppLayout>
 </template>

@@ -536,3 +536,14 @@ Product/design decisions:
 - reduced-motion users get a static course instead of automatic movement;
 - follows the site's hard-edged cream / black / red language, with field green and sky blue;
 - mobile adaptation included down to 320 px.
+
+
+## Post-deploy project navigation hardening
+
+After project #04 was first deployed, navigation could fail in a browser tab that survived an atomic release switch because the tab could still reference hashed Inertia chunks from the previous release.
+
+The project catalog now uses normal document links rather than Inertia `Link` components. This intentionally forces a fresh document/app-manifest load when entering an independent project.
+
+The frontend also listens for Vite `vite:preloadError` and reloads the page, which recovers stale tabs when a lazy page chunk no longer exists after deployment.
+
+Production health checks explicitly verify `/projects/dog-training-ground` and its current Vite JS chunk from `build/manifest.json`.

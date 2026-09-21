@@ -245,3 +245,12 @@ The public `/projects/dog-training-ground` page is project #04 and runs entirely
 - Vue controls pause/start, restart and training pace;
 - responsive layouts keep the course usable on mobile;
 - `prefers-reduced-motion` disables automatic motion and places the dogs in static positions.
+
+
+## Project navigation across atomic deploys
+
+`Projects.vue` uses full document links for project cards. Projects are independent tools, and a full navigation ensures the browser loads the current release's Vite manifest/chunks after an atomic deploy.
+
+`resources/js/app.js` also handles Vite `vite:preloadError` by reloading the document. This protects long-lived tabs from stale hashed dynamic-import URLs.
+
+The production health workflow verifies the dog-training route and the corresponding Vite manifest asset in addition to the generic site/PWA checks.
