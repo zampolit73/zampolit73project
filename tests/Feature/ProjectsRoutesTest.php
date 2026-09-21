@@ -20,18 +20,4 @@ class ProjectsRoutesTest extends TestCase
     {
         $this->get('/projects/pushkin-fairytales')->assertOk();
     }
-
-    public function test_dog_training_ground_is_public(): void
-    {
-        $this->get('/projects/dog-training-ground')->assertOk();
-    }
-
-    public function test_dog_training_ground_forces_full_reload_for_inertia_visits(): void
-    {
-        $this->get('/projects/dog-training-ground', [
-            'X-Inertia' => 'true',
-        ])
-            ->assertStatus(409)
-            ->assertHeader('X-Inertia-Location', '/projects/dog-training-ground');
-    }
 }

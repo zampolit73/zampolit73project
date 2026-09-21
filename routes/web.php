@@ -5,7 +5,6 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\CioPresentationController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Middleware\EnsureUserCanAccessDesignSystem;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -19,13 +18,6 @@ Route::get('/stas', fn () => Inertia::render('Stas'))->name('stas');
 Route::get('/projects', fn () => Inertia::render('Projects'))->name('projects');
 Route::get('/projects/bmp-to-mip', fn () => Inertia::render('BmpToMip'))->name('projects.bmp-to-mip');
 Route::get('/projects/pushkin-fairytales', fn () => Inertia::render('PushkinFairytales'))->name('projects.pushkin-fairytales');
-Route::get('/projects/dog-training-ground', function (Request $request) {
-    if ($request->header('X-Inertia')) {
-        return Inertia::location('/projects/dog-training-ground');
-    }
-
-    return Inertia::render('DogTrainingGround');
-})->name('projects.dog-training-ground');
 
 Route::middleware(['auth', EnsureUserCanAccessDesignSystem::class])
     ->prefix('/projects/cio-presentations')

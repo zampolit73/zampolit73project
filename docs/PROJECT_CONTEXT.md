@@ -22,7 +22,7 @@ Current projects:
 
 1. `/projects/bmp-to-mip` — public client-side Quake 1 texture converter.
 2. `/projects/cio-presentations` — internal CIO / IT-director presentation catalog for sales research.
-3. `/projects/pushkin-fairytales` — public animated living-book experiment based on Pushkin's fairytales.\n4. `/projects/dog-training-ground` — public animated canine agility playground.
+3. `/projects/pushkin-fairytales` — public animated living-book experiment based on Pushkin's fairytales.
 
 The `/projects` page is the project selector. Do not replace or collapse the existing BMP → MIP project when changing the CIO project.
 
@@ -114,7 +114,6 @@ Responsive behavior is mandatory, including 320 px mobile widths and laptop-heig
 - `/projects/bmp-to-mip` — public browser-only BMP → Quake 1 MIP converter
 - `/projects/cio-presentations` — authenticated admin/moderator CIO presentation project
 - `/projects/pushkin-fairytales` — public animated Pushkin fairytales book
-- `/projects/dog-training-ground` — public animated dog agility playground
 - `/login` — guest login
 - `/design-system` — admin/moderator
 - `/tests` — authenticated service/test page
@@ -511,48 +510,12 @@ Product/design decisions:
 - `prefers-reduced-motion` disables autoplay and heavy movement.
 
 
----
-
-# Dog training ground project
-
-Project #04 under `/projects`.
-
-Route:
-
-`/projects/dog-training-ground`
-
-Implementation:
-
-- `resources/js/pages/DogTrainingGround.vue`
-- project card in `resources/js/pages/Projects.vue`
-
-Product/design decisions:
-
-- public route;
-- frontend-only, no database and no external assets;
-- three stylized CSS dogs run continuously on separate lanes;
-- runners jump at course positions while the scene contains jump bars, slalom poles and a tunnel;
-- user controls: start/pause, restart, calm/training/turbo pace;
-- reduced-motion users get a static course instead of automatic movement;
-- follows the site's hard-edged cream / black / red language, with field green and sky blue;
-- mobile adaptation included down to 320 px.
-
 
 ## Post-deploy project navigation hardening
 
-After project #04 was first deployed, navigation could fail in a browser tab that survived an atomic release switch because the tab could still reference hashed Inertia chunks from the previous release.
+The project catalog uses normal document links rather than Inertia `Link` components. This intentionally forces a fresh document/app-manifest load when entering an independent project.
 
-The project catalog now uses normal document links rather than Inertia `Link` components. This intentionally forces a fresh document/app-manifest load when entering an independent project.
-
-The frontend also listens for Vite `vite:preloadError` and reloads the page, which recovers stale tabs when a lazy page chunk no longer exists after deployment.
-
-Production health checks explicitly verify `/projects/dog-training-ground` and its current Vite JS chunk from `build/manifest.json`.
+The frontend also listens for Vite `vite:preloadError` and reloads the page, which recovers long-lived tabs when a lazy page chunk no longer exists after an atomic deployment.
 
 
-### Dog project stale-client recovery
 
-The dog-training route has an additional server-side compatibility guard for long-lived tabs from releases that predate project #04.
-
-If `/projects/dog-training-ground` is requested as an Inertia visit, Laravel responds with `Inertia::location('/projects/dog-training-ground')`. Inertia converts that response into a real browser navigation. A normal document GET still renders `DogTrainingGround` directly.
-
-This is intentional: an old `Projects.vue` bundle cannot resolve a page component that did not exist when that bundle was built. The server-forced document navigation makes the route recover even before the user manually refreshes the old tab.

@@ -502,11 +502,6 @@ jobs:
             --resolve "$APP_DOMAIN:443:127.0.0.1" \
             "https://$APP_DOMAIN/sw.js" >/dev/null
 
-          DOG_PROJECT_HTML="$(curl -fsS --connect-timeout 3 --max-time 8 \
-            --resolve "$APP_DOMAIN:443:127.0.0.1" \
-            "https://$APP_DOMAIN/projects/dog-training-ground")"
-          grep -q 'DogTrainingGround' <<<"$DOG_PROJECT_HTML"
-
           echo "Local deployment checks passed."
 
           ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +4 | xargs -r $SUDO rm -rf
@@ -554,19 +549,6 @@ jobs:
           check_https "Homepage" "https://$APP_DOMAIN/"
           check_https "PWA manifest" "https://$APP_DOMAIN/site.webmanifest"
           check_https "Service worker" "https://$APP_DOMAIN/sw.js"
-          check_https "Dog training ground" "https://$APP_DOMAIN/projects/dog-training-ground"
-
-          manifest="$(curl \
-            --fail \
-            --silent \
-            --show-error \
-            --connect-timeout 3 \
-            --max-time 8 \
-            "https://$APP_DOMAIN/build/manifest.json")"
-
-          dog_asset="$(printf '%s' "$manifest" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(data["resources/js/pages/DogTrainingGround.vue"]["file"])')"
-          check_https "Dog training JS chunk" "https://$APP_DOMAIN/build/$dog_asset"
-
           redirect="$(curl \
             --silent \
             --show-error \
@@ -584,7 +566,7 @@ jobs:
               ;;
           esac
 
-          echo "Public HTTPS, project route/assets, redirect and PWA endpoint checks passed."
+          echo "Public HTTPS, redirect and PWA endpoint checks passed."
 
   notify:
     name: Notify
