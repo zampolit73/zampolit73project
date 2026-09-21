@@ -53,6 +53,10 @@ Triggers:
 
 Production deploy runs only for push events on `main`.
 
+### Concurrency
+
+Production pushes use a single concurrency group. When a newer push to `main` arrives, GitHub Actions cancels any older running or queued production workflow. Only the newest commit is allowed to continue toward production. PR and manual runs use separate groups and cannot cancel a production deploy.
+
 ### Build job
 
 The build job:
@@ -158,6 +162,8 @@ A release is not considered deployed until:
 - public manifest succeeds;
 - public service worker succeeds;
 - HTTP redirects to HTTPS.
+
+Public checks have explicit DNS/connect/request timeouts and print DNS, remote IP and timing diagnostics, so an unreachable domain fails quickly instead of occupying the deploy runner until the job-level timeout.
 
 Only after those checks does the workflow execute `push:deploy-success`.
 

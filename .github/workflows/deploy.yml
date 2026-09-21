@@ -10,7 +10,10 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: production-deploy-${{ github.ref }}
+  # For pushes to main there may be only one active production pipeline.
+  # A newer push cancels the currently running/queued older push immediately.
+  # PR/manual runs use their own groups and cannot cancel a production deploy.
+  group: ${{ github.event_name == 'push' && 'production-main' || format('ci-{0}-{1}', github.event_name, github.ref) }}
   cancel-in-progress: true
 
 jobs:
@@ -100,7 +103,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          ssh-keyscan -p 22 -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          timeout 10s ssh-keyscan -T 5 -p 22 -H "$VPS_HOST" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
       - name: Upload release
@@ -112,6 +115,9 @@ jobs:
           sshpass -e scp \
             -P 22 \
             -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=2 \
             release.tar.gz \
             "$VPS_USER@$VPS_HOST:/tmp/zampolit73-${GITHUB_SHA}.tar.gz"
 
@@ -124,6 +130,9 @@ jobs:
           sshpass -e ssh \
             -p 22 \
             -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=2 \
             "$VPS_USER@$VPS_HOST" \
             "APP_DOMAIN='$APP_DOMAIN' RELEASE_SHA='$GITHUB_SHA' bash -se" <<'REMOTE'
           set -euo pipefail
@@ -284,7 +293,7 @@ jobs:
           $SUDO systemctl restart php8.3-fpm
           $SUDO systemctl restart nginx
 
-          curl -fsS --retry 5 --retry-delay 2 \
+          curl -fsS --connect-timeout 3 --max-time 10 --retry 2 --retry-delay 1 \
             --resolve "$APP_DOMAIN:80:127.0.0.1" \
             "http://$APP_DOMAIN/up" >/dev/null
 
@@ -359,15 +368,15 @@ jobs:
           $SUDO systemctl reload nginx
           $SUDO systemctl enable --now certbot.timer >/dev/null 2>&1 || true
 
-          curl -fsS --retry 5 --retry-delay 2 \
+          curl -fsS --connect-timeout 3 --max-time 10 --retry 2 --retry-delay 1 \
             --resolve "$APP_DOMAIN:443:127.0.0.1" \
             "https://$APP_DOMAIN/up" >/dev/null
 
-          curl -fsS --retry 5 --retry-delay 2 \
+          curl -fsS --connect-timeout 3 --max-time 10 --retry 2 --retry-delay 1 \
             --resolve "$APP_DOMAIN:443:127.0.0.1" \
             "https://$APP_DOMAIN/site.webmanifest" >/dev/null
 
-          curl -fsS --retry 5 --retry-delay 2 \
+          curl -fsS --connect-timeout 3 --max-time 10 --retry 2 --retry-delay 1 \
             --resolve "$APP_DOMAIN:443:127.0.0.1" \
             "https://$APP_DOMAIN/sw.js" >/dev/null
 
@@ -377,27 +386,56 @@ jobs:
           REMOTE
 
       - name: Verify public HTTPS
+        timeout-minutes: 2
         run: |
-          curl -fsS \
-            --retry 10 \
-            --retry-delay 3 \
-            --retry-connrefused \
-            "https://$APP_DOMAIN/up" >/dev/null
+          set -euo pipefail
 
-          curl -fsS \
-            --retry 10 \
-            --retry-delay 3 \
-            --retry-connrefused \
-            "https://$APP_DOMAIN/" >/dev/null
+          echo "=== DNS diagnostics for $APP_DOMAIN ==="
+          if ! getent ahostsv4 "$APP_DOMAIN"; then
+            echo "::error::IPv4 DNS resolution failed for $APP_DOMAIN"
+            exit 41
+          fi
+          getent ahostsv6 "$APP_DOMAIN" || true
 
-          curl -fsS "https://$APP_DOMAIN/site.webmanifest" >/dev/null
-          curl -fsS "https://$APP_DOMAIN/sw.js" >/dev/null
+          check_https() {
+            label="$1"
+            url="$2"
 
-          redirect="$(curl -sS -o /dev/null -w '%{redirect_url}' "http://$APP_DOMAIN/")"
+            echo "=== $label ==="
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --connect-timeout 3 \
+              --max-time 8 \
+              --retry 1 \
+              --retry-delay 1 \
+              --retry-max-time 18 \
+              --retry-all-errors \
+              --output /dev/null \
+              --write-out 'HTTP %{http_code} remote=%{remote_ip} dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s total=%{time_total}s\n' \
+              "$url"
+          }
+
+          check_https "Laravel health" "https://$APP_DOMAIN/up"
+          check_https "Homepage" "https://$APP_DOMAIN/"
+          check_https "PWA manifest" "https://$APP_DOMAIN/site.webmanifest"
+          check_https "Service worker" "https://$APP_DOMAIN/sw.js"
+
+          echo "=== HTTP redirect ==="
+          redirect="$(curl \
+            --silent \
+            --show-error \
+            --connect-timeout 3 \
+            --max-time 8 \
+            --output /dev/null \
+            --write-out '%{redirect_url}' \
+            "http://$APP_DOMAIN/")"
+
           case "$redirect" in
             "https://$APP_DOMAIN"/*) ;;
             *)
-              echo "HTTP does not redirect to HTTPS: $redirect"
+              echo "::error::HTTP does not redirect to HTTPS: $redirect"
               exit 40
               ;;
           esac
@@ -413,5 +451,8 @@ jobs:
           sshpass -e ssh \
             -p 22 \
             -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=2 \
             "$VPS_USER@$VPS_HOST" \
             "cd /var/www/zampolit73project/current && php8.3 artisan push:deploy-success"

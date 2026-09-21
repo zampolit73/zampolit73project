@@ -98,6 +98,8 @@ Persistent state:
 
 Push в `main` запускает `.github/workflows/deploy.yml`.
 
+Если в `main` быстро приходят несколько коммитов, предыдущие running/queued production runs автоматически отменяются: до production доходит только самый свежий push.
+
 Последовательность:
 
 1. checkout;
@@ -122,7 +124,7 @@ Push в `main` запускает `.github/workflows/deploy.yml`.
 20. публичные проверки HTTPS, manifest и service worker;
 21. push-уведомление всем admin-подпискам об успешном deploy.
 
-Deploy считается успешным только после зелёного GitHub Actions run и public HTTPS health check.
+Deploy считается успешным только после зелёного GitHub Actions run и public HTTPS health check. Public checks ограничены короткими DNS/connect/request timeout'ами и выводят диагностику вместо зависания на десятки минут.
 
 ## Secrets и production state
 
