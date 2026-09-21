@@ -156,5 +156,6 @@ Keep these files current:
 - `docs/PRODUCTION.md`;
 - `docs/PWA_PUSH.md`;
 - `docs/TECHNICAL_DEBT.md`.
+- `docs/PROJECT_CONTEXT.md`.
 
 Do not document assumptions as deployed facts. Verify current code/workflow first.

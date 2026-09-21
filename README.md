@@ -213,4 +213,5 @@ tests/
 - `docs/PRODUCTION.md` — VPS, deploy, HTTPS, persistent state и эксплуатация.
 - `docs/PWA_PUSH.md` — PWA, service worker, push и VAPID.
 - `docs/TECHNICAL_DEBT.md` — известные ограничения и что стоит улучшить дальше.
+- `docs/PROJECT_CONTEXT.md` — компактный handoff-контекст для продолжения работы в новой сессии.
 - `AGENTS.md` — обязательные правила разработки для работы с репозиторием.
