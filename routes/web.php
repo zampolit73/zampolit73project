@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\CioPresentationController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Middleware\EnsureUserCanAccessDesignSystem;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,16 @@ Route::get('/', fn () => Inertia::render('Home'))->name('home');
 Route::get('/stas', fn () => Inertia::render('Stas'))->name('stas');
 Route::get('/projects', fn () => Inertia::render('Projects'))->name('projects');
 Route::get('/projects/bmp-to-mip', fn () => Inertia::render('BmpToMip'))->name('projects.bmp-to-mip');
+
+Route::middleware(['auth', EnsureUserCanAccessDesignSystem::class])
+    ->prefix('/projects/cio-presentations')
+    ->group(function () {
+        Route::get('/', [CioPresentationController::class, 'index'])->name('projects.cio-presentations');
+        Route::post('/sources', [CioPresentationController::class, 'storeSource'])->name('projects.cio-presentations.sources.store');
+        Route::post('/sources/{source}/scan', [CioPresentationController::class, 'scanSource'])->name('projects.cio-presentations.sources.scan');
+        Route::post('/presentations', [CioPresentationController::class, 'storePresentation'])->name('projects.cio-presentations.presentations.store');
+        Route::patch('/presentations/{presentation}', [CioPresentationController::class, 'updatePresentation'])->name('projects.cio-presentations.presentations.update');
+    });
 
 Route::middleware('auth')->group(function () {
     Route::get('/design-system', fn () => Inertia::render('DesignSystem'))

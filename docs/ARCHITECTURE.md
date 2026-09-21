@@ -57,7 +57,9 @@ Public:
 - `GET /projects` → `Projects.vue`;
 - `GET /projects/bmp-to-mip` → `BmpToMip.vue`;
 - `POST /login` → session login;
-- `GET /up` → Laravel health endpoint.
+- `GET /up` → Laravel health endpoint;
+- `GET /projects` → каталог проектов;
+- `GET /projects/bmp-to-mip` → браузерный BMP → MIP конвертер.
 
 Authenticated:
 
@@ -184,3 +186,31 @@ Implementation:
 - `resources/js/pages/BmpToMip.vue` — selection, browser decoding, progress and ZIP download;
 - `resources/js/lib/quakeMip.js` — palette, naming, validation and binary encoder;
 - `tests/js/quake-mip.mjs` — encoder smoke tests executed in Frontend Build.
+
+
+## CIO presentations project
+
+The internal `/projects/cio-presentations` section is available to authenticated admin/moderator users.
+
+Laravel owns source/presentation persistence and the lightweight public-page scan. Vue renders the project workspace and opens presentation URLs directly in a new browser tab.
+
+### presentation_sources
+
+Stores public source pages and lightweight scan state:
+
+- name, URL and domain;
+- priority / active state;
+- last scan timestamp;
+- new-link count and last error.
+
+### presentations
+
+Stores metadata only:
+
+- optional source;
+- title / speaker / role / company / event;
+- PDF/PPT/PPTX URL and source-page URL;
+- manual review/link flags;
+- discovery/review timestamps.
+
+Presentation files are not proxied or persisted. See `docs/CIO_PRESENTATIONS.md`.

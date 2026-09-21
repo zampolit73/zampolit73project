@@ -271,3 +271,17 @@ BMP input dimensions do not need to be Quake-valid beforehand. The converter:
 Example: `1000×700 → 1008×704`.
 
 The Quake encoder itself still validates the final dimensions, writes four mip levels, uses little-endian `miptex_t`, preserves exact classic-palette colors and keeps arbitrary normal images out of accidental fullbright indices.
+
+
+## CIO presentations project
+
+A second project now lives under the existing `/projects` catalog:
+
+- `/projects/cio-presentations` for admin/moderator users;
+- SQLite tables `presentation_sources` and `presentations`;
+- lightweight manual source scanning reads HTML/XML and extracts direct PDF/PPT/PPTX links;
+- presentation files are never downloaded or proxied by the application;
+- original files open directly from the source URL in the user's browser;
+- manual review flags cover email, phone, good lead and review status.
+
+See `docs/CIO_PRESENTATIONS.md`.

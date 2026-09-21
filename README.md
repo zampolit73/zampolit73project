@@ -18,6 +18,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 - push администраторам после успешного production deploy;
 - раздел `/projects` с клиентскими инструментами;
 - массовый BMP → Quake 1 MIP конвертер с ZIP-выгрузкой;
+- внутренний проект каталога публичных презентаций ИТ-директоров без хранения самих файлов;
 - авторизация по username/password с ролями `admin`, `moderator`, `user`;
 - атомарные release-директории с `current` symlink;
 - GitHub Actions: test → build → deploy → health checks → admin push.
@@ -30,6 +31,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 | `/stas` | публичный | персональная страница «Привет, Стас!» с анимацией дружелюбного взмаха рукой |
 | `/projects` | публичный | каталог браузерных инструментов |
 | `/projects/bmp-to-mip` | публичный | массовая конвертация BMP → Quake 1 MIP, выполняется локально в браузере |
+| `/projects/cio-presentations` | admin, moderator | каталог ссылок на публичные презентации ИТ-директоров, источники и ручная квалификация |
 | `/login` | гость | вход |
 | `/design-system` | admin, moderator | каталог UI-компонентов и дизайн-системы |
 | `/tests` | авторизованный | служебные проверки, сейчас Web Push |
@@ -219,4 +221,5 @@ tests/
 - `docs/TECHNICAL_DEBT.md` — известные ограничения и что стоит улучшить дальше.
 - `docs/PROJECT_CONTEXT.md` — компактный handoff-контекст для продолжения работы в новой сессии.
 - `docs/BMP_TO_MIP.md` — формат Quake MIP и поведение конвертера.
+- `docs/CIO_PRESENTATIONS.md` — устройство каталога презентаций, лёгкого сканера и ограничения по трафику/безопасности.
 - `AGENTS.md` — обязательные правила разработки для работы с репозиторием.
