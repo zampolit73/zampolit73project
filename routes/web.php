@@ -25,6 +25,7 @@ Route::middleware(['auth', EnsureUserCanAccessDesignSystem::class])
         Route::post('/sources', [CioPresentationController::class, 'storeSource'])->name('projects.cio-presentations.sources.store');
         Route::post('/sources/{source}/scan', [CioPresentationController::class, 'scanSource'])->name('projects.cio-presentations.sources.scan');
         Route::post('/presentations', [CioPresentationController::class, 'storePresentation'])->name('projects.cio-presentations.presentations.store');
+        Route::delete('/presentations', [CioPresentationController::class, 'clearPresentations'])->name('projects.cio-presentations.presentations.clear');
         Route::patch('/presentations/{presentation}', [CioPresentationController::class, 'updatePresentation'])->name('projects.cio-presentations.presentations.update');
     });
 

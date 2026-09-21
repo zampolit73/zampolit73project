@@ -295,3 +295,10 @@ The CIO presentations project now ships with an idempotent starter source set vi
 ### Approved CIO preset sources
 
 The built-in CIO source set was narrowed by user decision to TAdviser and CNews only. A corrective data migration removes the earlier preset 1C and Global CIO URLs, then inserts the approved TAdviser/CNews starter set. Unrelated manually added source rows are left alone.
+
+
+### CIO clean restart and 2026 sources
+
+The CIO project can now hard-clear all presentation rows from the Presentations tab. Clearing also resets source scan timestamps, counts and errors but preserves sources. The deployment introducing this feature performs the same one-time reset so production starts from zero.
+
+Approved 2026 preset sources were added for TAdviser SummIT / IT Prize and CNews FORUM / CNews FORUM Кейсы.

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Presentation;
 use App\Models\PresentationSource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,6 +63,19 @@ class CioPresentationsTest extends TestCase
         ]);
     }
 
+    public function test_2026_tadviser_and_cnews_sources_are_preinstalled(): void
+    {
+        $this->assertDatabaseHas('presentation_sources', [
+            'url' => 'https://tadvisersummit.ru/a/2026-1/',
+            'priority' => 120,
+        ]);
+
+        $this->assertDatabaseHas('presentation_sources', [
+            'url' => 'https://www.cnews.ru/news/top/2026-09-16_sotni_it-direktorov_rossii',
+            'priority' => 120,
+        ]);
+    }
+
     public function test_admin_can_open_cio_project(): void
     {
         $sourceCount = PresentationSource::query()->count();
@@ -74,6 +88,47 @@ class CioPresentationsTest extends TestCase
                 ->where('stats.total', 0)
                 ->where('stats.sources', $sourceCount)
             );
+    }
+
+    public function test_admin_can_clear_presentations_and_scan_history_without_deleting_sources(): void
+    {
+        $admin = $this->admin();
+        $source = PresentationSource::query()->firstOrFail();
+
+        $source->update([
+            'last_scanned_at' => now(),
+            'last_scan_found' => 4,
+            'last_error' => 'old error',
+        ]);
+
+        Presentation::query()->create([
+            'source_id' => $source->id,
+            'title' => 'Old presentation',
+            'file_type' => 'pdf',
+            'file_url' => 'https://example.com/old.pdf',
+            'review_status' => 'verified',
+            'link_status' => 'working',
+            'has_email' => true,
+            'has_phone' => true,
+            'is_good_lead' => true,
+            'discovered_at' => now(),
+            'reviewed_at' => now(),
+        ]);
+
+        $sourceCount = PresentationSource::query()->count();
+
+        $this->actingAs($admin)
+            ->delete('/projects/cio-presentations/presentations')
+            ->assertRedirect();
+
+        $this->assertDatabaseCount('presentations', 0);
+        $this->assertDatabaseCount('presentation_sources', $sourceCount);
+        $this->assertDatabaseHas('presentation_sources', [
+            'id' => $source->id,
+            'last_scanned_at' => null,
+            'last_scan_found' => 0,
+            'last_error' => null,
+        ]);
     }
 
     public function test_admin_can_add_source_and_scan_direct_presentation_links(): void

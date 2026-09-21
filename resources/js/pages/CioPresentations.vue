@@ -95,6 +95,20 @@ function scanSource(source) {
     });
 }
 
+function clearPresentations() {
+    if (!window.confirm('Удалить все презентации и историю сканирования? Источники останутся.')) {
+        return;
+    }
+
+    router.delete('/projects/cio-presentations/presentations', {
+        preserveScroll: false,
+        onSuccess: () => {
+            activeTab.value = 'presentations';
+            filterForm.value = { search: '', status: '', file_type: '', source_id: '' };
+        },
+    });
+}
+
 function patchPresentation(presentation, payload) {
     router.patch(`/projects/cio-presentations/presentations/${presentation.id}`, payload, {
         preserveScroll: true,
@@ -263,7 +277,17 @@ function formatDate(value) {
                     <article class="cio-panel">
                         <div class="cio-panel__title-row">
                             <h3>ПРЕЗЕНТАЦИИ</h3>
-                            <span>{{ presentations.total }} шт.</span>
+                            <div class="cio-panel__actions">
+                                <span>{{ presentations.total }} шт.</span>
+                                <button
+                                    v-if="stats.total > 0"
+                                    type="button"
+                                    class="cio-button cio-button--danger"
+                                    @click="clearPresentations"
+                                >
+                                    Очистить презентации
+                                </button>
+                            </div>
                         </div>
 
                         <div v-if="currentItems.length" class="cio-list">

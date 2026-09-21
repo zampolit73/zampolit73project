@@ -7,6 +7,7 @@ use App\Models\PresentationSource;
 use App\Services\PublicPresentationScanner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -184,6 +185,21 @@ class CioPresentationController extends Controller
             'link_status' => 'unknown',
             'discovered_at' => now(),
         ]);
+
+        return back();
+    }
+
+    public function clearPresentations(): RedirectResponse
+    {
+        DB::transaction(function () {
+            Presentation::query()->delete();
+
+            PresentationSource::query()->update([
+                'last_scanned_at' => null,
+                'last_scan_found' => 0,
+                'last_error' => null,
+            ]);
+        });
 
         return back();
     }

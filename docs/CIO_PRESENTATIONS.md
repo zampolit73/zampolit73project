@@ -48,6 +48,14 @@ The approved built-in set is intentionally limited to two source families:
 
 Preset sources are normal rows after installation: admins/moderators can scan them the same way as manually added sources.
 
+The 2026 preset layer adds the official TAdviser SummIT pages for May and November 2026, TAdviser IT Prize 2026, and year-specific CNews FORUM / CNews FORUM Кейсы pages.
+
+## Clean restart
+
+The presentations tab has a destructive **Очистить презентации** action. It hard-deletes all presentation rows and resets source scan timestamps/counts/errors, while preserving the source catalog.
+
+The migration that introduced this action also performs a one-time reset of presentation/history data so production starts from zero as requested.
+
 ## Lightweight scanner
 
 The first MVP scanner is intentionally narrow:

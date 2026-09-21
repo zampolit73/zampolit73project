@@ -2398,3 +2398,39 @@ input {
         transition: none;
     }
 }
+
+
+.cio-panel__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.cio-panel__actions > span {
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.cio-button--danger {
+    background: var(--ds-color-danger-surface);
+    color: var(--ds-color-danger);
+}
+
+.cio-button--danger:hover {
+    background: var(--ds-color-danger);
+    color: #fff;
+}
+
+@media (max-width: 700px) {
+    .cio-panel__actions {
+        width: 100%;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .cio-panel__actions .cio-button {
+        width: 100%;
+        min-height: 48px;
+    }
+}
