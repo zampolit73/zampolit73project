@@ -11,6 +11,7 @@
 - Tailwind CSS 4
 - SQLite
 - Nginx + PHP-FPM в production
+- HTTPS: Let's Encrypt / Certbot
 
 Docker в production не используется.
 
@@ -36,6 +37,9 @@ vendor/bin/phpunit
 ```
 
 ## Production
+
+Production URL: `https://zampolit73.duckdns.org`
+
 Push в `main` запускает GitHub Actions:
 
 1. установка PHP/Node зависимостей;
@@ -46,10 +50,9 @@ Push в `main` запускает GitHub Actions:
 6. миграции SQLite;
 7. переключение атомарного `current` symlink;
 8. запуск Nginx + PHP-FPM;
-9. публичная проверка `/up`;
-10. после успешной проверки — удаление Docker с VPS.
-
-До регистрации домена приложение работает по HTTP на IP VPS. HTTPS/Certbot подключим отдельным изменением после появления поддомена.
+9. получение/продление сертификата Let's Encrypt через Certbot;
+10. редирект HTTP → HTTPS;
+11. публичная проверка `/up`, manifest и service worker.
 
 Production state:
 ```text
@@ -62,6 +65,8 @@ Production state:
     └── storage/
 ```
 
+TLS certificates находятся в `/etc/letsencrypt/`. Автопродление выполняет `certbot.timer`.
+
 ## GitHub secrets
 Используются существующие repository secrets:
 - `VPS_HOST`
@@ -71,4 +76,4 @@ Production state:
 Не коммить production `.env`, пароли, SSH-ключи и другие секреты.
 
 ## PWA / Push
-PWA-файлы сохранены и исправлены под существующие маршруты. Web Push пока не участвует в production deployment; вернёмся к нему после домена и HTTPS.
+Manifest и service worker доступны через HTTPS, поэтому production готов к обычным PWA-функциям. Web Push пока не является частью deployment и будет подключён отдельно.
