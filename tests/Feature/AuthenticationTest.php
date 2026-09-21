@@ -38,7 +38,7 @@ class AuthenticationTest extends TestCase
             ->assertRedirect('/');
         $this->assertAuthenticatedAs($user);
 
-        $this->post('/logout')->assertRedirect('/');
+        $this->post('/logout')->assertRedirect('/login');
         $this->assertGuest();
     }
 }
