@@ -2,17 +2,9 @@
   <rect width="64" height="64" fill="#efe6d2"/>
   <rect x="4" y="4" width="56" height="56" fill="none" stroke="#111111" stroke-width="6"/>
 
-  <!-- R -->
-  <rect x="11" y="15" width="7" height="34" fill="#111111"/>
-  <rect x="17" y="15" width="13" height="7" fill="#111111"/>
-  <rect x="17" y="28" width="13" height="7" fill="#111111"/>
-  <rect x="28" y="19" width="7" height="12" fill="#111111"/>
-  <path d="M24 34H31L39 49H31Z" fill="#111111"/>
+  <!-- Z -->
+  <path d="M14 16H49V23L25 42H50V50H14V43L38 24H14Z" fill="#111111"/>
 
-  <!-- u -->
-  <rect x="39" y="28" width="7" height="16" fill="#111111"/>
-  <rect x="50" y="28" width="7" height="21" fill="#111111"/>
-  <rect x="43" y="42" width="10" height="7" fill="#111111"/>
-
+  <!-- red accent -->
   <rect x="49" y="9" width="8" height="13" fill="#b31217"/>
 </svg>
