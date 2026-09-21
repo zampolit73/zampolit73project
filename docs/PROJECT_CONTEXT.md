@@ -10,8 +10,8 @@ It is a snapshot, not a substitute for checking the current repository state. Be
 - Repository: `zampolit73/zampolit73project`
 - Branch: `main`
 - Production: `https://zampolit73.duckdns.org`
-- Snapshot HEAD: `827a86a3a233c467dfaf616f8f2ee2822bffe005`
-- Last verified production deploy before this docs-only commit: GitHub Actions run #35 — success.
+- Snapshot HEAD: `e32705b13831372d29e4b15b8e10a249fff49551`
+- Last verified production deploy before this docs-only commit: GitHub Actions run #39 — success.
 
 ## Stack
 
@@ -220,12 +220,14 @@ When UFW is active, deployment keeps these ports allowed:
 
 ## Recent important commits
 
+- `e32705b1...` — Auto-resize BMP textures for Quake
+- `8a0f95e4...` — Preserve exact Quake palette colors
+- `eef3111f...` — Add Quake BMP to MIP converter
 - `827a86a3...` — Make Stas greeting arm interactive
 - `73e2ae85...` — Fix backend artifact packaging
 - `fa42acae...` — Split CI and deploy into explicit stages
 - `bb0c9604...` — Speed up production deployment
 - `8042c2de...` — Document concurrent main update safety
-- `32bcdabb...` — Harden deploy concurrency and health checks
 
 ## Continuing in a new session
 
@@ -254,3 +256,18 @@ Implementation:
 - `resources/js/lib/quakeMip.js`;
 - `tests/js/quake-mip.mjs`;
 - `docs/BMP_TO_MIP.md`.
+
+### Current resize behavior
+
+BMP input dimensions do not need to be Quake-valid beforehand. The converter:
+
+- calculates a target canvas whose width and height are multiples of 16;
+- scales the source uniformly, preserving its aspect ratio;
+- centers the image in that canvas;
+- extends edge pixels into the small remaining border instead of adding black bars;
+- proportionally downscales oversized input to the 4096×4096 browser safety ceiling;
+- reports source → output dimensions after conversion.
+
+Example: `1000×700 → 1008×704`.
+
+The Quake encoder itself still validates the final dimensions, writes four mip levels, uses little-endian `miptex_t`, preserves exact classic-palette colors and keeps arbitrary normal images out of accidental fullbright indices.
