@@ -11,6 +11,16 @@ These rules apply to the whole repository.
 5. Never report production deployment as successful until the relevant GitHub Actions run is green and public HTTPS checks pass.
 6. Update project documentation when architecture, deployment, routes, production requirements or user-facing structure changes.
 
+## Concurrent changes / main safety
+
+Treat `main` as an optimistic-lock target. Another commit may arrive while a task is in progress.
+
+1. Record the current `main` HEAD before starting edits.
+2. Immediately before creating/updating the final `main` ref, fetch `main` HEAD again.
+3. If HEAD changed, do **not** write the prepared commit on top of the stale base. Re-read the files changed upstream, rebuild/rebase the task on the new HEAD, and re-run relevant checks.
+4. Update `main` only as a fast-forward operation. Never force-push or use a forced ref update on `main`.
+5. If `main` changes again during the final write, abort/retry from the new HEAD rather than overwriting concurrent work.
+
 ## Architecture
 
 - Laravel owns routes, authentication, data persistence and server-side mutations.
