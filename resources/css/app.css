@@ -1093,6 +1093,7 @@ input {
 
 .stas-person__arm,
 .stas-person__leg,
+.stas-person__upper-arm,
 .stas-person__forearm {
     position: absolute;
     width: 25px;
@@ -1108,19 +1109,51 @@ input {
     transform: rotate(14deg);
 }
 
-.stas-person__arm--wave {
-    top: 94px;
-    left: 141px;
+.stas-person__arm-control {
+    position: absolute;
+    top: 82px;
+    left: 128px;
+    width: 76px;
+    height: 222px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    transform: rotate(-8deg);
+    transform-origin: 31px 24px;
+    transition: transform .52s cubic-bezier(.2,.8,.2,1);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.stas-person__arm-control:hover {
+    transform: rotate(-12deg);
+}
+
+.stas-person__arm-control.is-raised {
+    transform: rotate(-52deg);
+}
+
+.stas-person__arm-control:focus-visible {
+    outline: 4px solid var(--ds-color-black);
+    outline-offset: 5px;
+}
+
+.stas-person__upper-arm {
+    top: 12px;
+    left: 19px;
     height: 112px;
-    transform: rotate(-42deg);
 }
 
 .stas-person__forearm {
-    top: 86px;
-    left: -6px;
+    top: 98px;
+    left: 19px;
     height: 104px;
-    transform: rotate(-14deg);
-    animation: stas-wave 1.05s ease-in-out infinite;
+    transform: rotate(10deg);
+    transition: transform .52s cubic-bezier(.2,.8,.2,1);
+}
+
+.stas-person__arm-control.is-raised .stas-person__forearm {
+    transform: rotate(-128deg);
 }
 
 .stas-person__hand {
@@ -1160,11 +1193,6 @@ input {
     font-size: 30px;
     letter-spacing: .04em;
     transform: rotate(-4deg);
-}
-
-@keyframes stas-wave {
-    0%, 100% { transform: rotate(-20deg); }
-    50% { transform: rotate(22deg); }
 }
 
 @keyframes stas-bob {
@@ -1249,8 +1277,12 @@ input {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .stas-person,
-    .stas-person__forearm {
+    .stas-person {
         animation: none;
+    }
+
+    .stas-person__arm-control,
+    .stas-person__forearm {
+        transition: none;
     }
 }
