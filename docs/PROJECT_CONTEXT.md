@@ -290,3 +290,8 @@ See `docs/CIO_PRESENTATIONS.md`.
 ### CIO starter sources
 
 The CIO presentations project now ships with an idempotent starter source set via migration. Production does not run seeders. The preset set includes 1C:ERP archive/material pages, selected CNews CIO presentation pages and a Global CIO discovery seed. Existing user-added sources are not overwritten.
+
+
+### Approved CIO preset sources
+
+The built-in CIO source set was narrowed by user decision to TAdviser and CNews only. A corrective data migration removes the earlier preset 1C and Global CIO URLs, then inserts the approved TAdviser/CNews starter set. Unrelated manually added source rows are left alone.

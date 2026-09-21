@@ -39,12 +39,12 @@ The public `/projects` catalog may link to it; guests are redirected to login an
 
 Production receives an idempotent starter set through a data migration, not a seeder. Existing rows are preserved because preset URLs are inserted with `insertOrIgnore`.
 
-The initial set includes:
+The approved built-in set is intentionally limited to two source families:
 
-- the 1C:ERP forum archive and 2021–2025 program/material pages;
-- the 1C:ERP / Управление холдингом presentations page;
-- selected CNews pages with published CIO presentations;
-- a Global CIO event page as a discovery seed.
+- TAdviser / TAdviser SummIT pages with CIO and IT-director programs, speakers and event archives;
+- CNews pages and indexes centered on CIO / IT-director conference materials.
+
+1C and Global CIO are not part of the preset source set. Manual user-added sources outside the preset list are not removed.
 
 Preset sources are normal rows after installation: admins/moderators can scan them the same way as manually added sources.
 

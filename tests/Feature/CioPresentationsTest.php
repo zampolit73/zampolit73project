@@ -39,17 +39,26 @@ class CioPresentationsTest extends TestCase
         $this->actingAs($user)->get('/projects/cio-presentations')->assertForbidden();
     }
 
-    public function test_starter_sources_are_preinstalled(): void
+    public function test_starter_sources_only_use_approved_tadviser_and_cnews_sources(): void
     {
-        $this->assertDatabaseHas('presentation_sources', [
-            'name' => '1С:ERP 2025 — программа и материалы',
+        $this->assertDatabaseMissing('presentation_sources', [
             'url' => 'https://1c.ru/bf/2025/default.jsp',
-            'priority' => 99,
+        ]);
+
+        $this->assertDatabaseMissing('presentation_sources', [
+            'url' => 'https://ru.globalcio.ru/pharma26_dm1',
         ]);
 
         $this->assertDatabaseHas('presentation_sources', [
-            'name' => 'CNews — ИТ-директор ОСК и ИИ',
-            'url' => 'https://www.cnews.ru/news/top/2026-07-03_it-direktor_osk_rasskazal',
+            'name' => 'TAdviser SummIT — архив и планы 2025',
+            'url' => 'https://summit.tadviser.ru/a/2024-2/',
+            'priority' => 100,
+        ]);
+
+        $this->assertDatabaseHas('presentation_sources', [
+            'name' => 'CNews — индекс материалов CIO / ИТ-директор',
+            'url' => 'https://www.cnews.ru/book/mutual/1667/2195',
+            'priority' => 100,
         ]);
     }
 
