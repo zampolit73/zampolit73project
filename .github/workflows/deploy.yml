@@ -13,7 +13,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -35,7 +35,10 @@ jobs:
 
       - name: Pack release
         run: |
-          tar             --exclude='.git'             --exclude='.github'             -czf /tmp/zampolit73project.tar.gz .
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            -czf /tmp/zampolit73project.tar.gz .
 
       - name: Upload release
         env:
@@ -43,7 +46,11 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          sshpass -e scp             -P 22             -o StrictHostKeyChecking=yes             /tmp/zampolit73project.tar.gz             "$VPS_USER@$VPS_HOST:/tmp/zampolit73project.tar.gz"
+          sshpass -e scp \
+            -P 22 \
+            -o StrictHostKeyChecking=yes \
+            /tmp/zampolit73project.tar.gz \
+            "$VPS_USER@$VPS_HOST:/tmp/zampolit73project.tar.gz"
 
       - name: Deploy on VPS
         env:
@@ -51,19 +58,60 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          sshpass -e ssh             -p 22             -o StrictHostKeyChecking=yes             "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          sshpass -e ssh \
+            -p 22 \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
 
           APP_DIR="$HOME/apps/zampolit73project"
           mkdir -p "$APP_DIR"
 
-          # Keep server-only configuration/data; replace application files.
-          find "$APP_DIR" -mindepth 1 -maxdepth 1             ! -name '.env'             ! -name 'data'             -exec rm -rf {} +
+          find "$APP_DIR" -mindepth 1 -maxdepth 1 \
+            ! -name '.env' \
+            ! -name 'data' \
+            -exec rm -rf {} +
 
           tar -xzf /tmp/zampolit73project.tar.gz -C "$APP_DIR"
           rm -f /tmp/zampolit73project.tar.gz
-
           cd "$APP_DIR"
+
+          if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
+            if [ "$(id -u)" -ne 0 ]; then
+              echo "Docker/Compose is not installed and VPS_USER is not root."
+              echo "Either use root for the first deployment or install Docker manually."
+              exit 20
+            fi
+
+            echo "Installing Docker Engine and Docker Compose plugin on Ubuntu..."
+            export DEBIAN_FRONTEND=noninteractive
+
+            apt-get update
+            apt-get install -y ca-certificates curl
+            install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+            chmod a+r /etc/apt/keyrings/docker.asc
+
+            . /etc/os-release
+            CODENAME="${UBUNTU_CODENAME:-$VERSION_CODENAME}"
+
+            echo \
+              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $CODENAME stable" \
+              > /etc/apt/sources.list.d/docker.list
+
+            apt-get update
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            systemctl enable --now docker
+          fi
+
+          if docker info >/dev/null 2>&1; then
+            DOCKER=(docker)
+          elif sudo -n docker info >/dev/null 2>&1; then
+            DOCKER=(sudo docker)
+          else
+            echo "Docker is installed, but this user cannot access the Docker daemon."
+            exit 21
+          fi
 
           COMPOSE_FILE=""
           for file in compose.yml compose.yaml docker-compose.yml docker-compose.yaml; do
@@ -73,16 +121,34 @@ jobs:
             fi
           done
 
-          if [ -n "$COMPOSE_FILE" ]; then
-            if docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-              docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
-            elif sudo -n docker info >/dev/null 2>&1 && sudo -n docker compose version >/dev/null 2>&1; then
-              sudo docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
-            else
-              echo "Project uploaded, but Docker Compose is not available to this user yet."
-              echo "Install Docker/Compose or grant the deploy user Docker access, then rerun this workflow."
-            fi
-          else
-            echo "Project uploaded to $APP_DIR. No Compose file found yet."
+          if [ -z "$COMPOSE_FILE" ]; then
+            echo "No Compose file found in $APP_DIR"
+            exit 22
           fi
+
+          if command -v ufw >/dev/null 2>&1 && ufw status | grep -q '^Status: active'; then
+            if [ "$(id -u)" -eq 0 ]; then
+              ufw allow 80/tcp
+            elif sudo -n true >/dev/null 2>&1; then
+              sudo ufw allow 80/tcp
+            fi
+          fi
+
+          "${DOCKER[@]}" compose -f "$COMPOSE_FILE" pull
+          "${DOCKER[@]}" compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+
+          echo "Waiting for the web container..."
+          for attempt in $(seq 1 20); do
+            if "${DOCKER[@]}" exec zampolit73-web wget -qO- http://127.0.0.1/healthz 2>/dev/null | grep -qx 'ok'; then
+              echo "Deployment health check passed."
+              "${DOCKER[@]}" compose -f "$COMPOSE_FILE" ps
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Health check failed."
+          "${DOCKER[@]}" compose -f "$COMPOSE_FILE" ps
+          "${DOCKER[@]}" logs --tail=100 zampolit73-web || true
+          exit 23
           REMOTE
