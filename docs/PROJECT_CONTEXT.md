@@ -285,3 +285,8 @@ A second project now lives under the existing `/projects` catalog:
 - manual review flags cover email, phone, good lead and review status.
 
 See `docs/CIO_PRESENTATIONS.md`.
+
+
+### CIO starter sources
+
+The CIO presentations project now ships with an idempotent starter source set via migration. Production does not run seeders. The preset set includes 1C:ERP archive/material pages, selected CNews CIO presentation pages and a Global CIO discovery seed. Existing user-added sources are not overwritten.

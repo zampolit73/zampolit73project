@@ -16,7 +16,7 @@ The public `/projects` catalog may link to it; guests are redirected to login an
 
 ## Data model
 
-`presentation_sources` stores manually selected public source pages:
+`presentation_sources` stores the built-in starter set plus public source pages added manually:
 
 - name;
 - URL and domain;
@@ -34,6 +34,19 @@ The public `/projects` catalog may link to it; guests are redirected to login an
 - review and link status;
 - manual flags for email, phone and good lead;
 - discovery / review timestamps.
+
+## Built-in starter sources
+
+Production receives an idempotent starter set through a data migration, not a seeder. Existing rows are preserved because preset URLs are inserted with `insertOrIgnore`.
+
+The initial set includes:
+
+- the 1C:ERP forum archive and 2021–2025 program/material pages;
+- the 1C:ERP / Управление холдингом presentations page;
+- selected CNews pages with published CIO presentations;
+- a Global CIO event page as a discovery seed.
+
+Preset sources are normal rows after installation: admins/moderators can scan them the same way as manually added sources.
 
 ## Lightweight scanner
 

@@ -316,7 +316,7 @@ function formatDate(value) {
                 <div class="cio-workspace cio-workspace--sources">
                     <aside class="cio-panel cio-source-form">
                         <h3>ДОБАВИТЬ ИСТОЧНИК</h3>
-                        <p>Лучше указывать конкретную страницу «Материалы», «Доклады» или архив конференции.</p>
+                        <p>Стартовый набор источников уже добавлен. Сюда можно докидывать новые страницы «Материалы», «Доклады» и архивы конференций.</p>
                         <form @submit.prevent="addSource">
                             <label>
                                 Название

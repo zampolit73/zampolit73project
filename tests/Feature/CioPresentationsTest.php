@@ -39,15 +39,31 @@ class CioPresentationsTest extends TestCase
         $this->actingAs($user)->get('/projects/cio-presentations')->assertForbidden();
     }
 
+    public function test_starter_sources_are_preinstalled(): void
+    {
+        $this->assertDatabaseHas('presentation_sources', [
+            'name' => '1С:ERP 2025 — программа и материалы',
+            'url' => 'https://1c.ru/bf/2025/default.jsp',
+            'priority' => 99,
+        ]);
+
+        $this->assertDatabaseHas('presentation_sources', [
+            'name' => 'CNews — ИТ-директор ОСК и ИИ',
+            'url' => 'https://www.cnews.ru/news/top/2026-07-03_it-direktor_osk_rasskazal',
+        ]);
+    }
+
     public function test_admin_can_open_cio_project(): void
     {
+        $sourceCount = PresentationSource::query()->count();
+
         $this->actingAs($this->admin())
             ->get('/projects/cio-presentations')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('CioPresentations')
                 ->where('stats.total', 0)
-                ->where('stats.sources', 0)
+                ->where('stats.sources', $sourceCount)
             );
     }
 
@@ -71,7 +87,9 @@ class CioPresentationsTest extends TestCase
             ])
             ->assertRedirect();
 
-        $source = PresentationSource::query()->firstOrFail();
+        $source = PresentationSource::query()
+            ->where('url', 'https://conference.example/materials')
+            ->firstOrFail();
 
         $this->actingAs($admin)
             ->post('/projects/cio-presentations/sources/'.$source->id.'/scan')
