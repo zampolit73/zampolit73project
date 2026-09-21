@@ -5,6 +5,9 @@
         respond "ok" 200
     }
 
-    root * /srv
-    file_server
+    handle {
+        root * /srv
+        header Cache-Control "no-store, no-cache, must-revalidate"
+        file_server
+    }
 }
