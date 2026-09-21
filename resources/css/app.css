@@ -1687,3 +1687,27 @@ input {
         transition: none;
     }
 }
+
+
+.mip-resize-notes {
+    width: min(100%, 700px);
+    margin-top: 20px;
+    padding: 15px;
+    border: 3px solid var(--ds-color-black);
+    background: var(--ds-color-surface);
+    text-align: left;
+}
+
+.mip-resize-notes ul {
+    margin: 8px 0 0;
+    padding-left: 20px;
+}
+
+.mip-resize-notes li {
+    margin-top: 5px;
+    line-height: 1.4;
+}
+
+.mip-resize-notes p {
+    margin-bottom: 0;
+}

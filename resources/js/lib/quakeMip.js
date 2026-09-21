@@ -54,6 +54,34 @@ const nearest=(r,g,b)=>{
  return LUT[((rr>>3)<<10)|((gg>>3)<<5)|(bb>>3)];
 };
 
+export function planQuakeResize(width,height){
+ if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0) throw new Error('Некорректный размер изображения.');
+
+ const maxDimension=4096;
+ const downscale=Math.min(1,maxDimension/width,maxDimension/height);
+ const scaledWidth=width*downscale;
+ const scaledHeight=height*downscale;
+ const targetWidth=Math.max(16,Math.min(maxDimension,Math.ceil(scaledWidth/16)*16));
+ const targetHeight=Math.max(16,Math.min(maxDimension,Math.ceil(scaledHeight/16)*16));
+ const scale=Math.min(targetWidth/width,targetHeight/height);
+ const drawWidth=width*scale;
+ const drawHeight=height*scale;
+ const offsetX=(targetWidth-drawWidth)/2;
+ const offsetY=(targetHeight-drawHeight)/2;
+
+ return {
+  sourceWidth:width,
+  sourceHeight:height,
+  targetWidth,
+  targetHeight,
+  drawWidth,
+  drawHeight,
+  offsetX,
+  offsetY,
+  resized: targetWidth!==width || targetHeight!==height,
+ };
+}
+
 export function validateTextureDimensions(w,h){
  if(!Number.isInteger(w)||!Number.isInteger(h)||w<16||h<16) throw new Error('Размер текстуры должен быть не меньше 16×16 пикселей.');
  if((w&15)||(h&15)) throw new Error('Quake 1 MIP требует ширину и высоту, кратные 16.');

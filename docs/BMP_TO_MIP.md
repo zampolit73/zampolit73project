@@ -12,15 +12,15 @@ The preferred browser flow uses the File System Access API directory picker. Bro
 
 Only files with the `.bmp` extension are processed.
 
-Quake MIP dimensions must:
+Quake MIP output dimensions must be at least 16×16 and divisible by 16.
 
-- be at least 16×16;
-- have width divisible by 16;
-- have height divisible by 16.
+Input BMP files no longer need to satisfy that restriction themselves. The browser automatically computes the nearest safe Quake canvas, scales the image uniformly without changing its aspect ratio, centers it, and fills the small remaining border by extending edge pixels. This avoids both stretching and hard black letterbox borders.
 
-The web implementation also applies a 4096×4096 safety ceiling to avoid unreasonable browser memory use.
+Example: a 1000×700 source becomes a 1008×704 Quake texture canvas while the image content keeps its original aspect ratio.
 
-Files failing validation are skipped individually so one bad image does not cancel a batch.
+The web implementation applies a 4096×4096 safety ceiling to avoid unreasonable browser memory use. Oversized images are proportionally downscaled before conversion.
+
+Unreadable files are skipped individually so one bad image does not cancel a batch.
 
 ## Texture names
 

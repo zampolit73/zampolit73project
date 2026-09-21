@@ -241,7 +241,7 @@ The first item in `/projects` is a client-only bulk texture converter.
 - input: local BMP files/folder;
 - classic Quake 1 palette quantization;
 - normal source colors avoid accidental fullbright indices;
-- validates dimensions as multiples of 16;
+- automatically resizes non-conforming BMP dimensions to a multiple-of-16 Quake canvas while preserving image proportions;
 - writes raw little-endian `miptex_t` files with 4 mip levels;
 - packs successful conversions into `convertedDDMMYYYY.zip`;
 - invalid files are reported and skipped without aborting the batch;
