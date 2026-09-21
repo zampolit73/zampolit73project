@@ -22,7 +22,7 @@ Current projects:
 
 1. `/projects/bmp-to-mip` — public client-side Quake 1 texture converter.
 2. `/projects/cio-presentations` — internal CIO / IT-director presentation catalog for sales research.
-3. `/projects/pushkin-fairytales` — public animated living-book experiment based on Pushkin's fairytales.
+3. `/projects/pushkin-fairytales` — public animated living-book experiment based on Pushkin's fairytales.\n4. `/projects/dog-training-ground` — public animated canine agility playground.
 
 The `/projects` page is the project selector. Do not replace or collapse the existing BMP → MIP project when changing the CIO project.
 
@@ -114,6 +114,7 @@ Responsive behavior is mandatory, including 320 px mobile widths and laptop-heig
 - `/projects/bmp-to-mip` — public browser-only BMP → Quake 1 MIP converter
 - `/projects/cio-presentations` — authenticated admin/moderator CIO presentation project
 - `/projects/pushkin-fairytales` — public animated Pushkin fairytales book
+- `/projects/dog-training-ground` — public animated dog agility playground
 - `/login` — guest login
 - `/design-system` — admin/moderator
 - `/tests` — authenticated service/test page
@@ -508,3 +509,30 @@ Product/design decisions:
 - follows the site's cream / black / red visual language but adds dark blue night and muted gold accents;
 - mobile adaptation down to 320 px;
 - `prefers-reduced-motion` disables autoplay and heavy movement.
+
+
+---
+
+# Dog training ground project
+
+Project #04 under `/projects`.
+
+Route:
+
+`/projects/dog-training-ground`
+
+Implementation:
+
+- `resources/js/pages/DogTrainingGround.vue`
+- project card in `resources/js/pages/Projects.vue`
+
+Product/design decisions:
+
+- public route;
+- frontend-only, no database and no external assets;
+- three stylized CSS dogs run continuously on separate lanes;
+- runners jump at course positions while the scene contains jump bars, slalom poles and a tunnel;
+- user controls: start/pause, restart, calm/training/turbo pace;
+- reduced-motion users get a static course instead of automatic movement;
+- follows the site's hard-edged cream / black / red language, with field green and sky blue;
+- mobile adaptation included down to 320 px.

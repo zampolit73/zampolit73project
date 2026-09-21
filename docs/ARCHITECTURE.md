@@ -57,6 +57,7 @@ Public:
 - `GET /projects` → `Projects.vue`;
 - `GET /projects/bmp-to-mip` → `BmpToMip.vue`;
 - `GET /projects/pushkin-fairytales` → `PushkinFairytales.vue`;
+- `GET /projects/dog-training-ground` → `DogTrainingGround.vue`;
 - `POST /login` → session login;
 - `GET /up` → Laravel health endpoint;
 - `GET /projects` → каталог проектов;
@@ -134,7 +135,8 @@ Pages:
 - `Stas.vue` — interactive greeting;
 - `Projects.vue` — public tool catalog;
 - `BmpToMip.vue` — client-only bulk BMP → Quake 1 MIP converter;
-- `PushkinFairytales.vue` — public interactive living-book animation with local Vue/CSS artwork.
+- `PushkinFairytales.vue` — public interactive living-book animation with local Vue/CSS artwork;
+- `DogTrainingGround.vue` — public frontend-only agility-course animation with running/jumping CSS dogs.
 
 Shared UI components live in `resources/js/components/ui/`.
 
@@ -230,3 +232,16 @@ The public `/projects/pushkin-fairytales` page is a frontend-only visual experim
 - `prefers-reduced-motion` disables automatic page changes and motion-heavy transitions.
 
 The page is listed as project #03 in `Projects.vue`.
+
+
+## Dog training ground project
+
+The public `/projects/dog-training-ground` page is project #04 and runs entirely in the browser.
+
+- no database state;
+- no external image assets or third-party animation libraries;
+- three CSS-built dogs continuously run through an agility scene;
+- course includes jumps, slalom and tunnel visuals;
+- Vue controls pause/start, restart and training pace;
+- responsive layouts keep the course usable on mobile;
+- `prefers-reduced-motion` disables automatic motion and places the dogs in static positions.
