@@ -226,6 +226,365 @@ jobs:
             $SUDO php8.3 artisan key:generate --force
           fi
 
+          if ! $SUDO grep -Eq '^VAPID_PUBLIC_KEY=.+ "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
+          $SUDO chmod -R ug+rwX "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
+
+          $SUDO php8.3 artisan config:clear
+          $SUDO php8.3 artisan migrate --force
+          $SUDO php8.3 artisan storage:link || true
+          $SUDO php8.3 artisan optimize
+
+          $SUDO ln -sfn "$RELEASE_DIR" "$BASE_DIR/current.new"
+          $SUDO mv -Tf "$BASE_DIR/current.new" "$BASE_DIR/current"
+
+          $SUDO tee "$NGINX_SITE" >/dev/null <<NGINX_HTTP
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              server_name $APP_DOMAIN;
+
+              root /var/www/zampolit73project/current/public;
+              index index.php;
+              charset utf-8;
+
+              location ^~ /.well-known/acme-challenge/ {
+                  try_files \$uri =404;
+              }
+
+              location / {
+                  try_files \$uri \$uri/ /index.php?\$query_string;
+              }
+
+              location ~ ^/index\.php(/|\$) {
+                  fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+                  fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
+                  include fastcgi_params;
+                  fastcgi_hide_header X-Powered-By;
+              }
+
+              location ~ /\.(?!well-known).* {
+                  deny all;
+              }
+          }
+          NGINX_HTTP
+
+          $SUDO ln -sfn "$NGINX_SITE" "/etc/nginx/sites-enabled/$APP_NAME"
+          $SUDO rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/test
+
+          if command -v ufw >/dev/null 2>&1 && $SUDO ufw status | grep -q '^Status: active'; then
+            $SUDO ufw allow 22/tcp
+            $SUDO ufw allow 80/tcp
+            $SUDO ufw allow 443/tcp
+          fi
+
+          $SUDO nginx -t
+          $SUDO systemctl enable php8.3-fpm nginx
+          $SUDO systemctl restart php8.3-fpm
+          $SUDO systemctl restart nginx
+
+          curl -fsS --retry 5 --retry-delay 2 \
+            --resolve "$APP_DOMAIN:80:127.0.0.1" \
+            "http://$APP_DOMAIN/up" >/dev/null
+
+          $SUDO certbot certonly \
+            --webroot \
+            --webroot-path "$WEB_ROOT" \
+            --domain "$APP_DOMAIN" \
+            --non-interactive \
+            --agree-tos \
+            --register-unsafely-without-email \
+            --keep-until-expiring
+
+          CERT_DIR="/etc/letsencrypt/live/$APP_DOMAIN"
+          test -f "$CERT_DIR/fullchain.pem"
+          test -f "$CERT_DIR/privkey.pem"
+
+          $SUDO tee "$NGINX_SITE" >/dev/null <<NGINX_HTTPS
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              server_name $APP_DOMAIN;
+
+              location ^~ /.well-known/acme-challenge/ {
+                  root /var/www/zampolit73project/current/public;
+                  try_files \$uri =404;
+              }
+
+              location / {
+                  return 301 https://\$host\$request_uri;
+              }
+          }
+
+          server {
+              listen 443 ssl http2;
+              listen [::]:443 ssl http2;
+              server_name $APP_DOMAIN;
+
+              root /var/www/zampolit73project/current/public;
+              index index.php;
+              charset utf-8;
+
+              ssl_certificate /etc/letsencrypt/live/$APP_DOMAIN/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/$APP_DOMAIN/privkey.pem;
+              ssl_protocols TLSv1.2 TLSv1.3;
+              ssl_session_cache shared:SSL:10m;
+              ssl_session_timeout 10m;
+
+              add_header X-Frame-Options "SAMEORIGIN" always;
+              add_header X-Content-Type-Options "nosniff" always;
+
+              location / {
+                  try_files \$uri \$uri/ /index.php?\$query_string;
+              }
+
+              location = /favicon.ico { access_log off; log_not_found off; }
+              location = /robots.txt  { access_log off; log_not_found off; }
+
+              location ~ ^/index\.php(/|\$) {
+                  fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+                  fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
+                  include fastcgi_params;
+                  fastcgi_hide_header X-Powered-By;
+              }
+
+              location ~ /\.(?!well-known).* {
+                  deny all;
+              }
+          }
+          NGINX_HTTPS
+
+          $SUDO nginx -t
+          $SUDO systemctl reload nginx
+          $SUDO systemctl enable --now certbot.timer >/dev/null 2>&1 || true
+
+          curl -fsS --retry 5 --retry-delay 2 \
+            --resolve "$APP_DOMAIN:443:127.0.0.1" \
+            "https://$APP_DOMAIN/up" >/dev/null
+
+          curl -fsS --retry 5 --retry-delay 2 \
+            --resolve "$APP_DOMAIN:443:127.0.0.1" \
+            "https://$APP_DOMAIN/site.webmanifest" >/dev/null
+
+          curl -fsS --retry 5 --retry-delay 2 \
+            --resolve "$APP_DOMAIN:443:127.0.0.1" \
+            "https://$APP_DOMAIN/sw.js" >/dev/null
+
+          echo "HTTPS and PWA endpoints are healthy locally."
+
+          ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +4 | xargs -r $SUDO rm -rf
+          REMOTE
+
+      - name: Verify public HTTPS
+        run: |
+          curl -fsS \
+            --retry 10 \
+            --retry-delay 3 \
+            --retry-connrefused \
+            "https://$APP_DOMAIN/up" >/dev/null
+
+          curl -fsS \
+            --retry 10 \
+            --retry-delay 3 \
+            --retry-connrefused \
+            "https://$APP_DOMAIN/" >/dev/null
+
+          curl -fsS "https://$APP_DOMAIN/site.webmanifest" >/dev/null
+          curl -fsS "https://$APP_DOMAIN/sw.js" >/dev/null
+
+          redirect="$(curl -sS -o /dev/null -w '%{redirect_url}' "http://$APP_DOMAIN/")"
+          case "$redirect" in
+            "https://$APP_DOMAIN"/*) ;;
+            *)
+              echo "HTTP does not redirect to HTTPS: $redirect"
+              exit 40
+              ;;
+          esac
+
+          echo "Public HTTPS, redirect and PWA endpoint checks passed."
+ "$ENV_FILE" || ! $SUDO grep -Eq '^VAPID_PRIVATE_KEY=.+ "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
+          $SUDO chmod -R ug+rwX "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
+
+          $SUDO php8.3 artisan config:clear
+          $SUDO php8.3 artisan migrate --force
+          $SUDO php8.3 artisan storage:link || true
+          $SUDO php8.3 artisan optimize
+
+          $SUDO ln -sfn "$RELEASE_DIR" "$BASE_DIR/current.new"
+          $SUDO mv -Tf "$BASE_DIR/current.new" "$BASE_DIR/current"
+
+          $SUDO tee "$NGINX_SITE" >/dev/null <<NGINX_HTTP
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              server_name $APP_DOMAIN;
+
+              root /var/www/zampolit73project/current/public;
+              index index.php;
+              charset utf-8;
+
+              location ^~ /.well-known/acme-challenge/ {
+                  try_files \$uri =404;
+              }
+
+              location / {
+                  try_files \$uri \$uri/ /index.php?\$query_string;
+              }
+
+              location ~ ^/index\.php(/|\$) {
+                  fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+                  fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
+                  include fastcgi_params;
+                  fastcgi_hide_header X-Powered-By;
+              }
+
+              location ~ /\.(?!well-known).* {
+                  deny all;
+              }
+          }
+          NGINX_HTTP
+
+          $SUDO ln -sfn "$NGINX_SITE" "/etc/nginx/sites-enabled/$APP_NAME"
+          $SUDO rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/test
+
+          if command -v ufw >/dev/null 2>&1 && $SUDO ufw status | grep -q '^Status: active'; then
+            $SUDO ufw allow 22/tcp
+            $SUDO ufw allow 80/tcp
+            $SUDO ufw allow 443/tcp
+          fi
+
+          $SUDO nginx -t
+          $SUDO systemctl enable php8.3-fpm nginx
+          $SUDO systemctl restart php8.3-fpm
+          $SUDO systemctl restart nginx
+
+          curl -fsS --retry 5 --retry-delay 2 \
+            --resolve "$APP_DOMAIN:80:127.0.0.1" \
+            "http://$APP_DOMAIN/up" >/dev/null
+
+          $SUDO certbot certonly \
+            --webroot \
+            --webroot-path "$WEB_ROOT" \
+            --domain "$APP_DOMAIN" \
+            --non-interactive \
+            --agree-tos \
+            --register-unsafely-without-email \
+            --keep-until-expiring
+
+          CERT_DIR="/etc/letsencrypt/live/$APP_DOMAIN"
+          test -f "$CERT_DIR/fullchain.pem"
+          test -f "$CERT_DIR/privkey.pem"
+
+          $SUDO tee "$NGINX_SITE" >/dev/null <<NGINX_HTTPS
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              server_name $APP_DOMAIN;
+
+              location ^~ /.well-known/acme-challenge/ {
+                  root /var/www/zampolit73project/current/public;
+                  try_files \$uri =404;
+              }
+
+              location / {
+                  return 301 https://\$host\$request_uri;
+              }
+          }
+
+          server {
+              listen 443 ssl http2;
+              listen [::]:443 ssl http2;
+              server_name $APP_DOMAIN;
+
+              root /var/www/zampolit73project/current/public;
+              index index.php;
+              charset utf-8;
+
+              ssl_certificate /etc/letsencrypt/live/$APP_DOMAIN/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/$APP_DOMAIN/privkey.pem;
+              ssl_protocols TLSv1.2 TLSv1.3;
+              ssl_session_cache shared:SSL:10m;
+              ssl_session_timeout 10m;
+
+              add_header X-Frame-Options "SAMEORIGIN" always;
+              add_header X-Content-Type-Options "nosniff" always;
+
+              location / {
+                  try_files \$uri \$uri/ /index.php?\$query_string;
+              }
+
+              location = /favicon.ico { access_log off; log_not_found off; }
+              location = /robots.txt  { access_log off; log_not_found off; }
+
+              location ~ ^/index\.php(/|\$) {
+                  fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+                  fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
+                  include fastcgi_params;
+                  fastcgi_hide_header X-Powered-By;
+              }
+
+              location ~ /\.(?!well-known).* {
+                  deny all;
+              }
+          }
+          NGINX_HTTPS
+
+          $SUDO nginx -t
+          $SUDO systemctl reload nginx
+          $SUDO systemctl enable --now certbot.timer >/dev/null 2>&1 || true
+
+          curl -fsS --retry 5 --retry-delay 2 \
+            --resolve "$APP_DOMAIN:443:127.0.0.1" \
+            "https://$APP_DOMAIN/up" >/dev/null
+
+          curl -fsS --retry 5 --retry-delay 2 \
+            --resolve "$APP_DOMAIN:443:127.0.0.1" \
+            "https://$APP_DOMAIN/site.webmanifest" >/dev/null
+
+          curl -fsS --retry 5 --retry-delay 2 \
+            --resolve "$APP_DOMAIN:443:127.0.0.1" \
+            "https://$APP_DOMAIN/sw.js" >/dev/null
+
+          echo "HTTPS and PWA endpoints are healthy locally."
+
+          ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +4 | xargs -r $SUDO rm -rf
+          REMOTE
+
+      - name: Verify public HTTPS
+        run: |
+          curl -fsS \
+            --retry 10 \
+            --retry-delay 3 \
+            --retry-connrefused \
+            "https://$APP_DOMAIN/up" >/dev/null
+
+          curl -fsS \
+            --retry 10 \
+            --retry-delay 3 \
+            --retry-connrefused \
+            "https://$APP_DOMAIN/" >/dev/null
+
+          curl -fsS "https://$APP_DOMAIN/site.webmanifest" >/dev/null
+          curl -fsS "https://$APP_DOMAIN/sw.js" >/dev/null
+
+          redirect="$(curl -sS -o /dev/null -w '%{redirect_url}' "http://$APP_DOMAIN/")"
+          case "$redirect" in
+            "https://$APP_DOMAIN"/*) ;;
+            *)
+              echo "HTTP does not redirect to HTTPS: $redirect"
+              exit 40
+              ;;
+          esac
+
+          echo "Public HTTPS, redirect and PWA endpoint checks passed."
+ "$ENV_FILE"; then
+            VAPID_KEYS="$($SUDO php8.3 -r 'require "vendor/autoload.php"; $keys = \\Minishlink\\WebPush\\VAPID::createVapidKeys(); echo $keys["publicKey"], PHP_EOL, $keys["privateKey"];')"
+            VAPID_PUBLIC_KEY="$(printf '%s\n' "$VAPID_KEYS" | sed -n '1p')"
+            VAPID_PRIVATE_KEY="$(printf '%s\n' "$VAPID_KEYS" | sed -n '2p')"
+            set_env VAPID_SUBJECT "https://$APP_DOMAIN"
+            set_env VAPID_PUBLIC_KEY "$VAPID_PUBLIC_KEY"
+            set_env VAPID_PRIVATE_KEY "$VAPID_PRIVATE_KEY"
+          fi
+
           $SUDO chown -R www-data:www-data "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
           $SUDO chmod -R ug+rwX "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
 

@@ -19,6 +19,9 @@ Route::middleware('auth')->group(function () {
         ->middleware(EnsureUserCanAccessDesignSystem::class)
         ->name('design-system');
 
+    Route::get('/tests', fn () => Inertia::render('Tests'))
+        ->name('tests');
+
     Route::get('/push/config', [PushSubscriptionController::class, 'config'])->name('push.config');
     Route::post('/push/subscriptions', [PushSubscriptionController::class, 'store'])->name('push.subscriptions.store');
     Route::post('/push/test', [PushSubscriptionController::class, 'test'])->name('push.test');
