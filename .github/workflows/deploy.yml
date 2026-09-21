@@ -135,7 +135,7 @@ jobs:
           fi
 
           "${DOCKER[@]}" compose -f "$COMPOSE_FILE" pull
-          "${DOCKER[@]}" compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+          "${DOCKER[@]}" compose -f "$COMPOSE_FILE" up -d --build --remove-orphans --force-recreate
 
           echo "Checking container state..."
           for attempt in $(seq 1 15); do
