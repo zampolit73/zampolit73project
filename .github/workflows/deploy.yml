@@ -69,7 +69,8 @@ jobs:
             --exclude='.env' \
             --exclude='database/database.sqlite' \
             --exclude='public/build' \
-            -czf backend-source.tar.gz .
+            -czf /tmp/backend-source.tar.gz .
+          mv /tmp/backend-source.tar.gz backend-source.tar.gz
 
       - name: Upload backend source
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
