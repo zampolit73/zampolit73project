@@ -1,0 +1,10 @@
+:80 {
+    encode zstd gzip
+
+    handle /healthz {
+        respond "ok" 200
+    }
+
+    root * /srv
+    file_server
+}
