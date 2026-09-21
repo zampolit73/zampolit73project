@@ -1,38 +1,74 @@
 # zampolit73project
 
-Стартовый стенд для автоматического деплоя на Ubuntu VPS.
+Проект на Laravel 13 + Inertia 3 + Vue 3, перенесённый из общего `template`.
 
-## Схема
+## Стек
+- PHP 8.3+
+- Laravel 13
+- Inertia.js 3
+- Vue 3
+- Vite 7
+- Tailwind CSS 4
+- SQLite
+- Nginx + PHP-FPM в production
 
-GitHub `main` → GitHub Actions → SSH → AdminVPS → Docker Compose → Caddy.
+Docker в production не используется.
 
-После деплоя проект размещается на сервере в:
-
-```
-~/apps/zampolit73project
-```
-
-## GitHub Actions secrets
-
-В репозитории должны быть заданы:
-
-- `VPS_HOST` — IP/hostname VPS
-- `VPS_USER` — SSH-пользователь
-- `VPS_PWD` — SSH-пароль
-
-Не добавляйте реальные секреты, пароли или приватные SSH-ключи в файлы репозитория.
-
-## Проверка
-
-После успешного деплоя:
-
-```
-http://<VPS_HOST>/
-http://<VPS_HOST>/healthz
+## Локальный запуск
+```bash
+composer install
+npm install
+cp .env.example .env
+touch database/database.sqlite
+php artisan key:generate
+php artisan migrate
+npm run dev
 ```
 
-`/healthz` должен вернуть `ok`.
+Production build:
+```bash
+npm run build
+```
 
-## Следующий этап
+Tests:
+```bash
+vendor/bin/phpunit
+```
 
-После проверки транспорта этот контейнер можно заменить на приложение на Python, PHP, Go, Node.js, React/Vue или несколько сервисов в одном Compose.
+## Production
+Push в `main` запускает GitHub Actions:
+
+1. установка PHP/Node зависимостей;
+2. PHPUnit;
+3. Vite build;
+4. упаковка release;
+5. SSH deploy на VPS;
+6. миграции SQLite;
+7. переключение атомарного `current` symlink;
+8. запуск Nginx + PHP-FPM;
+9. публичная проверка `/up`;
+10. после успешной проверки — удаление Docker с VPS.
+
+До регистрации домена приложение работает по HTTP на IP VPS. HTTPS/Certbot подключим отдельным изменением после появления поддомена.
+
+Production state:
+```text
+/var/www/zampolit73project/
+├── current -> releases/<commit>
+├── releases/
+└── shared/
+    ├── .env
+    ├── database/database.sqlite
+    └── storage/
+```
+
+## GitHub secrets
+Используются существующие repository secrets:
+- `VPS_HOST`
+- `VPS_USER`
+- `VPS_PWD`
+
+Не коммить production `.env`, пароли, SSH-ключи и другие секреты.
+
+## PWA / Push
+PWA-файлы сохранены и исправлены под существующие маршруты. Web Push пока не участвует в production deployment; вернёмся к нему после домена и HTTPS.

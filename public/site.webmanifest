@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "Zampolit73 Project",
+  "short_name": "Zampolit73",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "background_color": "#efe6d2",
+  "theme_color": "#efe6d2",
+  "lang": "ru",
+  "description": "Zampolit73 Project",
+  "icons": [
+    {"src": "/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable"},
+    {"src": "/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}

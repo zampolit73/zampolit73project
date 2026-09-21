@@ -1,28 +1,88 @@
-name: Deploy to AdminVPS
+name: CI and Deploy
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
-  group: production-deploy
+  group: production-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install SSH client tools
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, sqlite3, pdo_sqlite, xml, curl, zip, intl, bcmath
+          coverage: none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Prepare test environment
         run: |
-          sudo apt-get update
-          sudo apt-get install -y sshpass
+          cp .env.example .env
+          mkdir -p database bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+          touch database/database.sqlite
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Generate test application key
+        run: php artisan key:generate
+
+      - name: Run tests
+        run: vendor/bin/phpunit
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Package release
+        run: |
+          tar             --exclude='.git'             --exclude='.github'             --exclude='node_modules'             --exclude='vendor'             --exclude='.env'             --exclude='database/database.sqlite'             --exclude='release.tar.gz'             -czf release.tar.gz .
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.sha }}
+          path: release.tar.gz
+          if-no-files-found: error
+          retention-days: 3
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 20
+
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-${{ github.sha }}
+
+      - name: Install SSH tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sshpass
 
       - name: Add VPS host key
         env:
@@ -33,145 +93,216 @@ jobs:
           ssh-keyscan -p 22 -H "$VPS_HOST" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Pack release
-        run: |
-          tar \
-            --exclude='.git' \
-            --exclude='.github' \
-            -czf /tmp/zampolit73project.tar.gz .
-
       - name: Upload release
         env:
           SSHPASS: ${{ secrets.VPS_PWD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          sshpass -e scp \
-            -P 22 \
-            -o StrictHostKeyChecking=yes \
-            /tmp/zampolit73project.tar.gz \
-            "$VPS_USER@$VPS_HOST:/tmp/zampolit73project.tar.gz"
+          sshpass -e scp             -P 22             -o StrictHostKeyChecking=yes             release.tar.gz             "$VPS_USER@$VPS_HOST:/tmp/zampolit73-${GITHUB_SHA}.tar.gz"
 
-      - name: Deploy on VPS
+      - name: Deploy native stack
         env:
           SSHPASS: ${{ secrets.VPS_PWD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          sshpass -e ssh \
-            -p 22 \
-            -o StrictHostKeyChecking=yes \
-            "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          sshpass -e ssh             -p 22             -o StrictHostKeyChecking=yes             "$VPS_USER@$VPS_HOST"             "DEPLOY_HOST='$VPS_HOST' RELEASE_SHA='$GITHUB_SHA' bash -se" <<'REMOTE'
           set -euo pipefail
 
-          APP_DIR="$HOME/apps/zampolit73project"
-          mkdir -p "$APP_DIR"
-
-          find "$APP_DIR" -mindepth 1 -maxdepth 1 \
-            ! -name '.env' \
-            ! -name 'data' \
-            -exec rm -rf {} +
-
-          tar -xzf /tmp/zampolit73project.tar.gz -C "$APP_DIR"
-          rm -f /tmp/zampolit73project.tar.gz
-          cd "$APP_DIR"
-
-          if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
-            if [ "$(id -u)" -ne 0 ]; then
-              echo "Docker/Compose is not installed and VPS_USER is not root."
-              echo "Either use root for the first deployment or install Docker manually."
-              exit 20
-            fi
-
-            echo "Installing Docker Engine and Docker Compose plugin on Ubuntu..."
-            export DEBIAN_FRONTEND=noninteractive
-
-            apt-get update
-            apt-get install -y ca-certificates curl
-            install -m 0755 -d /etc/apt/keyrings
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-            chmod a+r /etc/apt/keyrings/docker.asc
-
-            . /etc/os-release
-            CODENAME="${UBUNTU_CODENAME:-$VERSION_CODENAME}"
-
-            echo \
-              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $CODENAME stable" \
-              > /etc/apt/sources.list.d/docker.list
-
-            apt-get update
-            apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-            systemctl enable --now docker
-          fi
-
-          if docker info >/dev/null 2>&1; then
-            DOCKER=(docker)
-          elif sudo -n docker info >/dev/null 2>&1; then
-            DOCKER=(sudo docker)
+          if [ "$(id -u)" -eq 0 ]; then
+            SUDO=""
+          elif sudo -n true >/dev/null 2>&1; then
+            SUDO="sudo"
           else
-            echo "Docker is installed, but this user cannot access the Docker daemon."
-            exit 21
+            echo "Deployment user needs root or passwordless sudo."
+            exit 20
           fi
 
-          COMPOSE_FILE=""
-          for file in compose.yml compose.yaml docker-compose.yml docker-compose.yaml; do
-            if [ -f "$file" ]; then
-              COMPOSE_FILE="$file"
-              break
-            fi
-          done
+          APP_NAME="zampolit73project"
+          BASE_DIR="/var/www/$APP_NAME"
+          RELEASES_DIR="$BASE_DIR/releases"
+          SHARED_DIR="$BASE_DIR/shared"
+          RELEASE_DIR="$RELEASES_DIR/$RELEASE_SHA"
+          ARCHIVE="/tmp/zampolit73-$RELEASE_SHA.tar.gz"
 
-          if [ -z "$COMPOSE_FILE" ]; then
-            echo "No Compose file found in $APP_DIR"
-            exit 22
+          $SUDO apt-get update
+          $SUDO apt-get install -y ca-certificates curl unzip nginx composer software-properties-common
+
+          if ! apt-cache show php8.3-fpm >/dev/null 2>&1; then
+            $SUDO add-apt-repository ppa:ondrej/php -y
+            $SUDO apt-get update
           fi
 
-          if command -v ufw >/dev/null 2>&1 && ufw status | grep -q '^Status: active'; then
-            if [ "$(id -u)" -eq 0 ]; then
-              ufw allow 80/tcp
-            elif sudo -n true >/dev/null 2>&1; then
-              sudo ufw allow 80/tcp
-            fi
+          $SUDO apt-get install -y             php8.3-cli php8.3-fpm php8.3-mbstring php8.3-xml php8.3-curl             php8.3-sqlite3 php8.3-zip php8.3-bcmath php8.3-intl
+
+          $SUDO mkdir -p "$RELEASES_DIR" "$SHARED_DIR/database"             "$SHARED_DIR/storage/app/public"             "$SHARED_DIR/storage/framework/cache"             "$SHARED_DIR/storage/framework/sessions"             "$SHARED_DIR/storage/framework/views"             "$SHARED_DIR/storage/logs"
+
+          $SUDO rm -rf "$RELEASE_DIR"
+          $SUDO mkdir -p "$RELEASE_DIR"
+          $SUDO tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
+          $SUDO rm -f "$ARCHIVE"
+
+          ENV_FILE="$SHARED_DIR/.env"
+          if [ ! -f "$ENV_FILE" ]; then
+            $SUDO cp "$RELEASE_DIR/.env.example" "$ENV_FILE"
           fi
 
-          "${DOCKER[@]}" compose -f "$COMPOSE_FILE" pull
-          "${DOCKER[@]}" compose -f "$COMPOSE_FILE" up -d --build --remove-orphans --force-recreate
-
-          echo "Checking container state..."
-          for attempt in $(seq 1 15); do
-            STATUS="$("${DOCKER[@]}" inspect -f '{{.State.Status}}' zampolit73-web 2>/dev/null || true)"
-            if [ "$STATUS" = "running" ]; then
-              echo "Container is running."
-              "${DOCKER[@]}" compose -f "$COMPOSE_FILE" ps
-              exit 0
+          set_env() {
+            key="$1"
+            value="$2"
+            if $SUDO grep -q "^$key=" "$ENV_FILE"; then
+              $SUDO sed -i "s|^$key=.*|$key=$value|" "$ENV_FILE"
+            else
+              printf '%s=%s\n' "$key" "$value" | $SUDO tee -a "$ENV_FILE" >/dev/null
             fi
-            sleep 2
-          done
+          }
 
-          echo "Container did not reach running state."
-          "${DOCKER[@]}" compose -f "$COMPOSE_FILE" ps
-          "${DOCKER[@]}" logs --tail=100 zampolit73-web || true
-          exit 23
+          set_env APP_NAME "$APP_NAME"
+          set_env APP_ENV production
+          set_env APP_DEBUG false
+          set_env APP_URL "http://$DEPLOY_HOST"
+          set_env APP_LOCALE ru
+          set_env DB_CONNECTION sqlite
+          set_env DB_DATABASE "$SHARED_DIR/database/database.sqlite"
+          set_env SESSION_DRIVER file
+          set_env CACHE_STORE file
+          set_env QUEUE_CONNECTION sync
+          set_env LOG_LEVEL warning
+
+          $SUDO touch "$SHARED_DIR/database/database.sqlite"
+
+          $SUDO rm -rf "$RELEASE_DIR/storage"
+          $SUDO ln -s "$SHARED_DIR/storage" "$RELEASE_DIR/storage"
+          $SUDO ln -s "$ENV_FILE" "$RELEASE_DIR/.env"
+          $SUDO mkdir -p "$RELEASE_DIR/bootstrap/cache"
+
+          cd "$RELEASE_DIR"
+          $SUDO php8.3 /usr/bin/composer install             --no-dev             --no-interaction             --prefer-dist             --optimize-autoloader             --no-progress
+
+          if ! $SUDO grep -q '^APP_KEY=base64:' "$ENV_FILE"; then
+            $SUDO php8.3 artisan key:generate --force
+          fi
+
+          $SUDO chown -R www-data:www-data "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
+          $SUDO chmod -R ug+rwX "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
+
+          $SUDO php8.3 artisan config:clear
+          $SUDO php8.3 artisan migrate --force
+          $SUDO php8.3 artisan storage:link || true
+          $SUDO php8.3 artisan optimize
+
+          $SUDO ln -sfn "$RELEASE_DIR" "$BASE_DIR/current.new"
+          $SUDO mv -Tf "$BASE_DIR/current.new" "$BASE_DIR/current"
+
+          $SUDO tee "/etc/nginx/sites-available/$APP_NAME" >/dev/null <<'NGINX'
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              server_name _;
+
+              root /var/www/zampolit73project/current/public;
+              index index.php;
+              charset utf-8;
+
+              add_header X-Frame-Options "SAMEORIGIN";
+              add_header X-Content-Type-Options "nosniff";
+
+              location / {
+                  try_files $uri $uri/ /index.php?$query_string;
+              }
+
+              location = /favicon.ico { access_log off; log_not_found off; }
+              location = /robots.txt  { access_log off; log_not_found off; }
+
+              location ~ ^/index\.php(/|$) {
+                  fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+                  fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+                  include fastcgi_params;
+                  fastcgi_hide_header X-Powered-By;
+              }
+
+              location ~ /\. {
+                  deny all;
+              }
+          }
+          NGINX
+
+          $SUDO ln -sfn "/etc/nginx/sites-available/$APP_NAME" "/etc/nginx/sites-enabled/$APP_NAME"
+          $SUDO rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/test
+
+          if command -v docker >/dev/null 2>&1; then
+            $SUDO docker rm -f zampolit73-web >/dev/null 2>&1 || true
+            $SUDO systemctl stop docker.service docker.socket containerd.service >/dev/null 2>&1 || true
+          fi
+
+          if command -v ufw >/dev/null 2>&1 && $SUDO ufw status | grep -q '^Status: active'; then
+            $SUDO ufw allow 22/tcp
+            $SUDO ufw allow 80/tcp
+          fi
+
+          $SUDO nginx -t
+          $SUDO systemctl enable php8.3-fpm nginx
+          $SUDO systemctl restart php8.3-fpm
+          $SUDO systemctl restart nginx
+
+          curl -fsS --retry 5 --retry-delay 2 http://127.0.0.1/up >/dev/null
+          curl -fsS --retry 5 --retry-delay 2 http://127.0.0.1/ >/dev/null
+          echo "Native Laravel/Nginx deployment is healthy locally."
+
+          ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +4 | xargs -r $SUDO rm -rf
           REMOTE
 
       - name: Verify public HTTP
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          response="$(curl -fsS \
-            --retry 10 \
-            --retry-delay 2 \
-            --retry-connrefused \
-            "http://$VPS_HOST/healthz")"
+          curl -fsS             --retry 10             --retry-delay 2             --retry-connrefused             "http://$VPS_HOST/up" >/dev/null
 
-          test "$response" = "ok"
-          echo "Public health check passed."
+          curl -fsS             --retry 10             --retry-delay 2             --retry-connrefused             "http://$VPS_HOST/" >/dev/null
 
-          page="$(curl -fsS \
-            --retry 10 \
-            --retry-delay 2 \
-            --retry-connrefused \
-            "http://$VPS_HOST/")"
+          echo "Public Laravel health checks passed."
 
-          printf '%s' "$page" | grep -Fq 'Привет, Валера!'
-          echo "Main page content check passed."
+      - name: Remove Docker from VPS
+        env:
+          SSHPASS: ${{ secrets.VPS_PWD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          sshpass -e ssh             -p 22             -o StrictHostKeyChecking=yes             "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+
+          if [ "$(id -u)" -eq 0 ]; then
+            SUDO=""
+          elif sudo -n true >/dev/null 2>&1; then
+            SUDO="sudo"
+          else
+            echo "Cleanup user needs root or passwordless sudo."
+            exit 30
+          fi
+
+          $SUDO systemctl disable --now docker.service docker.socket containerd.service >/dev/null 2>&1 || true
+
+          for pkg in             docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin             docker-ce-rootless-extras docker.io docker-compose; do
+            if dpkg -s "$pkg" >/dev/null 2>&1; then
+              $SUDO apt-get purge -y "$pkg"
+            fi
+          done
+
+          if command -v snap >/dev/null 2>&1 && snap list docker >/dev/null 2>&1; then
+            $SUDO snap remove docker
+          fi
+
+          $SUDO apt-get autoremove -y
+          $SUDO rm -rf /var/lib/docker /var/lib/containerd /etc/docker
+          $SUDO rm -f /etc/apt/sources.list.d/docker.list /etc/apt/keyrings/docker.asc
+          rm -rf "$HOME/apps/zampolit73project"
+          hash -r
+
+          if command -v docker >/dev/null 2>&1; then
+            echo "Docker executable is still present after cleanup."
+            exit 31
+          fi
+
+          echo "Docker removed from VPS."
+          REMOTE

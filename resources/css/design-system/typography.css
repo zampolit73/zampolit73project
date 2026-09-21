@@ -1,0 +1,16 @@
+.ds-text-muted {
+    color: var(--ds-color-foreground-muted);
+}
+
+.ds-text-subtle {
+    color: var(--ds-color-foreground-subtle);
+}
+
+.ds-label {
+    color: var(--ds-color-foreground);
+    font-size: var(--ds-font-size-xs);
+    font-weight: 900;
+    letter-spacing: .14em;
+    line-height: 1.3;
+    text-transform: uppercase;
+}
