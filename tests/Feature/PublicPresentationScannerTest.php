@@ -159,7 +159,7 @@ class PublicPresentationScannerTest extends TestCase
             $this->assertStringContainsString('HTML/XML', $exception->getMessage());
         }
         $this->assertSame(0, $bytesRead);
-        $this->assertFalse($body->isReadable());
+        $this->assertTrue($body->eof());
     }
 
     public function test_oversized_content_length_is_rejected_before_reading_the_body(): void
@@ -180,7 +180,7 @@ class PublicPresentationScannerTest extends TestCase
             $this->assertStringContainsString('слишком большая', $exception->getMessage());
         }
         $this->assertSame(0, $bytesRead);
-        $this->assertFalse($body->isReadable());
+        $this->assertTrue($body->eof());
     }
 
     public function test_stream_without_content_length_stops_at_the_byte_limit(): void
@@ -202,6 +202,6 @@ class PublicPresentationScannerTest extends TestCase
             $this->assertStringContainsString('слишком большая', $exception->getMessage());
         }
         $this->assertSame(2_500_001, $bytesRead);
-        $this->assertFalse($body->isReadable());
+        $this->assertTrue($body->eof());
     }
 }
