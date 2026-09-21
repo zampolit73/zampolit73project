@@ -35,13 +35,24 @@ export const QUAKE_PALETTE = new Uint8Array([
 
 const NORMAL_END=239;
 const LUT=new Uint8Array(32*32*32);
+const EXACT_COLORS=new Map();
 const clamp=(v)=>Math.max(0,Math.min(255,v));
+
+for(let i=0;i<=NORMAL_END;i++){
+ const o=i*3;
+ EXACT_COLORS.set((QUAKE_PALETTE[o]<<16)|(QUAKE_PALETTE[o+1]<<8)|QUAKE_PALETTE[o+2],i);
+}
 for(let r=0;r<32;r++)for(let g=0;g<32;g++)for(let b=0;b<32;b++){
  let best=0,dist=Infinity,rr=(r<<3)|4,gg=(g<<3)|4,bb=(b<<3)|4;
  for(let i=0;i<=NORMAL_END;i++){let o=i*3,dr=rr-QUAKE_PALETTE[o],dg=gg-QUAKE_PALETTE[o+1],db=bb-QUAKE_PALETTE[o+2],d=dr*dr+dg*dg+db*db;if(d<dist){dist=d;best=i;if(!d)break;}}
  LUT[(r<<10)|(g<<5)|b]=best;
 }
-const nearest=(r,g,b)=>LUT[((clamp(r)>>3)<<10)|((clamp(g)>>3)<<5)|(clamp(b)>>3)];
+const nearest=(r,g,b)=>{
+ const rr=Math.round(clamp(r)),gg=Math.round(clamp(g)),bb=Math.round(clamp(b));
+ const exact=EXACT_COLORS.get((rr<<16)|(gg<<8)|bb);
+ if(exact!==undefined)return exact;
+ return LUT[((rr>>3)<<10)|((gg>>3)<<5)|(bb>>3)];
+};
 
 export function validateTextureDimensions(w,h){
  if(!Number.isInteger(w)||!Number.isInteger(h)||w<16||h<16) throw new Error('Размер текстуры должен быть не меньше 16×16 пикселей.');
