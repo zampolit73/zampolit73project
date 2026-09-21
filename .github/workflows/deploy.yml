@@ -137,18 +137,32 @@ jobs:
           "${DOCKER[@]}" compose -f "$COMPOSE_FILE" pull
           "${DOCKER[@]}" compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
 
-          echo "Waiting for the web container..."
-          for attempt in $(seq 1 20); do
-            if "${DOCKER[@]}" exec zampolit73-web wget -qO- http://127.0.0.1/healthz 2>/dev/null | grep -qx 'ok'; then
-              echo "Deployment health check passed."
+          echo "Checking container state..."
+          for attempt in $(seq 1 15); do
+            STATUS="$("${DOCKER[@]}" inspect -f '{{.State.Status}}' zampolit73-web 2>/dev/null || true)"
+            if [ "$STATUS" = "running" ]; then
+              echo "Container is running."
               "${DOCKER[@]}" compose -f "$COMPOSE_FILE" ps
               exit 0
             fi
             sleep 2
           done
 
-          echo "Health check failed."
+          echo "Container did not reach running state."
           "${DOCKER[@]}" compose -f "$COMPOSE_FILE" ps
           "${DOCKER[@]}" logs --tail=100 zampolit73-web || true
           exit 23
           REMOTE
+
+      - name: Verify public HTTP
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          response="$(curl -fsS \
+            --retry 10 \
+            --retry-delay 2 \
+            --retry-connrefused \
+            "http://$VPS_HOST/healthz")"
+
+          test "$response" = "ok"
+          echo "Public health check passed."
