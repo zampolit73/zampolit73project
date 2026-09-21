@@ -97,33 +97,19 @@ Persistent state:
 
 ## Deploy
 
-Push в `main` запускает `.github/workflows/deploy.yml`. CI и production deploy выполняются последовательно в одном runner, без промежуточного artifact download во втором job.
+Push в `main` запускает `.github/workflows/deploy.yml`. Backend CI и Frontend Build идут параллельно; после них production проходит отдельные стадии Package → Deploy → Health Check → Notify.
 
 Если в `main` быстро приходят несколько коммитов, предыдущие running/queued production runs автоматически отменяются: до production доходит только самый свежий push.
 
 Последовательность:
 
-1. checkout;
-2. PHP 8.3 setup;
-3. Node.js 22 setup;
-4. Composer install;
-5. npm install;
-6. PHPUnit;
-7. Vite build;
-8. упаковка release;
-9. upload на VPS через SSH;
-10. установка/проверка server packages;
-11. создание release-директории;
-12. подключение shared `.env`, SQLite и `storage`;
-13. production Composer install;
-14. генерация VAPID-ключей, если их ещё нет;
-15. Laravel migrations;
-16. Laravel optimize;
-17. переключение `current` symlink;
-18. Nginx + PHP-FPM;
-19. Certbot / HTTPS;
-20. публичные проверки HTTPS, manifest и service worker;
-21. push-уведомление всем admin-подпискам об успешном deploy.
+```text
+Backend CI ─────┐
+                ├──> Package ──> Deploy ──> Health Check ──> Notify
+Frontend Build ─┘
+```
+
+Backend CI запускает Composer и PHPUnit. Frontend Build независимо запускает npm/Vite. Package объединяет проверенный backend/source с собранным `public/build`, после чего Deploy активирует release на VPS. Отдельный Health Check проверяет production снаружи, и только затем Notify отправляет push администраторам.
 
 Обычные повторные deploy ускорены: dependency download caches сохраняются в Actions, VPS не повторяет apt provisioning, при неизменном Composer lock переиспользуется `vendor/`, а Certbot не запускает issuance при уже существующем сертификате.
 

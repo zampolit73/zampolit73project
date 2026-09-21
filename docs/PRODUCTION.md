@@ -57,47 +57,59 @@ Production deploy runs only for push events on `main`.
 
 Production pushes use a single concurrency group. When a newer push to `main` arrives, GitHub Actions cancels any older running or queued production workflow. Only the newest commit is allowed to continue toward production. PR and manual runs use separate groups and cannot cancel a production deploy.
 
-### Pipeline job
+### Workflow graph
 
-CI and production deployment run in one GitHub Actions job. This avoids starting a second runner and transferring an artifact between jobs.
+Backend and frontend checks run in parallel. Production stages start only after both are green:
 
-The CI part:
+```text
+Backend CI ─────┐
+                ├──> Package ──> Deploy ──> Health Check ──> Notify
+Frontend Build ─┘
+```
 
-1. checks out source;
-2. sets PHP 8.3 and required extensions;
-3. sets Node.js 22;
-4. creates local test SQLite;
-5. runs `composer install`;
-6. runs `npm install`;
-7. generates a test app key;
-8. runs PHPUnit;
-9. runs `npm run build`;
-10. creates and uploads the release archive.
+### Backend CI
 
-### Deploy phase
+1. checkout;
+2. PHP 8.3 setup;
+3. Composer download cache;
+4. test SQLite environment;
+5. `composer install`;
+6. application key generation;
+7. PHPUnit;
+8. for a production push, packages backend/source files and the generated Composer lock as an intermediate artifact.
 
-For pushes to `main`, the same runner continues directly into deployment:
+### Frontend Build
 
-1. downloads the build artifact;
-2. uploads it to VPS over password-based SSH;
-3. checks DNS resolution for the production domain;
-4. checks whether Nginx, Composer, Certbot, PHP and required extensions already exist; apt provisioning runs only when something is missing;
-5. extracts a new release;
-6. attaches shared `.env`, SQLite and `storage`;
-7. reuses `vendor/` from the current release when the generated Composer lock is unchanged; otherwise installs PHP production dependencies;
-8. creates APP_KEY if absent;
-9. ensures VAPID keys exist;
-10. runs migrations;
-11. runs Laravel optimize;
-12. switches `current` symlink;
-13. writes Nginx configuration;
-14. uses the existing Let's Encrypt certificate; Certbot issuance runs only when the certificate is missing;
-15. enables HTTP→HTTPS redirect;
-16. checks `/up`, manifest and service worker locally;
-17. performs public HTTPS checks;
-18. sends successful-deploy push to admin subscriptions.
+1. checkout;
+2. Node.js 22 setup;
+3. npm download cache;
+4. `npm install`;
+5. Vite production build;
+6. for a production push, uploads `public/build` as an intermediate artifact.
 
-Old release directories are pruned, keeping the newest releases.
+### Package
+
+Runs only for a push to `main` after both parallel CI jobs succeed. It downloads backend and frontend artifacts, combines them into one release and uploads `release.tar.gz`.
+
+### Deploy
+
+Downloads the assembled release, uploads it to the VPS over SSH and activates it. The VPS still keeps the fast-path optimizations:
+
+- apt provisioning only when required packages/extensions are missing;
+- reuse of the previous release's `vendor/` when Composer lock is unchanged;
+- shared `.env`, SQLite and `storage`;
+- migrations and Laravel optimize;
+- atomic `current` symlink switch;
+- Certbot issuance only when the certificate is missing;
+- Nginx reload and local HTTPS/PWA checks.
+
+### Health Check
+
+Runs from a separate GitHub runner after Deploy. It verifies public DNS, HTTPS `/up`, homepage, manifest, service worker and the HTTP→HTTPS redirect with strict request timeouts.
+
+### Notify
+
+Runs only after Health Check succeeds and sends `push:deploy-success` to stored admin push subscriptions.
 
 ## HTTPS
 
@@ -186,7 +198,7 @@ It would only be needed if we add automatic dynamic-DNS updates when the VPS pub
 
 The workflow is optimized for frequent small pushes:
 
-- CI and deploy share one runner;
+- backend and frontend dependency work runs in parallel;
 - Composer download cache is persisted by GitHub Actions;
 - npm download cache is persisted by GitHub Actions;
 - `npm install` uses the local cache preferentially and skips audit/funding calls;

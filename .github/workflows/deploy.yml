@@ -15,12 +15,14 @@ concurrency:
   group: ${{ github.event_name == 'push' && 'production-main' || format('ci-{0}-{1}', github.event_name, github.ref) }}
   cancel-in-progress: true
 
+env:
+  APP_DOMAIN: zampolit73.duckdns.org
+
 jobs:
-  pipeline:
+  backend:
+    name: Backend CI
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      APP_DOMAIN: zampolit73.duckdns.org
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -33,11 +35,6 @@ jobs:
           extensions: mbstring, sqlite3, pdo_sqlite, xml, curl, zip, intl, bcmath
           coverage: none
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Cache Composer downloads
         uses: actions/cache@v4
         with:
@@ -45,14 +42,6 @@ jobs:
           key: composer-${{ runner.os }}-${{ hashFiles('composer.json') }}
           restore-keys: |
             composer-${{ runner.os }}-
-
-      - name: Cache npm downloads
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-          restore-keys: |
-            npm-${{ runner.os }}-
 
       - name: Prepare test environment
         run: |
@@ -63,19 +52,13 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
 
-      - name: Install frontend dependencies
-        run: npm install --prefer-offline --no-audit --no-fund
-
       - name: Generate test application key
         run: php artisan key:generate
 
-      - name: Run tests
+      - name: Run PHPUnit
         run: vendor/bin/phpunit
 
-      - name: Build frontend
-        run: npm run build
-
-      - name: Package release
+      - name: Package backend source
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           tar \
@@ -85,11 +68,110 @@ jobs:
             --exclude='vendor' \
             --exclude='.env' \
             --exclude='database/database.sqlite' \
-            -czf /tmp/release.tar.gz .
-          mv /tmp/release.tar.gz release.tar.gz
+            --exclude='public/build' \
+            -czf backend-source.tar.gz .
+
+      - name: Upload backend source
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-source-${{ github.sha }}
+          path: backend-source.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache npm downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      - name: Install frontend dependencies
+        run: npm install --prefer-offline --no-audit --no-fund
+
+      - name: Build Vite assets
+        run: npm run build
+
+      - name: Package frontend build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: tar -czf frontend-build.tar.gz public/build
+
+      - name: Upload frontend build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-${{ github.sha }}
+          path: frontend-build.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    needs:
+      - backend
+      - frontend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 5
+
+    steps:
+      - name: Download backend source
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-source-${{ github.sha }}
+          path: artifacts/backend
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build-${{ github.sha }}
+          path: artifacts/frontend
+
+      - name: Assemble release
+        run: |
+          mkdir -p release
+          tar -xzf artifacts/backend/backend-source.tar.gz -C release
+          tar -xzf artifacts/frontend/frontend-build.tar.gz -C release
+          tar -czf release.tar.gz -C release .
+
+      - name: Upload release
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.sha }}
+          path: release.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: package
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+
+    steps:
+      - name: Download release
+        uses: actions/download-artifact@v4
+        with:
+          name: release-${{ github.sha }}
 
       - name: Configure SSH authentication
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           VPS_PWD: ${{ secrets.VPS_PWD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -106,8 +188,7 @@ jobs:
           timeout 10s ssh-keyscan -T 5 -p 22 -H "$VPS_HOST" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Upload release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Upload release to VPS
         env:
           VPS_PWD: ${{ secrets.VPS_PWD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -125,8 +206,7 @@ jobs:
             release.tar.gz \
             "$VPS_USER@$VPS_HOST:/tmp/zampolit73-${GITHUB_SHA}.tar.gz" </dev/null
 
-      - name: Deploy HTTPS stack
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Activate release
         env:
           VPS_PWD: ${{ secrets.VPS_PWD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -160,7 +240,6 @@ jobs:
           SHARED_DIR="$BASE_DIR/shared"
           RELEASE_DIR="$RELEASES_DIR/$RELEASE_SHA"
           ARCHIVE="/tmp/zampolit73-$RELEASE_SHA.tar.gz"
-          WEB_ROOT="$BASE_DIR/current/public"
           NGINX_SITE="/etc/nginx/sites-available/$APP_NAME"
           CERT_DIR="/etc/letsencrypt/live/$APP_DOMAIN"
 
@@ -424,9 +503,15 @@ jobs:
           ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +4 | xargs -r $SUDO rm -rf
           REMOTE
 
+  health:
+    name: Health Check
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 2
+
+    steps:
       - name: Verify public HTTPS
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        timeout-minutes: 2
         run: |
           set -euo pipefail
 
@@ -480,8 +565,32 @@ jobs:
 
           echo "Public HTTPS, redirect and PWA endpoint checks passed."
 
-      - name: Notify administrators about successful deploy
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: health
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 3
+
+    steps:
+      - name: Configure SSH authentication
+        env:
+          VPS_PWD: ${{ secrets.VPS_PWD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          cat > ~/.ssh/askpass.sh <<'ASKPASS'
+          #!/usr/bin/env bash
+          printf '%s\n' "$VPS_PWD"
+          ASKPASS
+          chmod 700 ~/.ssh/askpass.sh
+
+          timeout 10s ssh-keyscan -T 5 -p 22 -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Send deploy push
         env:
           VPS_PWD: ${{ secrets.VPS_PWD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
