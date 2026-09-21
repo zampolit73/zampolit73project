@@ -19,6 +19,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 - раздел `/projects` с клиентскими инструментами;
 - массовый BMP → Quake 1 MIP конвертер с ZIP-выгрузкой;
 - внутренний проект каталога публичных презентаций ИТ-директоров без хранения самих файлов;
+- публичная интерактивная страница «Сказки Пушкина» с анимированной книгой;
 - авторизация по username/password с ролями `admin`, `moderator`, `user`;
 - атомарные release-директории с `current` symlink;
 - GitHub Actions: test → build → deploy → health checks → admin push.
@@ -32,6 +33,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 | `/projects` | публичный | каталог браузерных инструментов |
 | `/projects/bmp-to-mip` | публичный | массовая конвертация BMP → Quake 1 MIP, выполняется локально в браузере |
 | `/projects/cio-presentations` | admin, moderator | каталог ссылок на публичные презентации ИТ-директоров, источники и ручная квалификация |
+| `/projects/pushkin-fairytales` | публичный | интерактивная анимированная книга со сказками Пушкина |
 | `/login` | гость | вход |
 | `/design-system` | admin, moderator | каталог UI-компонентов и дизайн-системы |
 | `/tests` | авторизованный | служебные проверки, сейчас Web Push |

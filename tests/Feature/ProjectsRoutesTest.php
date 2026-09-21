@@ -15,4 +15,9 @@ class ProjectsRoutesTest extends TestCase
     {
         $this->get('/projects/bmp-to-mip')->assertOk();
     }
+
+    public function test_pushkin_fairytales_book_is_public(): void
+    {
+        $this->get('/projects/pushkin-fairytales')->assertOk();
+    }
 }

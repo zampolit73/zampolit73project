@@ -1,6 +1,6 @@
 # Architecture
 
-Updated against `main` at commit `30569e9a0f0f257d5bf94e067878f471adc2d994`.
+Updated against `main` at commit `0fce7a4526ef7a40f2e0bde0e906a7f99da16b06`.
 
 ## Application stack
 
@@ -56,6 +56,7 @@ Public:
 - `GET /stas` → `Stas.vue`;
 - `GET /projects` → `Projects.vue`;
 - `GET /projects/bmp-to-mip` → `BmpToMip.vue`;
+- `GET /projects/pushkin-fairytales` → `PushkinFairytales.vue`;
 - `POST /login` → session login;
 - `GET /up` → Laravel health endpoint;
 - `GET /projects` → каталог проектов;
@@ -132,7 +133,8 @@ Pages:
 - `Tests.vue` — operational browser tests, currently Web Push;
 - `Stas.vue` — interactive greeting;
 - `Projects.vue` — public tool catalog;
-- `BmpToMip.vue` — client-only bulk BMP → Quake 1 MIP converter.
+- `BmpToMip.vue` — client-only bulk BMP → Quake 1 MIP converter;
+- `PushkinFairytales.vue` — public interactive living-book animation with local Vue/CSS artwork.
 
 Shared UI components live in `resources/js/components/ui/`.
 
@@ -214,3 +216,17 @@ Stores metadata only:
 - discovery/review timestamps.
 
 Presentation files are not proxied or persisted. See `docs/CIO_PRESENTATIONS.md`.
+
+
+## Pushkin fairytales project
+
+The public `/projects/pushkin-fairytales` page is a frontend-only visual experiment.
+
+- no database state;
+- no external image assets;
+- no API requests;
+- Vue controls page selection, autoplay and reduced-motion behavior;
+- CSS provides the 3D book opening/page-turning animation and decorative tale miniatures;
+- `prefers-reduced-motion` disables automatic page changes and motion-heavy transitions.
+
+The page is listed as project #03 in `Projects.vue`.

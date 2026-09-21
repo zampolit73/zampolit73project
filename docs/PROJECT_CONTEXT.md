@@ -22,6 +22,7 @@ Current projects:
 
 1. `/projects/bmp-to-mip` — public client-side Quake 1 texture converter.
 2. `/projects/cio-presentations` — internal CIO / IT-director presentation catalog for sales research.
+3. `/projects/pushkin-fairytales` — public animated living-book experiment based on Pushkin's fairytales.
 
 The `/projects` page is the project selector. Do not replace or collapse the existing BMP → MIP project when changing the CIO project.
 
@@ -112,6 +113,7 @@ Responsive behavior is mandatory, including 320 px mobile widths and laptop-heig
 - `/projects` — public project selector
 - `/projects/bmp-to-mip` — public browser-only BMP → Quake 1 MIP converter
 - `/projects/cio-presentations` — authenticated admin/moderator CIO presentation project
+- `/projects/pushkin-fairytales` — public animated Pushkin fairytales book
 - `/login` — guest login
 - `/design-system` — admin/moderator
 - `/tests` — authenticated service/test page
@@ -475,3 +477,34 @@ Before implementing a new CIO feature, verify:
 - whether a production data migration is really necessary;
 - that the change does not reintroduce 1C/Global CIO presets;
 - that presentation files are still opened directly from the original source.
+
+
+---
+
+# Pushkin fairytales project
+
+Project #03 under `/projects`.
+
+Route:
+
+`/projects/pushkin-fairytales`
+
+Implementation:
+
+- `resources/js/pages/PushkinFairytales.vue`
+- styles in `resources/css/app.css`
+- project card in `resources/js/pages/Projects.vue`
+
+Product/design decisions:
+
+- public route;
+- frontend-only, no database;
+- no external images or third-party visual libraries;
+- animated 3D book that opens on entry and turns pages;
+- five tale-themed spreads: golden fish, Tsar Saltan, dead princess, golden cockerel, Balda;
+- autoplay every few seconds plus manual previous/next and direct dot selection;
+- pause/play control;
+- CSS-only decorative miniatures, paper texture, moon/stars, ornaments and table shadow;
+- follows the site's cream / black / red visual language but adds dark blue night and muted gold accents;
+- mobile adaptation down to 320 px;
+- `prefers-reduced-motion` disables autoplay and heavy movement.
