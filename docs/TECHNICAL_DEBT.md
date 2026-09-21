@@ -82,11 +82,12 @@ Push test returns a sent count and deploy logs show subscription/sent counts.
 
 There is no durable push delivery history, failure reason storage or metrics dashboard.
 
-## PWA cache strategy is intentionally simple
+## Offline mode is limited to a fallback page and static assets
 
-The service worker caches application responses with a lightweight strategy.
-
-As the application becomes data-heavy, authenticated/dynamic response caching rules should be reviewed carefully to avoid stale UX.
+The service worker caches only the static offline page, manifest, icons and Vite assets.
+Laravel HTML, Inertia JSON and API responses are excluded because they contain session-specific data.
+Old application cache versions are removed on service-worker activation.
+Offline access to application data would require a separate design with explicit account isolation.
 
 ## Seeder credentials are development defaults
 

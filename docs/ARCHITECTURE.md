@@ -158,6 +158,10 @@ Berlin DST changes are therefore handled by the browser's timezone database.
 
 The service worker handles offline navigation fallback and incoming push notifications.
 
+Only static assets are cached. Laravel HTML, Inertia JSON and API responses stay
+outside the service-worker cache; offline navigation shows the generic offline page.
+Native push requests use the current Laravel XSRF cookie after Inertia session changes.
+
 See `PWA_PUSH.md`.
 
 
@@ -238,4 +242,3 @@ The page is listed as project #03 in `Projects.vue`.
 `Projects.vue` uses full document links for project cards. Projects are independent tools, and a full navigation ensures the browser loads the current release's Vite manifest/chunks after an atomic deploy.
 
 `resources/js/app.js` also handles Vite `vite:preloadError` by reloading the document. This protects long-lived tabs from stale hashed dynamic-import URLs.
-

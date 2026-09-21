@@ -38,9 +38,11 @@ Installation UX differs by browser/platform; not every platform emits `beforeins
 
 The service worker:
 
-- pre-caches the basic shell;
-- provides navigation fallback when offline;
-- caches successful GET responses;
+- pre-caches only the static offline page, manifest and icons;
+- fetches navigations from the network, falling back to the generic offline page;
+- caches only static Vite assets and the pre-cached static resources;
+- never stores Laravel HTML, Inertia JSON or push API responses, which may contain session data;
+- removes previous app cache versions on activation;
 - handles incoming `push` events;
 - handles notification clicks and opens/navigates the app.
 
@@ -87,6 +89,11 @@ The private key must never be committed.
 ## User subscription flow
 
 Push endpoints require authentication.
+
+Native fetch mutations read the current Laravel `XSRF-TOKEN` cookie and send
+`X-XSRF-TOKEN` on each request. This includes subscribe, unsubscribe and test push,
+so logging in or rotating the session through Inertia does not leave a stale
+token from the initial HTML document.
 
 On `/tests`, the user can:
 

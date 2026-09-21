@@ -5,8 +5,12 @@ namespace App\Services;
 use App\Models\PresentationSource;
 use DOMDocument;
 use DOMXPath;
+use GuzzleHttp\Psr7\Uri;
+use GuzzleHttp\Psr7\UriResolver;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 use RuntimeException;
 
 class PublicPresentationScanner
@@ -17,18 +21,18 @@ class PublicPresentationScanner
     public function scan(PresentationSource $source): array
     {
         $sourceUrl = $this->normalizeUrl($source->url);
+        $page = $this->fetchText($sourceUrl);
 
-        if ($this->presentationType($sourceUrl)) {
+        if ($this->presentationType($page['url'])) {
             return [[
-                'title' => $this->fallbackTitle($sourceUrl),
-                'file_url' => $sourceUrl,
-                'file_type' => $this->presentationType($sourceUrl),
+                'title' => $this->fallbackTitle($page['url']),
+                'file_url' => $page['url'],
+                'file_type' => $this->presentationType($page['url']),
                 'source_page_url' => $sourceUrl,
             ]];
         }
 
         $candidates = [];
-        $page = $this->fetchText($sourceUrl);
 
         foreach ($this->extractCandidates($page['body'], $page['url']) as $candidate) {
             $candidates[$candidate['file_url']] = $candidate;
@@ -64,37 +68,50 @@ class PublicPresentationScanner
         for ($redirect = 0; $redirect <= self::MAX_REDIRECTS; $redirect += 1) {
             $this->assertPublicUrl($current);
 
-            $response = Http::accept('text/html,application/xhtml+xml,application/xml,text/xml;q=0.9,*/*;q=0.1')
-                ->withHeaders([
-                    'User-Agent' => 'Zampolit73PresentationIndex/0.1 (+https://zampolit73.duckdns.org)',
-                ])
-                ->withOptions(['allow_redirects' => false])
-                ->connectTimeout(3)
-                ->timeout(6)
-                ->get($current);
+            // A source (or redirect) may itself be a presentation. Keep its URL only.
+            if ($this->presentationType($current)) {
+                return ['body' => '', 'url' => $current];
+            }
 
-            if ($response->redirect()) {
-                $location = $response->header('Location');
-                if (! $location) {
-                    throw new RuntimeException('Источник вернул редирект без адреса назначения.');
+            try {
+                $response = Http::accept('text/html,application/xhtml+xml,application/xml,text/xml;q=0.9')
+                    ->withHeaders([
+                        'User-Agent' => 'Zampolit73PresentationIndex/0.1 (+https://zampolit73.duckdns.org)',
+                    ])
+                    ->withOptions(['allow_redirects' => false, 'stream' => true, 'read_timeout' => 6])
+                    ->connectTimeout(3)
+                    ->timeout(6)
+                    ->get($current);
+            } catch (ConnectionException $exception) {
+                throw new RuntimeException('Не удалось подключиться к источнику. Попробуй повторить сканирование позже.', 0, $exception);
+            }
+
+            try {
+                if ($response->redirect()) {
+                    $location = $response->header('Location');
+                    if (! $location) {
+                        throw new RuntimeException('Источник вернул редирект без адреса назначения.');
+                    }
+
+                    $current = $this->resolveUrl($current, $location);
+                    continue;
                 }
 
-                $current = $this->resolveUrl($current, $location);
-                continue;
-            }
+                if ($response->status() === 404 && ! $failOnNotFound) {
+                    throw new RuntimeException('Страница не найдена.');
+                }
 
-            if ($response->status() === 404 && ! $failOnNotFound) {
-                throw new RuntimeException('Страница не найдена.');
-            }
+                if (! $response->successful()) {
+                    throw new RuntimeException('Источник ответил HTTP '.$response->status().'.');
+                }
 
-            if (! $response->successful()) {
-                throw new RuntimeException('Источник ответил HTTP '.$response->status().'.');
+                return [
+                    'body' => $this->limitedBody($response),
+                    'url' => $current,
+                ];
+            } finally {
+                $response->toPsrResponse()->getBody()->close();
             }
-
-            return [
-                'body' => $this->limitedBody($response),
-                'url' => $current,
-            ];
         }
 
         throw new RuntimeException('Слишком много редиректов у источника.');
@@ -102,7 +119,30 @@ class PublicPresentationScanner
 
     private function limitedBody(Response $response): string
     {
-        $body = $response->body();
+        $contentType = strtolower(trim(explode(';', $response->header('Content-Type'))[0]));
+        if (! in_array($contentType, ['text/html', 'application/xhtml+xml', 'application/xml', 'text/xml'], true)) {
+            throw new RuntimeException('Источник должен вернуть HTML/XML страницу. Файлы презентаций не скачиваются.');
+        }
+
+        if ((int) $response->header('Content-Length') > self::MAX_PAGE_BYTES) {
+            throw new RuntimeException('HTML/XML страница слишком большая для лёгкого сканирования.');
+        }
+
+        $stream = $response->toPsrResponse()->getBody();
+        $body = '';
+        $deadline = microtime(true) + 6;
+
+        while (! $stream->eof() && strlen($body) <= self::MAX_PAGE_BYTES) {
+            if (microtime(true) >= $deadline) {
+                throw new RuntimeException('Источник слишком долго передаёт HTML/XML страницу.');
+            }
+
+            $chunk = $stream->read(min(8192, self::MAX_PAGE_BYTES + 1 - strlen($body)));
+            if ($chunk === '' && ! $stream->eof()) {
+                throw new RuntimeException('Не удалось дочитать HTML/XML страницу источника.');
+            }
+            $body .= $chunk;
+        }
 
         if (strlen($body) > self::MAX_PAGE_BYTES) {
             throw new RuntimeException('HTML/XML страница слишком большая для лёгкого сканирования.');
@@ -140,7 +180,12 @@ class PublicPresentationScanner
                 continue;
             }
 
-            $url = $this->resolveUrl($baseUrl, $href);
+            try {
+                $url = $this->resolveUrl($baseUrl, $href);
+            } catch (RuntimeException) {
+                // One malformed link must not discard the rest of a source page.
+                continue;
+            }
             $title = trim(preg_replace('/\\s+/u', ' ', $anchor->textContent ?? '') ?? '');
             $this->addCandidate($candidates, $url, $title !== '' ? $title : null, $baseUrl);
         }
@@ -157,7 +202,7 @@ class PublicPresentationScanner
 
     private function addCandidate(array &$candidates, string $url, ?string $title, string $sourcePage): void
     {
-        $url = html_entity_decode(trim($url));
+        $url = $this->normalizeUrl(html_entity_decode(trim($url)));
         $type = $this->presentationType($url);
 
         if (! $type || ! preg_match('~^https?://~i', $url)) {
@@ -190,45 +235,16 @@ class PublicPresentationScanner
 
     private function normalizeUrl(string $url): string
     {
-        return trim($url);
+        return explode('#', trim($url), 2)[0];
     }
 
     private function resolveUrl(string $base, string $href): string
     {
-        if (preg_match('~^https?://~i', $href)) {
-            return $href;
+        try {
+            return (string) UriResolver::resolve(new Uri($base), new Uri(trim($href)))->withFragment('');
+        } catch (InvalidArgumentException $exception) {
+            throw new RuntimeException('Источник содержит некорректный URL.', 0, $exception);
         }
-
-        $baseParts = parse_url($base);
-        $scheme = $baseParts['scheme'] ?? 'https';
-        $host = $baseParts['host'] ?? '';
-        $port = isset($baseParts['port']) ? ':'.$baseParts['port'] : '';
-
-        if (str_starts_with($href, '//')) {
-            return $scheme.':'.$href;
-        }
-
-        if (str_starts_with($href, '/')) {
-            return $scheme.'://'.$host.$port.$href;
-        }
-
-        $basePath = $baseParts['path'] ?? '/';
-        $directory = rtrim(str_replace('\\', '/', dirname($basePath)), '/');
-        $path = ($directory === '' ? '' : $directory).'/'.$href;
-
-        $segments = [];
-        foreach (explode('/', $path) as $segment) {
-            if ($segment === '' || $segment === '.') {
-                continue;
-            }
-            if ($segment === '..') {
-                array_pop($segments);
-                continue;
-            }
-            $segments[] = $segment;
-        }
-
-        return $scheme.'://'.$host.$port.'/'.implode('/', $segments);
     }
 
     private function assertPublicUrl(string $url): void

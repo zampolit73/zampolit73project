@@ -148,6 +148,10 @@ The CIO presentations project intentionally uses the same access rule as the des
 
 VAPID private keys belong only in production `.env`.
 
+Service-worker caching is restricted to static assets and a generic offline page.
+Laravel HTML, Inertia JSON and API responses are excluded; activation removes older
+app cache versions. Native push fetches read the current XSRF cookie on each request.
+
 ---
 
 # BMP → MIP project
@@ -340,6 +344,11 @@ Security / traffic controls:
 - redirects are followed manually and revalidated;
 - short connect/request timeouts;
 - HTML/XML body size cap;
+- streamed reads stop at 2,500,000 bytes plus one overflow byte, with read timeouts;
+- non-HTML/XML bodies are rejected before reading;
+- redirect targets ending in PDF/PPT/PPTX are catalogued without fetching the file;
+- RFC 3986 relative-link resolution and fragment deduplication;
+- source connection errors are recorded; optional sitemap failures preserve page candidates;
 - scans are manual in the current MVP.
 
 The scanner includes UTF-8 handling for Russian link titles.
@@ -516,6 +525,5 @@ Product/design decisions:
 The project catalog uses normal document links rather than Inertia `Link` components. This intentionally forces a fresh document/app-manifest load when entering an independent project.
 
 The frontend also listens for Vite `vite:preloadError` and reloads the page, which recovers long-lived tabs when a lazy page chunk no longer exists after an atomic deployment.
-
 
 
