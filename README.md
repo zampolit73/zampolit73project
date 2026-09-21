@@ -59,6 +59,7 @@ npm run dev
 
 ```bash
 vendor/bin/phpunit
+npm test
 ```
 
 Production frontend build:

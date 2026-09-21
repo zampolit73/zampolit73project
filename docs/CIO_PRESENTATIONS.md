@@ -63,7 +63,7 @@ The first MVP scanner is intentionally narrow:
 1. An admin/moderator adds a public HTTP/HTTPS source page.
 2. A manual scan fetches only that HTML page plus the site's root `/sitemap.xml` when available.
 3. It extracts direct links ending in `.pdf`, `.ppt` or `.pptx`.
-4. Presentation files themselves are never requested.
+4. Direct presentation URLs, including redirect targets, are recorded without requesting the file.
 5. New URLs are deduplicated by the unique `file_url` column.
 
 Safety controls:
@@ -73,8 +73,16 @@ Safety controls:
 - localhost, private and reserved IP ranges are rejected;
 - redirects are followed manually and revalidated;
 - page fetches use short connect/request timeouts;
-- HTML/XML body size is capped;
+- only HTML/XML content types are read; other response bodies are closed without being read;
+- HTML/XML is streamed with a 2,500,000-byte limit, plus at most one byte to detect overflow;
+- declared oversized responses are rejected before reading the body;
+- streamed reads have a timeout and a bounded read loop;
 - scans are user-triggered in the MVP.
+
+Relative links and redirects use RFC 3986 resolution, including directory URLs
+ending in a slash and query-only redirects. URL fragments are removed for deduplication.
+Connection failures become scan errors in the interface and scan history. An unavailable
+optional sitemap does not discard candidates already extracted from the source page.
 
 ## Next discovery layer
 

@@ -106,8 +106,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm install --prefer-offline --no-audit --no-fund
 
-      - name: Test Quake MIP encoder
-        run: npm run test:quake-mip
+      - name: Test frontend behavior
+        run: npm test
 
       - name: Build Vite assets
         run: npm run build

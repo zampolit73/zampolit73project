@@ -1,3 +1,5 @@
+import { csrfHeaders } from './lib/csrf.js';
+
 const getVapidPublicKey = async () => {
     const response = await fetch('/push/config', { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error('Не удалось получить настройки push.');
@@ -31,7 +33,7 @@ const subscribeToPush = async () => {
 
     const response = await fetch('/push/subscriptions', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''},
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders()},
         body: JSON.stringify(subscription.toJSON()),
     });
     if (!response.ok) {
@@ -52,7 +54,7 @@ const unsubscribeFromPush = async () => {
     if (!subscription) return;
     const response = await fetch('/push/subscriptions', {
         method: 'DELETE',
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''},
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json', ...csrfHeaders()},
         body: JSON.stringify({endpoint: subscription.endpoint}),
     });
     if (!response.ok) throw new Error('Не удалось отключить push-подписку.');

@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/vue3';
 import AppLayout from '../layouts/AppLayout.vue';
 import Button from '../components/ui/Button.vue';
 import { getPushState, subscribeToPush, unsubscribeFromPush } from '../push.js';
+import { csrfHeaders } from '../lib/csrf.js';
 
 const pushState = ref('unknown');
 const busy = ref(false);
@@ -73,7 +74,7 @@ const sendTest = async () => {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                ...csrfHeaders(),
             },
         });
 
