@@ -16,7 +16,9 @@ const links = computed(() => appLinks.filter((link) => {
 
     return link.guest;
 }));
-const isActive = (href) => currentPath.value === href;
+const isActive = (href) => href === '/projects'
+    ? currentPath.value === '/projects' || currentPath.value.startsWith('/projects/')
+    : currentPath.value === href;
 const closeMenu = () => { menuOpen.value = false; };
 const requestInstall = () => window.dispatchEvent(new Event('pwa-install-request'));
 

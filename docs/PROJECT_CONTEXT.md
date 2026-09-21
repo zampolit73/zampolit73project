@@ -135,6 +135,8 @@ Treat `main` as an optimistic-lock target:
 
 - `/` — public home page, “Привет, Валера!”, clocks for Moscow / Ulyanovsk / Berlin
 - `/stas` — public “Привет, Стас!” page with an interactive animated figure
+- `/projects` — public browser-tool catalog
+- `/projects/bmp-to-mip` — client-side bulk BMP → Quake 1 MIP converter
 - `/login` — guest login
 - `/design-system` — admin/moderator
 - `/tests` — authenticated service/test page, including Web Push
@@ -230,3 +232,25 @@ When UFW is active, deployment keeps these ports allowed:
 Start with:
 
 > Continue work on `zampolit73/zampolit73project`. Read `AGENTS.md` and `docs/PROJECT_CONTEXT.md`, then fetch the current `main` HEAD before making changes. Never overwrite concurrent commits.
+
+
+## BMP → MIP project
+
+The first item in `/projects` is a client-only bulk texture converter.
+
+- input: local BMP files/folder;
+- classic Quake 1 palette quantization;
+- normal source colors avoid accidental fullbright indices;
+- validates dimensions as multiples of 16;
+- writes raw little-endian `miptex_t` files with 4 mip levels;
+- packs successful conversions into `convertedDDMMYYYY.zip`;
+- invalid files are reported and skipped without aborting the batch;
+- source images never leave the browser.
+
+Implementation:
+
+- `resources/js/pages/Projects.vue`;
+- `resources/js/pages/BmpToMip.vue`;
+- `resources/js/lib/quakeMip.js`;
+- `tests/js/quake-mip.mjs`;
+- `docs/BMP_TO_MIP.md`.

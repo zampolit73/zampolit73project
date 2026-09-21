@@ -14,6 +14,8 @@ Route::middleware('guest')->group(function () {
 
 Route::get('/', fn () => Inertia::render('Home'))->name('home');
 Route::get('/stas', fn () => Inertia::render('Stas'))->name('stas');
+Route::get('/projects', fn () => Inertia::render('Projects'))->name('projects');
+Route::get('/projects/bmp-to-mip', fn () => Inertia::render('BmpToMip'))->name('projects.bmp-to-mip');
 
 Route::middleware('auth')->group(function () {
     Route::get('/design-system', fn () => Inertia::render('DesignSystem'))

@@ -16,6 +16,8 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 - Web Push через VAPID;
 - страница `/tests` для проверки push-подписки и тестовой отправки;
 - push администраторам после успешного production deploy;
+- раздел `/projects` с клиентскими инструментами;
+- массовый BMP → Quake 1 MIP конвертер с ZIP-выгрузкой;
 - авторизация по username/password с ролями `admin`, `moderator`, `user`;
 - атомарные release-директории с `current` symlink;
 - GitHub Actions: test → build → deploy → health checks → admin push.
@@ -26,6 +28,8 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 | --- | --- | --- |
 | `/` | публичный | главная, «Привет, Валера!», часы Москва / Ульяновск / Берлин |
 | `/stas` | публичный | персональная страница «Привет, Стас!» с анимацией дружелюбного взмаха рукой |
+| `/projects` | публичный | каталог браузерных инструментов |
+| `/projects/bmp-to-mip` | публичный | массовая конвертация BMP → Quake 1 MIP, выполняется локально в браузере |
 | `/login` | гость | вход |
 | `/design-system` | admin, moderator | каталог UI-компонентов и дизайн-системы |
 | `/tests` | авторизованный | служебные проверки, сейчас Web Push |
@@ -214,4 +218,5 @@ tests/
 - `docs/PWA_PUSH.md` — PWA, service worker, push и VAPID.
 - `docs/TECHNICAL_DEBT.md` — известные ограничения и что стоит улучшить дальше.
 - `docs/PROJECT_CONTEXT.md` — компактный handoff-контекст для продолжения работы в новой сессии.
+- `docs/BMP_TO_MIP.md` — формат Quake MIP и поведение конвертера.
 - `AGENTS.md` — обязательные правила разработки для работы с репозиторием.

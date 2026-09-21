@@ -53,6 +53,9 @@ Public:
 
 - `GET /` → `Home.vue`;
 - `GET /login` → `Login.vue`;
+- `GET /stas` → `Stas.vue`;
+- `GET /projects` → `Projects.vue`;
+- `GET /projects/bmp-to-mip` → `BmpToMip.vue`;
 - `POST /login` → session login;
 - `GET /up` → Laravel health endpoint.
 
@@ -124,7 +127,10 @@ Pages:
 - `Home.vue` — greeting and world clocks;
 - `Login.vue`;
 - `DesignSystem.vue`;
-- `Tests.vue` — operational browser tests, currently Web Push.
+- `Tests.vue` — operational browser tests, currently Web Push;
+- `Stas.vue` — interactive greeting;
+- `Projects.vue` — public tool catalog;
+- `BmpToMip.vue` — client-only bulk BMP → Quake 1 MIP converter.
 
 Shared UI components live in `resources/js/components/ui/`.
 
@@ -149,3 +155,32 @@ Berlin DST changes are therefore handled by the browser's timezone database.
 The service worker handles offline navigation fallback and incoming push notifications.
 
 See `PWA_PUSH.md`.
+
+
+## Client-only project tools
+
+The BMP → MIP converter runs entirely in the browser:
+
+```text
+Local folder
+    |
+ browser File API / directory picker
+    |
+ BMP decode -> RGBA
+    |
+ Quake 1 palette quantization
+    |
+ four mip levels + miptex header
+    |
+ JSZip
+    |
+ convertedDDMMYYYY.zip
+```
+
+BMP data is not uploaded to Laravel. Laravel only serves the Inertia page and static JavaScript bundle.
+
+Implementation:
+
+- `resources/js/pages/BmpToMip.vue` — selection, browser decoding, progress and ZIP download;
+- `resources/js/lib/quakeMip.js` — palette, naming, validation and binary encoder;
+- `tests/js/quake-mip.mjs` — encoder smoke tests executed in Frontend Build.

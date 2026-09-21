@@ -1,0 +1,14 @@
+<script setup>
+import { Head, Link } from '@inertiajs/vue3';
+import AppLayout from '../layouts/AppLayout.vue';
+</script>
+
+<template>
+<AppLayout><Head title="Проекты" />
+<main class="projects-page">
+<header class="projects-header"><p class="projects-header__eyebrow">TOOLS / PROJECTS</p><h1>ПРОЕКТЫ</h1><p>Небольшие браузерные инструменты. Первый — массовая подготовка текстур для классического Quake 1.</p></header>
+<section class="projects-grid" aria-label="Список проектов">
+<Link href="/projects/bmp-to-mip" class="project-card"><span class="project-card__index">01</span><div><p class="project-card__meta">QUAKE 1 / TEXTURES</p><h2>BMP → MIP</h2><p>Пакетная конвертация BMP в Quake 1 miptex с оригинальной палитрой и ZIP-выгрузкой.</p></div><span class="project-card__arrow" aria-hidden="true">→</span></Link>
+</section></main>
+</AppLayout>
+</template>
