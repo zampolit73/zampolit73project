@@ -3,21 +3,121 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>zampolit73project</title>
+  <title>Привет, Валера!</title>
   <style>
-    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0d1117; color: #e6edf3; }
-    main { max-width: 720px; padding: 48px; text-align: center; }
-    h1 { margin: 0 0 16px; font-size: clamp(2rem, 7vw, 4rem); }
-    p { color: #9da7b3; font-size: 1.1rem; line-height: 1.6; }
-    code { color: #7ee787; }
+    :root {
+      color-scheme: dark;
+      --ink: #111111;
+      --paper: #efe6d2;
+      --accent: #b31217;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, transparent 0 44%, rgba(179,18,23,.20) 44% 56%, transparent 56% 100%),
+        var(--paper);
+      color: var(--ink);
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+    }
+
+    .frame {
+      position: relative;
+      width: min(92vw, 980px);
+      min-height: min(72vh, 620px);
+      display: grid;
+      place-items: center;
+      padding: 72px 48px;
+      border: 14px solid var(--ink);
+      background:
+        linear-gradient(90deg, var(--accent) 0 18px, transparent 18px calc(100% - 18px), var(--accent) calc(100% - 18px)),
+        var(--paper);
+      box-shadow: 18px 18px 0 var(--accent);
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .frame::before,
+    .frame::after {
+      content: "";
+      position: absolute;
+      background: var(--ink);
+    }
+
+    .frame::before {
+      width: 38%;
+      height: 18px;
+      top: 34px;
+      left: 0;
+    }
+
+    .frame::after {
+      width: 38%;
+      height: 18px;
+      bottom: 34px;
+      right: 0;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 900px;
+      font-size: clamp(3rem, 10vw, 8rem);
+      line-height: .9;
+      letter-spacing: .02em;
+      text-wrap: balance;
+      text-shadow: 5px 5px 0 rgba(179,18,23,.22);
+    }
+
+    .slash {
+      position: absolute;
+      width: 34%;
+      height: 28px;
+      background: var(--accent);
+      transform: rotate(-11deg);
+      right: -6%;
+      top: 18%;
+    }
+
+    .caption {
+      position: absolute;
+      left: 48px;
+      bottom: 50px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: 900;
+      letter-spacing: .28em;
+      font-size: .78rem;
+    }
+
+    @media (max-width: 640px) {
+      .frame {
+        padding: 56px 24px;
+        border-width: 10px;
+        box-shadow: 10px 10px 0 var(--accent);
+      }
+
+      .caption {
+        left: 24px;
+        bottom: 28px;
+        letter-spacing: .16em;
+      }
+    }
   </style>
 </head>
 <body>
-  <main>
-    <h1>🚀 Сервер работает</h1>
-    <p><code>zampolit73project</code> успешно задеплоен из GitHub на AdminVPS.</p>
-    <p>Следующий push в <code>main</code> обновит этот проект автоматически.</p>
+  <main class="frame" aria-label="Приветствие">
+    <div class="slash" aria-hidden="true"></div>
+    <h1>Привет,<br>Валера!</h1>
+    <div class="caption">ZAMPOLIT73PROJECT</div>
   </main>
 </body>
 </html>
