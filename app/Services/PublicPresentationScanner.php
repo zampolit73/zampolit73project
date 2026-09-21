@@ -124,7 +124,7 @@ class PublicPresentationScanner
         $document = new DOMDocument();
 
         $previous = libxml_use_internal_errors(true);
-        $loaded = $document->loadHTML($body, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        $loaded = $document->loadHTML('<meta charset="utf-8">'.$body, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
 
