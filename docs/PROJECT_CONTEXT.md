@@ -547,3 +547,12 @@ The project catalog now uses normal document links rather than Inertia `Link` co
 The frontend also listens for Vite `vite:preloadError` and reloads the page, which recovers stale tabs when a lazy page chunk no longer exists after deployment.
 
 Production health checks explicitly verify `/projects/dog-training-ground` and its current Vite JS chunk from `build/manifest.json`.
+
+
+### Dog project stale-client recovery
+
+The dog-training route has an additional server-side compatibility guard for long-lived tabs from releases that predate project #04.
+
+If `/projects/dog-training-ground` is requested as an Inertia visit, Laravel responds with `Inertia::location('/projects/dog-training-ground')`. Inertia converts that response into a real browser navigation. A normal document GET still renders `DogTrainingGround` directly.
+
+This is intentional: an old `Projects.vue` bundle cannot resolve a page component that did not exist when that bundle was built. The server-forced document navigation makes the route recover even before the user manually refreshes the old tab.
