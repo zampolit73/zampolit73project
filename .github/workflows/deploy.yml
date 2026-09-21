@@ -1,0 +1,88 @@
+name: Deploy to AdminVPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install SSH client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+
+      - name: Add VPS host key
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -p 22 -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Pack release
+        run: |
+          tar             --exclude='.git'             --exclude='.github'             -czf /tmp/zampolit73project.tar.gz .
+
+      - name: Upload release
+        env:
+          SSHPASS: ${{ secrets.VPS_PWD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          sshpass -e scp             -P 22             -o StrictHostKeyChecking=yes             /tmp/zampolit73project.tar.gz             "$VPS_USER@$VPS_HOST:/tmp/zampolit73project.tar.gz"
+
+      - name: Deploy on VPS
+        env:
+          SSHPASS: ${{ secrets.VPS_PWD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          sshpass -e ssh             -p 22             -o StrictHostKeyChecking=yes             "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+
+          APP_DIR="$HOME/apps/zampolit73project"
+          mkdir -p "$APP_DIR"
+
+          # Keep server-only configuration/data; replace application files.
+          find "$APP_DIR" -mindepth 1 -maxdepth 1             ! -name '.env'             ! -name 'data'             -exec rm -rf {} +
+
+          tar -xzf /tmp/zampolit73project.tar.gz -C "$APP_DIR"
+          rm -f /tmp/zampolit73project.tar.gz
+
+          cd "$APP_DIR"
+
+          COMPOSE_FILE=""
+          for file in compose.yml compose.yaml docker-compose.yml docker-compose.yaml; do
+            if [ -f "$file" ]; then
+              COMPOSE_FILE="$file"
+              break
+            fi
+          done
+
+          if [ -n "$COMPOSE_FILE" ]; then
+            if docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+              docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+            elif sudo -n docker info >/dev/null 2>&1 && sudo -n docker compose version >/dev/null 2>&1; then
+              sudo docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+            else
+              echo "Project uploaded, but Docker Compose is not available to this user yet."
+              echo "Install Docker/Compose or grant the deploy user Docker access, then rerun this workflow."
+            fi
+          else
+            echo "Project uploaded to $APP_DIR. No Compose file found yet."
+          fi
+          REMOTE
