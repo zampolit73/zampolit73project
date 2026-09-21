@@ -952,3 +952,305 @@ input {
         margin-top: 36px;
     }
 }
+
+
+.stas-page {
+    width: min(100%, 1180px);
+    margin: 10px auto 0;
+}
+
+.stas-poster {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, .92fr) minmax(360px, 1.08fr);
+    min-height: min(680px, calc(100vh - 96px));
+    overflow: hidden;
+    border: 8px solid var(--ds-color-black);
+    background: var(--ds-color-surface);
+    box-shadow: 16px 16px 0 var(--ds-color-red);
+}
+
+.stas-poster::before {
+    position: absolute;
+    inset: 22px;
+    border: 2px solid var(--ds-color-black);
+    content: "";
+    pointer-events: none;
+}
+
+.stas-poster__stamp {
+    position: absolute;
+    top: 30px;
+    right: 34px;
+    z-index: 3;
+    padding: 8px 11px;
+    border: 3px solid var(--ds-color-black);
+    background: var(--ds-color-red);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .13em;
+    transform: rotate(3deg);
+}
+
+.stas-copy {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(46px, 6vw, 86px);
+}
+
+.stas-copy__eyebrow {
+    margin: 0 0 18px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+}
+
+.stas-copy h1 {
+    margin: 0;
+    font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+    font-size: clamp(72px, 9vw, 138px);
+    line-height: .78;
+    letter-spacing: -.01em;
+    text-transform: uppercase;
+}
+
+.stas-copy h1 span {
+    color: var(--ds-color-red);
+    text-shadow: 7px 7px 0 var(--ds-color-black);
+}
+
+.stas-copy__note {
+    max-width: 390px;
+    margin: 30px 0 0;
+    padding-top: 15px;
+    border-top: 4px solid var(--ds-color-black);
+    color: var(--ds-color-foreground-muted);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.5;
+}
+
+.stas-stage {
+    position: relative;
+    min-height: 560px;
+    overflow: hidden;
+    border-left: 8px solid var(--ds-color-black);
+    background:
+        linear-gradient(90deg, transparent 49%, rgba(17,17,17,.08) 50%, transparent 51%),
+        linear-gradient(0deg, transparent 49%, rgba(17,17,17,.08) 50%, transparent 51%),
+        var(--ds-color-blush);
+    background-size: 46px 46px;
+}
+
+.stas-stage__sun {
+    position: absolute;
+    top: 62px;
+    right: 62px;
+    width: 150px;
+    height: 150px;
+    border: 8px solid var(--ds-color-black);
+    border-radius: 50%;
+    background: var(--ds-color-red);
+    box-shadow: 12px 12px 0 var(--ds-color-surface);
+}
+
+.stas-person {
+    position: absolute;
+    left: 50%;
+    bottom: 84px;
+    width: 220px;
+    height: 390px;
+    transform: translateX(-50%);
+    animation: stas-bob 2.4s ease-in-out infinite;
+}
+
+.stas-person__head {
+    position: absolute;
+    top: 0;
+    left: 73px;
+    width: 78px;
+    height: 78px;
+    border: 7px solid var(--ds-color-black);
+    border-radius: 50%;
+    background: var(--ds-color-surface);
+}
+
+.stas-person__body {
+    position: absolute;
+    top: 78px;
+    left: 77px;
+    width: 70px;
+    height: 170px;
+    border: 7px solid var(--ds-color-black);
+    background: var(--ds-color-red);
+    transform: skew(-3deg);
+}
+
+.stas-person__arm,
+.stas-person__leg,
+.stas-person__forearm {
+    position: absolute;
+    width: 25px;
+    border: 6px solid var(--ds-color-black);
+    background: var(--ds-color-surface);
+    transform-origin: 50% 10px;
+}
+
+.stas-person__arm--left {
+    top: 96px;
+    left: 49px;
+    height: 145px;
+    transform: rotate(14deg);
+}
+
+.stas-person__arm--wave {
+    top: 94px;
+    left: 141px;
+    height: 112px;
+    transform: rotate(-42deg);
+}
+
+.stas-person__forearm {
+    top: 86px;
+    left: -6px;
+    height: 104px;
+    transform: rotate(-14deg);
+    animation: stas-wave 1.05s ease-in-out infinite;
+}
+
+.stas-person__hand {
+    position: absolute;
+    left: -14px;
+    bottom: -27px;
+    width: 40px;
+    height: 36px;
+    border: 6px solid var(--ds-color-black);
+    border-radius: 50% 50% 42% 42%;
+    background: var(--ds-color-surface);
+}
+
+.stas-person__leg {
+    top: 236px;
+    height: 155px;
+}
+
+.stas-person__leg--left {
+    left: 78px;
+    transform: rotate(6deg);
+}
+
+.stas-person__leg--right {
+    left: 120px;
+    transform: rotate(-7deg);
+}
+
+.stas-stage__hello {
+    position: absolute;
+    right: 26px;
+    bottom: 28px;
+    padding: 8px 12px;
+    border: 3px solid var(--ds-color-black);
+    background: var(--ds-color-surface);
+    font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+    font-size: 30px;
+    letter-spacing: .04em;
+    transform: rotate(-4deg);
+}
+
+@keyframes stas-wave {
+    0%, 100% { transform: rotate(-20deg); }
+    50% { transform: rotate(22deg); }
+}
+
+@keyframes stas-bob {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-8px); }
+}
+
+@media (max-width: 900px) {
+    .stas-poster {
+        grid-template-columns: 1fr;
+    }
+
+    .stas-stage {
+        min-height: 500px;
+        border-top: 8px solid var(--ds-color-black);
+        border-left: 0;
+    }
+
+    .stas-copy {
+        min-height: 430px;
+    }
+}
+
+@media (max-width: 700px) {
+    .stas-page {
+        margin-top: 4px;
+    }
+
+    .stas-poster {
+        min-height: auto;
+        border-width: 5px;
+        box-shadow: 9px 9px 0 var(--ds-color-red);
+    }
+
+    .stas-poster::before {
+        inset: 12px;
+    }
+
+    .stas-copy {
+        min-height: 350px;
+        padding: 48px 28px 40px;
+    }
+
+    .stas-copy h1 {
+        font-size: clamp(64px, 20vw, 92px);
+    }
+
+    .stas-copy h1 span {
+        text-shadow: 5px 5px 0 var(--ds-color-black);
+    }
+
+    .stas-stage {
+        min-height: 440px;
+        border-top-width: 5px;
+    }
+
+    .stas-stage__sun {
+        top: 40px;
+        right: 34px;
+        width: 110px;
+        height: 110px;
+        border-width: 6px;
+    }
+
+    .stas-person {
+        bottom: 54px;
+        transform: translateX(-50%) scale(.86);
+        transform-origin: bottom center;
+        animation: stas-bob-mobile 2.4s ease-in-out infinite;
+    }
+
+    .stas-stage__hello {
+        right: 18px;
+        bottom: 18px;
+        font-size: 24px;
+    }
+}
+
+@keyframes stas-bob-mobile {
+    0%, 100% { transform: translateX(-50%) scale(.86) translateY(0); }
+    50% { transform: translateX(-50%) scale(.86) translateY(-7px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stas-person,
+    .stas-person__forearm {
+        animation: none;
+    }
+}

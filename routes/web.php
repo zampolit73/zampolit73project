@@ -13,6 +13,7 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::get('/', fn () => Inertia::render('Home'))->name('home');
+Route::get('/stas', fn () => Inertia::render('Stas'))->name('stas');
 
 Route::middleware('auth')->group(function () {
     Route::get('/design-system', fn () => Inertia::render('DesignSystem'))
