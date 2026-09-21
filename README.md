@@ -1,21 +1,41 @@
 # zampolit73project
 
-Проект на Laravel 13 + Inertia 3 + Vue 3, перенесённый из общего `template`.
+Production PWA-приложение на Laravel + Inertia + Vue.
 
-## Стек
-- PHP 8.3+
-- Laravel 13
-- Inertia.js 3
-- Vue 3
-- Vite 7
-- Tailwind CSS 4
-- SQLite
-- Nginx + PHP-FPM в production
-- HTTPS: Let's Encrypt / Certbot
+**Production:** https://zampolit73.duckdns.org
 
-Docker в production не используется.
+## Что сейчас работает
 
-## Локальный запуск
+- Laravel 13 на PHP 8.3;
+- Inertia.js 3 + Vue 3;
+- Vite 7 + Tailwind CSS 4;
+- SQLite;
+- Nginx + PHP-FPM без Docker;
+- HTTPS через Let's Encrypt / Certbot;
+- installable PWA: manifest, service worker, offline fallback;
+- Web Push через VAPID;
+- страница `/tests` для проверки push-подписки и тестовой отправки;
+- push администраторам после успешного production deploy;
+- авторизация по username/password с ролями `admin`, `moderator`, `user`;
+- атомарные release-директории с `current` symlink;
+- GitHub Actions: test → build → deploy → health checks → admin push.
+
+## Основные страницы
+
+| URL | Доступ | Назначение |
+| --- | --- | --- |
+| `/` | публичный | главная, «Привет, Валера!», часы Москва / Ульяновск / Берлин |
+| `/login` | гость | вход |
+| `/design-system` | admin, moderator | каталог UI-компонентов и дизайн-системы |
+| `/tests` | авторизованный | служебные проверки, сейчас Web Push |
+| `/up` | публичный | Laravel health endpoint |
+
+Push API находится под auth middleware: `/push/config`, `/push/subscriptions`, `/push/test`.
+
+## Быстрый локальный запуск
+
+Требования: PHP 8.3+, Composer, Node.js 22+, npm, SQLite extensions для PHP.
+
 ```bash
 composer install
 npm install
@@ -26,38 +46,45 @@ php artisan migrate
 npm run dev
 ```
 
-Production build:
-```bash
-npm run build
-```
+Тесты:
 
-Tests:
 ```bash
 vendor/bin/phpunit
 ```
 
+Production frontend build:
+
+```bash
+npm run build
+```
+
 ## Production
 
-Production URL: `https://zampolit73.duckdns.org`
+Production работает напрямую на Ubuntu:
 
-Push в `main` запускает GitHub Actions:
+```text
+Internet
+   |
+   | 80 / 443
+   v
+Nginx
+   |
+   v
+PHP 8.3-FPM
+   |
+   v
+Laravel 13
+   |
+   +-- SQLite
+   +-- Inertia / Vue
+   +-- Web Push (VAPID)
+```
 
-1. установка PHP/Node зависимостей;
-2. PHPUnit;
-3. Vite build;
-4. упаковка release;
-5. SSH deploy на VPS;
-6. миграции SQLite;
-7. переключение атомарного `current` symlink;
-8. запуск Nginx + PHP-FPM;
-9. получение/продление сертификата Let's Encrypt через Certbot;
-10. редирект HTTP → HTTPS;
-11. публичная проверка `/up`, manifest и service worker.
+Persistent state:
 
-Production state:
 ```text
 /var/www/zampolit73project/
-├── current -> releases/<commit>
+├── current -> releases/<git-sha>
 ├── releases/
 └── shared/
     ├── .env
@@ -65,15 +92,134 @@ Production state:
     └── storage/
 ```
 
-TLS certificates находятся в `/etc/letsencrypt/`. Автопродление выполняет `certbot.timer`.
+Сертификаты Let's Encrypt находятся в `/etc/letsencrypt/`. Автопродление выполняет `certbot.timer`.
 
-## GitHub secrets
-Используются существующие repository secrets:
-- `VPS_HOST`
-- `VPS_USER`
-- `VPS_PWD`
+## Deploy
 
-Не коммить production `.env`, пароли, SSH-ключи и другие секреты.
+Push в `main` запускает `.github/workflows/deploy.yml`.
 
-## PWA / Push
-Manifest и service worker доступны через HTTPS, поэтому production готов к обычным PWA-функциям. Web Push пока не является частью deployment и будет подключён отдельно.
+Последовательность:
+
+1. checkout;
+2. PHP 8.3 setup;
+3. Node.js 22 setup;
+4. Composer install;
+5. npm install;
+6. PHPUnit;
+7. Vite build;
+8. упаковка release;
+9. upload на VPS через SSH;
+10. установка/проверка server packages;
+11. создание release-директории;
+12. подключение shared `.env`, SQLite и `storage`;
+13. production Composer install;
+14. генерация VAPID-ключей, если их ещё нет;
+15. Laravel migrations;
+16. Laravel optimize;
+17. переключение `current` symlink;
+18. Nginx + PHP-FPM;
+19. Certbot / HTTPS;
+20. публичные проверки HTTPS, manifest и service worker;
+21. push-уведомление всем admin-подпискам об успешном deploy.
+
+Deploy считается успешным только после зелёного GitHub Actions run и public HTTPS health check.
+
+## Secrets и production state
+
+GitHub repository secrets:
+
+- `VPS_HOST`;
+- `VPS_USER`;
+- `VPS_PWD`.
+
+В Git нельзя коммитить:
+
+- production `.env`;
+- реальные пароли;
+- приватные SSH-ключи;
+- VAPID private key;
+- DuckDNS token;
+- production SQLite.
+
+DuckDNS token приложению сейчас не нужен. Он понадобится только для автоматического обновления DNS при смене внешнего IP VPS.
+
+## Пользователи
+
+Production-пользователи живут только в SQLite на VPS.
+
+Seeder содержит dev/bootstrap пользователей `admin`, `moderator`, `user`, но production deploy **не запускает seeders**. Production credentials не должны храниться в Git.
+
+## PWA и Web Push
+
+PWA работает через HTTPS и включает:
+
+- `/site.webmanifest`;
+- `/sw.js`;
+- offline fallback;
+- standalone display;
+- install prompt;
+- pull-to-refresh;
+- push notifications.
+
+VAPID-ключи создаются один раз на сервере скриптом `scripts/ensure-vapid.php` и сохраняются в shared production `.env`.
+
+Чтобы конкретное устройство получало push, авторизованный пользователь должен один раз открыть `/tests`, разрешить уведомления браузеру и создать push-подписку.
+
+После каждого успешного deploy команда `php artisan push:deploy-success` отправляет push всем сохранённым подпискам пользователей с ролью `admin`.
+
+## Структура репозитория
+
+```text
+app/
+  Console/Commands/       Artisan commands
+  Http/Controllers/       auth + push API
+  Http/Middleware/        Inertia / access rules
+  Models/                 User, PushSubscription
+  Services/               WebPushService
+
+config/                    Laravel app/auth/db/session/webpush
+database/
+  migrations/
+  seeders/
+
+public/
+  site.webmanifest
+  sw.js
+  offline.html
+  icon-192.svg
+  icon-512.svg
+
+resources/
+  css/                    app styles + design system
+  js/
+    components/ui/
+    composables/
+    layouts/
+    pages/
+    navigation.js
+    pwa.js
+    push.js
+  views/app.blade.php
+
+routes/
+  web.php
+  console.php
+
+scripts/
+  ensure-vapid.php
+
+tests/
+  Feature/
+  Unit/
+
+.github/workflows/
+  deploy.yml
+```
+
+## Документация
+
+- `docs/ARCHITECTURE.md` — устройство приложения и request/data flow.
+- `docs/PRODUCTION.md` — VPS, deploy, HTTPS, persistent state и эксплуатация.
+- `docs/PWA_PUSH.md` — PWA, service worker, push и VAPID.
+- `docs/TECHNICAL_DEBT.md` — известные ограничения и что стоит улучшить дальше.
+- `AGENTS.md` — обязательные правила разработки для работы с репозиторием.

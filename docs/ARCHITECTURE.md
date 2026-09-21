@@ -1,0 +1,151 @@
+# Architecture
+
+Updated against `main` at commit `30569e9a0f0f257d5bf94e067878f471adc2d994`.
+
+## Application stack
+
+Backend:
+
+- PHP 8.3+;
+- Laravel 13;
+- Inertia Laravel 3;
+- SQLite;
+- minishlink/web-push 11.
+
+Frontend:
+
+- Vue 3.5;
+- Inertia Vue 3;
+- Vite 7;
+- Tailwind CSS 4.
+
+Production edge:
+
+- Nginx;
+- PHP 8.3-FPM;
+- Let's Encrypt / Certbot.
+
+## Request flow
+
+```text
+Browser / installed PWA
+        |
+      HTTPS
+        |
+      Nginx
+        |
+    PHP-FPM
+        |
+     Laravel
+        |
+    +---+-------------------+
+    |                       |
+ Inertia pages           JSON endpoints
+    |                       |
+   Vue                Push subscription API
+```
+
+Laravel owns routing. Vue pages are resolved by `resources/js/inertia-app.js`.
+
+## Route map
+
+Public:
+
+- `GET /` → `Home.vue`;
+- `GET /login` → `Login.vue`;
+- `POST /login` → session login;
+- `GET /up` → Laravel health endpoint.
+
+Authenticated:
+
+- `GET /tests` → `Tests.vue`;
+- `GET /push/config`;
+- `POST /push/subscriptions`;
+- `DELETE /push/subscriptions`;
+- `POST /push/test`;
+- `POST /logout`.
+
+Admin/moderator:
+
+- `GET /design-system`.
+
+## Authentication
+
+Authentication uses Laravel session guard and Eloquent `User`.
+
+Login identifier is `username`, not email.
+
+Roles currently normalized to:
+
+- `admin`;
+- `moderator`;
+- `user`.
+
+Session storage is file-based in production and persists through shared Laravel storage.
+
+Production sets secure session cookies because the site is HTTPS-only.
+
+## Data model
+
+### users
+
+Important fields:
+
+- `id`;
+- `username` unique;
+- `role`;
+- `password`;
+- remember token;
+- timestamps.
+
+### push_subscriptions
+
+Each browser/device subscription stores:
+
+- `user_id`;
+- unique push endpoint;
+- P-256 public key;
+- auth token;
+- content encoding;
+- timestamps.
+
+A single user can therefore have multiple device/browser subscriptions.
+
+### jobs
+
+A jobs table exists, but production currently uses `QUEUE_CONNECTION=sync`; there is no queue worker in the current deployment.
+
+## Frontend structure
+
+`AppLayout.vue` provides the shared sidebar/navigation and responsive mobile navigation.
+
+Pages:
+
+- `Home.vue` — greeting and world clocks;
+- `Login.vue`;
+- `DesignSystem.vue`;
+- `Tests.vue` — operational browser tests, currently Web Push.
+
+Shared UI components live in `resources/js/components/ui/`.
+
+The visual system is centralized under `resources/css/design-system/` and `resources/css/app.css`.
+
+## Homepage clocks
+
+The homepage displays live browser-side time using `Intl.DateTimeFormat` with IANA zones:
+
+- Moscow: `Europe/Moscow`;
+- Ulyanovsk: `Europe/Ulyanovsk`;
+- Berlin: `Europe/Berlin`.
+
+Berlin DST changes are therefore handled by the browser's timezone database.
+
+## PWA flow
+
+`resources/js/app.js` loads `pwa.js` and the Inertia app.
+
+`pwa.js` registers `/sw.js`, handles install prompt state and implements pull-to-refresh.
+
+The service worker handles offline navigation fallback and incoming push notifications.
+
+See `PWA_PUSH.md`.
