@@ -97,7 +97,7 @@ Persistent state:
 
 ## Deploy
 
-Push в `main` запускает `.github/workflows/deploy.yml`.
+Push в `main` запускает `.github/workflows/deploy.yml`. CI и production deploy выполняются последовательно в одном runner, без промежуточного artifact download во втором job.
 
 Если в `main` быстро приходят несколько коммитов, предыдущие running/queued production runs автоматически отменяются: до production доходит только самый свежий push.
 
@@ -124,6 +124,8 @@ Push в `main` запускает `.github/workflows/deploy.yml`.
 19. Certbot / HTTPS;
 20. публичные проверки HTTPS, manifest и service worker;
 21. push-уведомление всем admin-подпискам об успешном deploy.
+
+Обычные повторные deploy ускорены: dependency download caches сохраняются в Actions, VPS не повторяет apt provisioning, при неизменном Composer lock переиспользуется `vendor/`, а Certbot не запускает issuance при уже существующем сертификате.
 
 Deploy считается успешным только после зелёного GitHub Actions run и public HTTPS health check. Public checks ограничены короткими DNS/connect/request timeout'ами и выводят диагностику вместо зависания на десятки минут.
 

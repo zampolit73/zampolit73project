@@ -16,13 +16,11 @@ Priority: high.
 
 Recommended next step: generate and commit lock files, then use deterministic install commands.
 
-## Composer runs again on production VPS
+## Production Composer fallback still exists
 
-Frontend assets are built in GitHub Actions, but PHP dependencies are installed again on the VPS.
+Normal deploys reuse `vendor/` from the current release when the build-generated Composer lock is unchanged. When dependencies change, the VPS still runs `composer install --no-dev`.
 
-This is functional but increases deploy time and leaves production dependency resolution dependent on Composer/network availability.
-
-After adding `composer.lock`, consider packaging `vendor/` in CI or keeping server-side `composer install --no-dev` with the lock file.
+Because `composer.lock` is not committed, dependency resolution still happens in CI from `composer.json`. The generated lock travels inside that release, so production installs the same resolved set for that run, but reproducibility across different runs is still not guaranteed.
 
 ## Password-based SSH deployment
 

@@ -57,9 +57,11 @@ Production deploy runs only for push events on `main`.
 
 Production pushes use a single concurrency group. When a newer push to `main` arrives, GitHub Actions cancels any older running or queued production workflow. Only the newest commit is allowed to continue toward production. PR and manual runs use separate groups and cannot cancel a production deploy.
 
-### Build job
+### Pipeline job
 
-The build job:
+CI and production deployment run in one GitHub Actions job. This avoids starting a second runner and transferring an artifact between jobs.
+
+The CI part:
 
 1. checks out source;
 2. sets PHP 8.3 and required extensions;
@@ -72,24 +74,24 @@ The build job:
 9. runs `npm run build`;
 10. creates and uploads the release archive.
 
-### Deploy job
+### Deploy phase
 
-The deploy job:
+For pushes to `main`, the same runner continues directly into deployment:
 
 1. downloads the build artifact;
 2. uploads it to VPS over password-based SSH;
 3. checks DNS resolution for the production domain;
-4. ensures Nginx, Composer, Certbot and PHP packages exist;
+4. checks whether Nginx, Composer, Certbot, PHP and required extensions already exist; apt provisioning runs only when something is missing;
 5. extracts a new release;
 6. attaches shared `.env`, SQLite and `storage`;
-7. installs PHP production dependencies on the VPS;
+7. reuses `vendor/` from the current release when the generated Composer lock is unchanged; otherwise installs PHP production dependencies;
 8. creates APP_KEY if absent;
 9. ensures VAPID keys exist;
 10. runs migrations;
 11. runs Laravel optimize;
 12. switches `current` symlink;
 13. writes Nginx configuration;
-14. obtains/reuses Let's Encrypt certificate;
+14. uses the existing Let's Encrypt certificate; Certbot issuance runs only when the certificate is missing;
 15. enables HTTP→HTTPS redirect;
 16. checks `/up`, manifest and service worker locally;
 17. performs public HTTPS checks;
@@ -178,3 +180,20 @@ There is currently no automated rollback job. A rollback must also consider data
 The DuckDNS token is not used by the application or deploy workflow.
 
 It would only be needed if we add automatic dynamic-DNS updates when the VPS public IP changes.
+
+
+## Deployment performance
+
+The workflow is optimized for frequent small pushes:
+
+- CI and deploy share one runner;
+- Composer download cache is persisted by GitHub Actions;
+- npm download cache is persisted by GitHub Actions;
+- `npm install` uses the local cache preferentially and skips audit/funding calls;
+- the VPS skips `apt update/install` when the native stack is already provisioned;
+- unchanged Composer dependencies reuse the previous release's `vendor/` via hardlinks;
+- PHP-FPM is not restarted on every release;
+- Certbot issuance is skipped while a valid certificate is already present;
+- Nginx receives a lightweight configuration reload after the atomic release switch.
+
+The first run after a dependency or server-package change can still be slower than a normal application-only deploy.
