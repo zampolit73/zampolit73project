@@ -6,6 +6,7 @@ use App\Models\PresentationSource;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -78,14 +79,21 @@ class PublicPresentationScanner
         for ($redirect = 0; $redirect <= self::MAX_REDIRECTS; $redirect += 1) {
             $this->assertPublicUrl($current);
 
-            $response = Http::accept('text/html,application/xhtml+xml,application/xml,text/xml;q=0.9,*/*;q=0.1')
-                ->withHeaders([
-                    'User-Agent' => 'Zampolit73PresentationIndex/0.2 (+https://zampolit73.duckdns.org)',
-                ])
-                ->withOptions(['allow_redirects' => false])
-                ->connectTimeout(3)
-                ->timeout(6)
-                ->get($current);
+            try {
+                $response = Http::accept('text/html,application/xhtml+xml,application/xml,text/xml;q=0.9,*/*;q=0.1')
+                    ->withHeaders([
+                        'User-Agent' => 'Zampolit73PresentationIndex/0.2 (+https://zampolit73.duckdns.org)',
+                    ])
+                    ->withOptions(['allow_redirects' => false])
+                    ->connectTimeout(3)
+                    ->timeout(6)
+                    ->get($current);
+            } catch (ConnectionException $exception) {
+                throw new RuntimeException(
+                    'Не удалось подключиться к источнику: сайт не ответил вовремя или разорвал соединение.',
+                    previous: $exception,
+                );
+            }
 
             if ($response->redirect()) {
                 $location = $response->header('Location');
@@ -312,7 +320,12 @@ class PublicPresentationScanner
     private function origin(string $url): string
     {
         $parts = parse_url($url);
-        $origin = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
+
+        if (! is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+            throw new RuntimeException('Источник вернул некорректную ссылку.');
+        }
+
+        $origin = $parts['scheme'].'://'.$parts['host'];
 
         if (isset($parts['port'])) {
             $origin .= ':'.$parts['port'];

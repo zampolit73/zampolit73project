@@ -12,6 +12,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Throwable;
 
 class CioPresentationController extends Controller
 {
@@ -139,18 +140,32 @@ class CioPresentationController extends Controller
                 'last_error' => null,
             ]);
         } catch (RuntimeException $exception) {
-            $source->update([
-                'last_scanned_at' => now(),
-                'last_scan_found' => 0,
-                'last_error' => $exception->getMessage(),
-            ]);
+            $this->recordScanFailure($source, $exception->getMessage());
 
             throw ValidationException::withMessages([
                 'scan' => $exception->getMessage(),
             ]);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            $message = 'Не удалось обработать ответ источника. Ошибка записана в журнал; попробуй повторить сканирование позже.';
+            $this->recordScanFailure($source, $message);
+
+            throw ValidationException::withMessages([
+                'scan' => $message,
+            ]);
         }
 
         return back();
+    }
+
+    private function recordScanFailure(PresentationSource $source, string $message): void
+    {
+        $source->update([
+            'last_scanned_at' => now(),
+            'last_scan_found' => 0,
+            'last_error' => $message,
+        ]);
     }
 
     public function storePresentation(Request $request): RedirectResponse

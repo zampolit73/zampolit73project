@@ -196,6 +196,32 @@ class CioPresentationsTest extends TestCase
         );
     }
 
+    public function test_scan_http_failure_returns_validation_error_instead_of_server_error(): void
+    {
+        Http::fake([
+            'https://broken.example/materials' => Http::response('upstream failure', 503),
+        ]);
+
+        $source = PresentationSource::query()->create([
+            'name' => 'Broken source',
+            'url' => 'https://broken.example/materials',
+            'domain' => 'broken.example',
+            'priority' => 50,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->admin())
+            ->from('/projects/cio-presentations')
+            ->post('/projects/cio-presentations/sources/'.$source->id.'/scan')
+            ->assertRedirect('/projects/cio-presentations')
+            ->assertSessionHasErrors('scan');
+
+        $source->refresh();
+
+        $this->assertSame(0, $source->last_scan_found);
+        $this->assertStringContainsString('HTTP 503', $source->last_error);
+    }
+
     public function test_admin_can_add_source_and_scan_direct_presentation_links(): void
     {
         Http::fake([

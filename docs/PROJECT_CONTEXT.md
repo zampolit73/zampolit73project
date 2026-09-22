@@ -561,3 +561,13 @@ A new idempotent migration preinstalls:
 - `https://tsups.ib-bank.ru/materials` — «Цифровая устойчивость промышленных систем» materials.
 
 These are additional approved preset families. 1C remains excluded, and Global CIO remains excluded unless explicitly approved later.
+
+
+### Scanner failure handling — 2026-09-22
+
+Manual source scanning must not surface Laravel's generic 500 page for recoverable source/network failures.
+
+- HTTP connection timeouts and connection resets are normalized to a user-facing scan error;
+- expected scanner `RuntimeException` messages are stored in `presentation_sources.last_error` and returned as validation errors;
+- unexpected parser/runtime throwables are reported to Laravel logs, while the UI receives a safe scan error instead of an Inertia 500 modal;
+- malformed origins are rejected explicitly instead of relying on PHP warnings.
