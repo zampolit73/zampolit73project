@@ -1,6 +1,6 @@
 # Project context / handoff
 
-Updated: 2026-09-21
+Updated: 2026-09-22
 
 This file is the primary handoff for continuing work on `zampolit73/zampolit73project`.
 It is a snapshot, not a substitute for checking the live repository. Before changing code, always read `AGENTS.md`, fetch the current `main` HEAD, and follow the optimistic-lock rules for `main`.
@@ -10,8 +10,8 @@ It is a snapshot, not a substitute for checking the live repository. Before chan
 - Repository: `zampolit73/zampolit73project`
 - Branch: `main`
 - Production: `https://zampolit73.duckdns.org`
-- Snapshot HEAD before this handoff update: `039090139b1907532d8c0ba0d5a6a4255f8e40f6`
-- Last verified production deploy before this docs-only update: GitHub Actions run #45 — success
+- Snapshot HEAD before this change: `7a038f2c266e99bf8944a52db0e8bea097c3d281`
+- Last verified production deploy before this change: GitHub Actions run #51 — success
 - Production is native Ubuntu; there is no Docker/Compose deployment
 
 ## Product shape
@@ -23,6 +23,7 @@ Current projects:
 1. `/projects/bmp-to-mip` — public client-side Quake 1 texture converter.
 2. `/projects/cio-presentations` — internal CIO / IT-director presentation catalog for sales research.
 3. `/projects/pushkin-fairytales` — public animated living-book experiment based on Pushkin's fairytales.
+4. `/projects/reading-diary` — public browser-local reading diary presented as a bookshelf.
 
 The `/projects` page is the project selector. Do not replace or collapse the existing BMP → MIP project when changing the CIO project.
 
@@ -114,6 +115,7 @@ Responsive behavior is mandatory, including 320 px mobile widths and laptop-heig
 - `/projects/bmp-to-mip` — public browser-only BMP → Quake 1 MIP converter
 - `/projects/cio-presentations` — authenticated admin/moderator CIO presentation project
 - `/projects/pushkin-fairytales` — public animated Pushkin fairytales book
+- `/projects/reading-diary` — public local reading diary / bookshelf
 - `/login` — guest login
 - `/design-system` — admin/moderator
 - `/tests` — authenticated service/test page
@@ -519,3 +521,32 @@ The frontend also listens for Vite `vite:preloadError` and reloads the page, whi
 
 
 
+
+
+---
+
+# Reading diary project
+
+Project #04 under `/projects`.
+
+Route:
+
+`/projects/reading-diary`
+
+Implementation:
+
+- `resources/js/pages/ReadingDiary.vue`
+- project card in `resources/js/pages/Projects.vue`
+
+Product decisions:
+
+- public frontend-only MVP;
+- personal data stays in the current browser via `localStorage`;
+- storage key: `zampolit73.reading-diary.v1`;
+- no server database rows and no cross-device sync in this version;
+- **Сказки Пушкина** by Александр Пушкин is built in on first use and remains a protected starter entry;
+- the application does not invent a rating for the user: the starter book begins unrated;
+- custom books support title, author, completion date, 1–5 rating and free-form notes;
+- the interface is a CSS-rendered wooden bookshelf with interactive book spines and a selected-book cover/card;
+- the built-in Pushkin entry links to `/projects/pushkin-fairytales`;
+- responsive down to 320 px; shelf overflow is contained inside the shelf rather than the page.

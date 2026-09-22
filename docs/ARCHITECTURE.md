@@ -1,6 +1,6 @@
 # Architecture
 
-Updated against `main` at commit `0fce7a4526ef7a40f2e0bde0e906a7f99da16b06`.
+Updated for the current application structure on 2026-09-22.
 
 ## Application stack
 
@@ -57,6 +57,7 @@ Public:
 - `GET /projects` → `Projects.vue`;
 - `GET /projects/bmp-to-mip` → `BmpToMip.vue`;
 - `GET /projects/pushkin-fairytales` → `PushkinFairytales.vue`;
+- `GET /projects/reading-diary` → `ReadingDiary.vue`;
 - `POST /login` → session login;
 - `GET /up` → Laravel health endpoint;
 - `GET /projects` → каталог проектов;
@@ -135,6 +136,7 @@ Pages:
 - `Projects.vue` — public tool catalog;
 - `BmpToMip.vue` — client-only bulk BMP → Quake 1 MIP converter;
 - `PushkinFairytales.vue` — public interactive living-book animation with local Vue/CSS artwork;
+- `ReadingDiary.vue` — public browser-local reading diary rendered as an interactive bookshelf.
 
 Shared UI components live in `resources/js/components/ui/`.
 
@@ -239,3 +241,17 @@ The page is listed as project #03 in `Projects.vue`.
 
 `resources/js/app.js` also handles Vite `vite:preloadError` by reloading the document. This protects long-lived tabs from stale hashed dynamic-import URLs.
 
+
+
+## Reading diary project
+
+The public `/projects/reading-diary` page is project #04.
+
+- frontend-only MVP; no Laravel persistence and no shared user data;
+- data is stored in browser `localStorage` under `zampolit73.reading-diary.v1`;
+- first use starts with the built-in **Сказки Пушкина** book;
+- users can add books, select them from the shelf, assign a 1–5 rating, store a completion date and write a note;
+- custom books can be removed; the built-in Pushkin entry stays on the shelf;
+- the Pushkin entry links to the existing `/projects/pushkin-fairytales` project;
+- the bookshelf/book-cover visuals are CSS-only and require no external assets;
+- responsive layouts include contained horizontal shelf scrolling on small screens.

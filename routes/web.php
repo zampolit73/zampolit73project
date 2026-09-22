@@ -18,6 +18,7 @@ Route::get('/stas', fn () => Inertia::render('Stas'))->name('stas');
 Route::get('/projects', fn () => Inertia::render('Projects'))->name('projects');
 Route::get('/projects/bmp-to-mip', fn () => Inertia::render('BmpToMip'))->name('projects.bmp-to-mip');
 Route::get('/projects/pushkin-fairytales', fn () => Inertia::render('PushkinFairytales'))->name('projects.pushkin-fairytales');
+Route::get('/projects/reading-diary', fn () => Inertia::render('ReadingDiary'))->name('projects.reading-diary');
 
 Route::middleware(['auth', EnsureUserCanAccessDesignSystem::class])
     ->prefix('/projects/cio-presentations')

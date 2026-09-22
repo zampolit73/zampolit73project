@@ -20,4 +20,9 @@ class ProjectsRoutesTest extends TestCase
     {
         $this->get('/projects/pushkin-fairytales')->assertOk();
     }
+
+    public function test_reading_diary_is_public(): void
+    {
+        $this->get('/projects/reading-diary')->assertOk();
+    }
 }
