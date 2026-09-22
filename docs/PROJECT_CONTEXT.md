@@ -116,6 +116,7 @@ Responsive behavior is mandatory, including 320 px mobile widths and laptop-heig
 - `/projects/cio-presentations` — authenticated CIO presentation project; read-only for `user`, management for `admin`
 - `/projects/pushkin-fairytales` — authenticated animated Pushkin fairytales book
 - `/projects/reading-diary` — authenticated local reading diary / bookshelf
+- `/admin/users` — admin-only user management / account creation
 - `/stas` — admin only
 - `/design-system` — admin only
 - `/tests` — admin only service/test page
@@ -142,6 +143,13 @@ Database roles are exactly:
 - `user`
 
 Legacy non-admin/non-user roles are normalized to `user`.
+
+Admin user management:
+
+- `/admin/users` is admin-only;
+- admin can create a new account with username + initial password;
+- accounts created there always have role `user`;
+- passwords are hashed immediately and are never displayed back from storage.
 
 ## PWA / Web Push
 

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\CioPresentationController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Middleware\EnsureUserIsAdmin;
@@ -27,6 +28,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/stas', fn () => Inertia::render('Stas'))->name('stas');
         Route::get('/design-system', fn () => Inertia::render('DesignSystem'))->name('design-system');
         Route::get('/tests', fn () => Inertia::render('Tests'))->name('tests');
+        Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users');
+        Route::post('/admin/users', [AdminUserController::class, 'store'])->name('admin.users.store');
 
         Route::prefix('/projects/cio-presentations')->group(function () {
             Route::post('/sources', [CioPresentationController::class, 'storeSource'])->name('projects.cio-presentations.sources.store');

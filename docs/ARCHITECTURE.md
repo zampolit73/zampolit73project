@@ -71,6 +71,8 @@ Authenticated users:
 
 Admin only:
 
+- `GET /admin/users` — account list / create form;
+- `POST /admin/users` — create a `user` account with an initial password;
 - `GET /stas`;
 - `GET /design-system`;
 - `GET /tests`;
@@ -88,6 +90,8 @@ Roles are normalized to exactly two values:
 - `user`.
 
 Guests are unauthenticated sessions, not a database role. Any legacy non-admin/non-user role is migrated to `user`.
+
+Admin-created accounts are created only as `user`. The initial password is accepted over the authenticated admin form and immediately hashed with Laravel's `Hash` facade; plaintext passwords are never stored or returned in the user list.
 
 Session storage is file-based in production and persists through shared Laravel storage.
 
