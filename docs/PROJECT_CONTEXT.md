@@ -21,7 +21,7 @@ The site is a small multi-project application. The user wants new tools to live 
 Current projects:
 
 1. `/projects/bmp-to-mip` — authenticated client-side Quake 1 texture converter.
-2. `/projects/cio-presentations` — authenticated CIO / IT-director presentation catalog; read-only for `user`, managed by `admin`.
+2. `/projects/cio-presentations` — authenticated CIO / IT-director presentation catalog with full functionality for both `admin` and `user`.
 3. `/projects/pushkin-fairytales` — authenticated animated living-book experiment based on Pushkin's fairytales.
 4. `/projects/reading-diary` — authenticated browser-local reading diary presented as a bookshelf.
 
@@ -113,7 +113,7 @@ Responsive behavior is mandatory, including 320 px mobile widths and laptop-heig
 - `/login` — guest login
 - `/projects` — authenticated project selector
 - `/projects/bmp-to-mip` — authenticated browser-only BMP → Quake 1 MIP converter
-- `/projects/cio-presentations` — authenticated CIO presentation project; read-only for `user`, management for `admin`
+- `/projects/cio-presentations` — authenticated CIO presentation project with full functionality for both roles
 - `/projects/pushkin-fairytales` — authenticated animated Pushkin fairytales book
 - `/projects/reading-diary` — authenticated local reading diary / bookshelf
 - `/admin/users` — admin-only user management / account creation
@@ -134,8 +134,8 @@ Authenticated push API:
 Access model:
 
 - guest — only `/` and `/login` as user-facing pages;
-- `user` — home plus `/projects` and project pages;
-- `admin` — everything a user can access plus administrative pages and mutation actions.
+- `user` — home plus `/projects` and full functionality inside every project;
+- `admin` — the same project access plus site-administration pages and user management.
 
 Database roles are exactly:
 
@@ -230,11 +230,11 @@ Main route:
 
 Access:
 
-- admin — full access
-- user — read-only project access
+- admin — full project access
+- user — the same full project access
 - guest — redirected to login
 
-Source creation, scans, manual additions, clearing and review mutations are admin-only.
+Source creation, scans, manual additions, clearing and review mutations are available to every authenticated user. Admin-only restrictions apply outside the project area.
 
 Main backend:
 

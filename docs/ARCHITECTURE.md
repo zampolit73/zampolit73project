@@ -62,7 +62,7 @@ Authenticated users:
 - `GET /projects/bmp-to-mip` → `BmpToMip.vue`;
 - `GET /projects/pushkin-fairytales` → `PushkinFairytales.vue`;
 - `GET /projects/reading-diary` → `ReadingDiary.vue`;
-- `GET /projects/cio-presentations` → `CioPresentations.vue` in read-only mode for `user`;
+- `GET /projects/cio-presentations` → `CioPresentations.vue` with full project functionality for any authenticated user;
 - `GET /push/config`;
 - `POST /push/subscriptions`;
 - `DELETE /push/subscriptions`;
@@ -76,7 +76,6 @@ Admin only:
 - `GET /stas`;
 - `GET /design-system`;
 - `GET /tests`;
-- CIO source creation, source scans, manual presentation creation, clearing and review mutations.
 
 ## Authentication
 
@@ -199,7 +198,7 @@ Implementation:
 
 ## CIO presentations project
 
-The `/projects/cio-presentations` section is available to every authenticated user. Regular `user` accounts have read-only access; source management, scanning and mutation actions are admin-only.
+The `/projects/cio-presentations` section is available with the same full functionality to every authenticated user. Both `admin` and `user` can manage sources, scan, add/clear presentations and change review metadata. The admin distinction applies to site administration, not project functionality.
 
 Laravel owns source/presentation persistence and the lightweight public-page scan. Vue renders the project workspace and opens presentation URLs directly in a new browser tab.
 

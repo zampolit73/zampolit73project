@@ -79,11 +79,11 @@ Guests are unauthenticated sessions, not a database role.
 User-facing access model:
 
 - guest: only `/` and `/login`;
-- user: home plus `/projects` and project pages;
-- admin: user access plus administrative pages and mutation actions.
+- user: home plus `/projects` and full project functionality;
+- admin: the same project functionality plus site-administration pages/actions.
 
 `/stas`, `/design-system` and `/tests` are admin-only.
-CIO presentation source management/scanning and mutation endpoints are admin-only.
+CIO presentation source management/scanning and mutation endpoints are available to every authenticated user.
 Push API requires authentication.
 
 Never hardcode real production passwords in source, migrations, docs or workflow files.

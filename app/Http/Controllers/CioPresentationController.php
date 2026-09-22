@@ -22,10 +22,8 @@ class CioPresentationController extends Controller
         $status = $request->string('status')->toString();
         $fileType = $request->string('file_type')->toString();
         $sourceId = $request->integer('source_id') ?: null;
-        $canManage = $request->user()?->role === 'admin';
-        $allowedTabs = $canManage
-            ? ['overview', 'presentations', 'sources', 'search']
-            : ['overview', 'presentations'];
+        $canManage = true;
+        $allowedTabs = ['overview', 'presentations', 'sources', 'search'];
         $requestedTab = $request->string('tab')->toString();
         $tab = in_array($requestedTab, $allowedTabs, true) ? $requestedTab : 'overview';
 

@@ -24,6 +24,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/projects/cio-presentations', [CioPresentationController::class, 'index'])
         ->name('projects.cio-presentations');
 
+    Route::prefix('/projects/cio-presentations')->group(function () {
+        Route::post('/sources', [CioPresentationController::class, 'storeSource'])->name('projects.cio-presentations.sources.store');
+        Route::post('/sources/{source}/scan', [CioPresentationController::class, 'scanSource'])->name('projects.cio-presentations.sources.scan');
+        Route::post('/presentations', [CioPresentationController::class, 'storePresentation'])->name('projects.cio-presentations.presentations.store');
+        Route::delete('/presentations', [CioPresentationController::class, 'clearPresentations'])->name('projects.cio-presentations.presentations.clear');
+        Route::patch('/presentations/{presentation}', [CioPresentationController::class, 'updatePresentation'])->name('projects.cio-presentations.presentations.update');
+    });
+
     Route::middleware(EnsureUserIsAdmin::class)->group(function () {
         Route::get('/stas', fn () => Inertia::render('Stas'))->name('stas');
         Route::get('/design-system', fn () => Inertia::render('DesignSystem'))->name('design-system');
@@ -31,13 +39,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users');
         Route::post('/admin/users', [AdminUserController::class, 'store'])->name('admin.users.store');
 
-        Route::prefix('/projects/cio-presentations')->group(function () {
-            Route::post('/sources', [CioPresentationController::class, 'storeSource'])->name('projects.cio-presentations.sources.store');
-            Route::post('/sources/{source}/scan', [CioPresentationController::class, 'scanSource'])->name('projects.cio-presentations.sources.scan');
-            Route::post('/presentations', [CioPresentationController::class, 'storePresentation'])->name('projects.cio-presentations.presentations.store');
-            Route::delete('/presentations', [CioPresentationController::class, 'clearPresentations'])->name('projects.cio-presentations.presentations.clear');
-            Route::patch('/presentations/{presentation}', [CioPresentationController::class, 'updatePresentation'])->name('projects.cio-presentations.presentations.update');
-        });
     });
 
     Route::get('/push/config', [PushSubscriptionController::class, 'config'])->name('push.config');

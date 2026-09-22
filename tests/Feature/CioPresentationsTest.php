@@ -29,7 +29,7 @@ class CioPresentationsTest extends TestCase
         $this->get('/projects/cio-presentations')->assertRedirect('/login');
     }
 
-    public function test_regular_user_can_open_cio_project_but_cannot_manage_it(): void
+    public function test_regular_user_has_full_cio_project_access(): void
     {
         $user = User::query()->create([
             'username' => 'regular-user',
@@ -37,20 +37,55 @@ class CioPresentationsTest extends TestCase
             'role' => 'user',
         ]);
 
-        $source = PresentationSource::query()->firstOrFail();
+        Http::fake([
+            'https://user-source.example/materials' => Http::response(
+                '<html><body><a href="/files/user-presentation.pdf">Доклад пользователя</a></body></html>',
+                200,
+                ['Content-Type' => 'text/html'],
+            ),
+            'https://user-source.example/sitemap.xml' => Http::response('', 404),
+        ]);
 
         $this->actingAs($user)
             ->get('/projects/cio-presentations?tab=sources')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('CioPresentations')
-                ->where('canManage', false)
-                ->where('tab', 'overview')
+                ->where('canManage', true)
+                ->where('tab', 'sources')
             );
 
         $this->actingAs($user)
+            ->post('/projects/cio-presentations/sources', [
+                'name' => 'User source',
+                'url' => 'https://user-source.example/materials',
+            ])
+            ->assertRedirect();
+
+        $source = PresentationSource::query()
+            ->where('url', 'https://user-source.example/materials')
+            ->firstOrFail();
+
+        $this->actingAs($user)
             ->post('/projects/cio-presentations/sources/'.$source->id.'/scan')
-            ->assertForbidden();
+            ->assertRedirect();
+
+        $presentation = Presentation::query()
+            ->where('file_url', 'https://user-source.example/files/user-presentation.pdf')
+            ->firstOrFail();
+
+        $this->actingAs($user)
+            ->patch('/projects/cio-presentations/presentations/'.$presentation->id, [
+                'review_status' => 'verified',
+                'is_good_lead' => true,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('presentations', [
+            'id' => $presentation->id,
+            'review_status' => 'verified',
+            'is_good_lead' => true,
+        ]);
     }
 
     public function test_starter_sources_use_only_approved_families_and_exclude_rejected_presets(): void

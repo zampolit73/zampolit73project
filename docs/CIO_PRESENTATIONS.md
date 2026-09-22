@@ -12,11 +12,11 @@ The application stores metadata and source URLs. It does **not** download or pro
 
 The project requires authentication.
 
-- `user` can open the project, browse/search/filter presentations and open original presentation links;
-- `admin` has the same read access plus source management, scanning, manual presentation creation, clearing and review/mutation actions;
+- `user` and `admin` have the same full access to all project functions;
+- both roles can browse, filter, add sources, scan, add/clear presentations and update review metadata;
 - guests are redirected to `/login`.
 
-The backend enforces admin-only mutations; hiding controls in Vue is not the security boundary.
+The admin role is reserved for site-administration functions outside this project.
 
 ## Data model
 
@@ -53,7 +53,7 @@ The approved built-in source families are:
 
 1C and Global CIO are not part of the preset source set. Manual user-added sources outside the preset list are not removed.
 
-Preset sources are normal rows after installation: admins/moderators can scan them the same way as manually added sources.
+Preset sources are normal rows after installation: any authenticated user can scan them the same way as manually added sources.
 
 The 2026 preset layer adds the official TAdviser SummIT pages for May and November 2026, TAdviser IT Prize 2026, and year-specific CNews FORUM / CNews FORUM Кейсы pages.
 
@@ -67,7 +67,7 @@ The migration that introduced this action also performs a one-time reset of pres
 
 The scanner stays deliberately bounded:
 
-1. An admin/moderator scans a public HTTP/HTTPS source page.
+1. An authenticated user scans a public HTTP/HTTPS source page.
 2. It extracts direct links ending in `.pdf`, `.ppt` or `.pptx`.
 3. It may follow up to **6 relevant same-origin HTML pages** linked from the source, one level deep. Presentation/material/abstract/report paths and CIO/industrial keywords are prioritized.
 4. Registration, sponsor and unrelated/external links are not discovery targets.
