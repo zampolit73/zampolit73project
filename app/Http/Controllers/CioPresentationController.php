@@ -22,9 +22,12 @@ class CioPresentationController extends Controller
         $status = $request->string('status')->toString();
         $fileType = $request->string('file_type')->toString();
         $sourceId = $request->integer('source_id') ?: null;
-        $tab = in_array($request->string('tab')->toString(), ['overview', 'presentations', 'sources', 'search'], true)
-            ? $request->string('tab')->toString()
-            : 'overview';
+        $canManage = $request->user()?->role === 'admin';
+        $allowedTabs = $canManage
+            ? ['overview', 'presentations', 'sources', 'search']
+            : ['overview', 'presentations'];
+        $requestedTab = $request->string('tab')->toString();
+        $tab = in_array($requestedTab, $allowedTabs, true) ? $requestedTab : 'overview';
 
         $query = Presentation::query()->with('source:id,name,domain');
 
@@ -54,6 +57,7 @@ class CioPresentationController extends Controller
 
         return Inertia::render('CioPresentations', [
             'tab' => $tab,
+            'canManage' => $canManage,
             'stats' => [
                 'total' => Presentation::query()->count(),
                 'new' => Presentation::query()->where('review_status', 'new')->count(),

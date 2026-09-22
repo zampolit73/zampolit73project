@@ -26,6 +26,18 @@ class AuthenticationTest extends TestCase
         $this->get('/design-system')->assertRedirect('/login');
     }
 
+    public function test_regular_user_cannot_open_admin_pages(): void
+    {
+        $user = User::query()->create([
+            'username' => 'regular-user',
+            'password' => Hash::make('password'),
+            'role' => 'user',
+        ]);
+
+        $this->actingAs($user)->get('/design-system')->assertForbidden();
+        $this->actingAs($user)->get('/tests')->assertForbidden();
+    }
+
     public function test_user_can_login_and_logout(): void
     {
         $user = User::query()->create([

@@ -10,9 +10,13 @@ The application stores metadata and source URLs. It does **not** download or pro
 
 ## Access
 
-The project requires authentication and is limited to `admin` / `moderator` roles.
+The project requires authentication.
 
-The public `/projects` catalog may link to it; guests are redirected to login and regular users receive 403.
+- `user` can open the project, browse/search/filter presentations and open original presentation links;
+- `admin` has the same read access plus source management, scanning, manual presentation creation, clearing and review/mutation actions;
+- guests are redirected to `/login`.
+
+The backend enforces admin-only mutations; hiding controls in Vue is not the security boundary.
 
 ## Data model
 

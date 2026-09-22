@@ -2,27 +2,53 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class ProjectsRoutesTest extends TestCase
 {
-    public function test_projects_catalog_is_public(): void
+    use RefreshDatabase;
+
+    private function user(): User
     {
-        $this->get('/projects')->assertOk();
+        return User::query()->create([
+            'username' => 'projects-user',
+            'password' => Hash::make('password'),
+            'role' => 'user',
+        ]);
     }
 
-    public function test_bmp_to_mip_converter_is_public(): void
+    public function test_guest_is_redirected_from_projects_catalog(): void
     {
-        $this->get('/projects/bmp-to-mip')->assertOk();
+        $this->get('/projects')->assertRedirect('/login');
     }
 
-    public function test_pushkin_fairytales_book_is_public(): void
+    public function test_guest_is_redirected_from_every_project(): void
     {
-        $this->get('/projects/pushkin-fairytales')->assertOk();
+        foreach ([
+            '/projects/bmp-to-mip',
+            '/projects/pushkin-fairytales',
+            '/projects/reading-diary',
+            '/projects/cio-presentations',
+        ] as $url) {
+            $this->get($url)->assertRedirect('/login');
+        }
     }
 
-    public function test_reading_diary_is_public(): void
+    public function test_authenticated_user_can_open_projects_catalog_and_projects(): void
     {
-        $this->get('/projects/reading-diary')->assertOk();
+        $this->actingAs($this->user());
+
+        foreach ([
+            '/projects',
+            '/projects/bmp-to-mip',
+            '/projects/pushkin-fairytales',
+            '/projects/reading-diary',
+            '/projects/cio-presentations',
+        ] as $url) {
+            $this->get($url)->assertOk();
+        }
     }
 }

@@ -69,14 +69,22 @@ Desktop changes should also consider laptop-height viewports, not only wide desk
 
 ## Authentication and roles
 
-Current roles:
+Current database roles:
 
 - `admin`;
-- `moderator`;
 - `user`.
 
-`/design-system` is restricted to admin/moderator.
-`/tests` and push API require authentication.
+Guests are unauthenticated sessions, not a database role.
+
+User-facing access model:
+
+- guest: only `/` and `/login`;
+- user: home plus `/projects` and project pages;
+- admin: user access plus administrative pages and mutation actions.
+
+`/stas`, `/design-system` and `/tests` are admin-only.
+CIO presentation source management/scanning and mutation endpoints are admin-only.
+Push API requires authentication.
 
 Never hardcode real production passwords in source, migrations, docs or workflow files.
 

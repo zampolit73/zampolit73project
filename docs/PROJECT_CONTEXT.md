@@ -10,8 +10,8 @@ It is a snapshot, not a substitute for checking the live repository. Before chan
 - Repository: `zampolit73/zampolit73project`
 - Branch: `main`
 - Production: `https://zampolit73.duckdns.org`
-- Snapshot HEAD before this change: `7a038f2c266e99bf8944a52db0e8bea097c3d281`
-- Last verified production deploy before this change: GitHub Actions run #51 — success
+- Snapshot HEAD before this access-model change: `9c7a0250da45010f48575fcd1b250df8bf56ee74`
+- Last verified production deploy before this access-model change: GitHub Actions run #60 — success
 - Production is native Ubuntu; there is no Docker/Compose deployment
 
 ## Product shape
@@ -20,12 +20,12 @@ The site is a small multi-project application. The user wants new tools to live 
 
 Current projects:
 
-1. `/projects/bmp-to-mip` — public client-side Quake 1 texture converter.
-2. `/projects/cio-presentations` — internal CIO / IT-director presentation catalog for sales research.
-3. `/projects/pushkin-fairytales` — public animated living-book experiment based on Pushkin's fairytales.
-4. `/projects/reading-diary` — public browser-local reading diary presented as a bookshelf.
+1. `/projects/bmp-to-mip` — authenticated client-side Quake 1 texture converter.
+2. `/projects/cio-presentations` — authenticated CIO / IT-director presentation catalog; read-only for `user`, managed by `admin`.
+3. `/projects/pushkin-fairytales` — authenticated animated living-book experiment based on Pushkin's fairytales.
+4. `/projects/reading-diary` — authenticated browser-local reading diary presented as a bookshelf.
 
-The `/projects` page is the project selector. Do not replace or collapse the existing BMP → MIP project when changing the CIO project.
+The `/projects` page is the authenticated project selector. Do not replace or collapse the existing BMP → MIP project when changing the CIO project.
 
 ## Stack
 
@@ -110,15 +110,15 @@ Responsive behavior is mandatory, including 320 px mobile widths and laptop-heig
 ## Main routes
 
 - `/` — public home
-- `/stas` — public Stas page
-- `/projects` — public project selector
-- `/projects/bmp-to-mip` — public browser-only BMP → Quake 1 MIP converter
-- `/projects/cio-presentations` — authenticated admin/moderator CIO presentation project
-- `/projects/pushkin-fairytales` — public animated Pushkin fairytales book
-- `/projects/reading-diary` — public local reading diary / bookshelf
 - `/login` — guest login
-- `/design-system` — admin/moderator
-- `/tests` — authenticated service/test page
+- `/projects` — authenticated project selector
+- `/projects/bmp-to-mip` — authenticated browser-only BMP → Quake 1 MIP converter
+- `/projects/cio-presentations` — authenticated CIO presentation project; read-only for `user`, management for `admin`
+- `/projects/pushkin-fairytales` — authenticated animated Pushkin fairytales book
+- `/projects/reading-diary` — authenticated local reading diary / bookshelf
+- `/stas` — admin only
+- `/design-system` — admin only
+- `/tests` — admin only service/test page
 - `/up` — public Laravel health endpoint
 
 Authenticated push API:
@@ -130,13 +130,18 @@ Authenticated push API:
 
 ## Authentication
 
-Roles:
+Access model:
+
+- guest — only `/` and `/login` as user-facing pages;
+- `user` — home plus `/projects` and project pages;
+- `admin` — everything a user can access plus administrative pages and mutation actions.
+
+Database roles are exactly:
 
 - `admin`
-- `moderator`
 - `user`
 
-The CIO presentations project intentionally uses the same access rule as the design system: admin/moderator only.
+Legacy non-admin/non-user roles are normalized to `user`.
 
 ## PWA / Web Push
 
@@ -217,10 +222,11 @@ Main route:
 
 Access:
 
-- admin — allowed
-- moderator — allowed
-- regular user — forbidden
+- admin — full access
+- user — read-only project access
 - guest — redirected to login
+
+Source creation, scans, manual additions, clearing and review mutations are admin-only.
 
 Main backend:
 

@@ -10,6 +10,7 @@ const props = defineProps({
     presentations: { type: Object, required: true },
     latest: { type: Array, required: true },
     sources: { type: Array, required: true },
+    canManage: { type: Boolean, default: false },
 });
 
 const activeTab = ref(props.tab);
@@ -40,12 +41,14 @@ const filterForm = ref({
     source_id: props.filters.source_id ?? '',
 });
 
-const tabs = [
+const tabs = computed(() => [
     { id: 'overview', label: 'Обзор' },
     { id: 'presentations', label: 'Презентации' },
-    { id: 'sources', label: 'Источники' },
-    { id: 'search', label: 'Поиск / сканирование' },
-];
+    ...(props.canManage ? [
+        { id: 'sources', label: 'Источники' },
+        { id: 'search', label: 'Поиск / сканирование' },
+    ] : []),
+]);
 
 const currentItems = computed(() => props.presentations?.data ?? []);
 
@@ -181,7 +184,7 @@ function formatDate(value) {
                         <p class="cio-eyebrow">DASHBOARD</p>
                         <h2>ОБЗОР</h2>
                     </div>
-                    <button type="button" class="cio-button cio-button--primary" @click="switchTab('sources')">
+                    <button v-if="canManage" type="button" class="cio-button cio-button--primary" @click="switchTab('sources')">
                         Добавить источник
                     </button>
                 </div>
@@ -280,7 +283,7 @@ function formatDate(value) {
                             <div class="cio-panel__actions">
                                 <span>{{ presentations.total }} шт.</span>
                                 <button
-                                    v-if="stats.total > 0"
+                                    v-if="canManage && stats.total > 0"
                                     type="button"
                                     class="cio-button cio-button--danger"
                                     @click="clearPresentations"
@@ -304,7 +307,7 @@ function formatDate(value) {
                                         {{ item.event_name || item.source?.name || 'Ручное добавление' }}
                                         · {{ formatDate(item.discovered_at) }}
                                     </small>
-                                    <div class="cio-quick">
+                                    <div v-if="canManage" class="cio-quick">
                                         <button type="button" :class="{ 'is-on': item.has_email }" @click="toggleFlag(item, 'has_email')">Email</button>
                                         <button type="button" :class="{ 'is-on': item.has_phone }" @click="toggleFlag(item, 'has_phone')">Телефон</button>
                                         <button type="button" :class="{ 'is-on': item.is_good_lead }" @click="toggleFlag(item, 'is_good_lead')">Хороший лид</button>

@@ -63,7 +63,7 @@ if (typeof window !== 'undefined') {
                 <div class="sidebar__account-label">Аккаунт</div>
                 <div class="sidebar__account-name">{{ user.username }}</div>
                 <div class="sidebar__account-role">
-                    {{ user.role === 'admin' ? 'Администратор' : user.role === 'moderator' ? 'Модератор' : 'Пользователь' }}
+                    {{ user.role === 'admin' ? 'Администратор' : 'Пользователь' }}
                 </div>
                 <Button v-if="installAvailable" variant="secondary" type="button" class="sidebar__push" @click="requestInstall">Установить приложение</Button>
                 <Button

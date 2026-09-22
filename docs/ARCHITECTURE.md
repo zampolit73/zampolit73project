@@ -53,28 +53,28 @@ Public:
 
 - `GET /` → `Home.vue`;
 - `GET /login` → `Login.vue`;
-- `GET /stas` → `Stas.vue`;
+- `POST /login` → session login;
+- `GET /up` → Laravel health endpoint.
+
+Authenticated users:
+
 - `GET /projects` → `Projects.vue`;
 - `GET /projects/bmp-to-mip` → `BmpToMip.vue`;
 - `GET /projects/pushkin-fairytales` → `PushkinFairytales.vue`;
 - `GET /projects/reading-diary` → `ReadingDiary.vue`;
-- `POST /login` → session login;
-- `GET /up` → Laravel health endpoint;
-- `GET /projects` → каталог проектов;
-- `GET /projects/bmp-to-mip` → браузерный BMP → MIP конвертер.
-
-Authenticated:
-
-- `GET /tests` → `Tests.vue`;
+- `GET /projects/cio-presentations` → `CioPresentations.vue` in read-only mode for `user`;
 - `GET /push/config`;
 - `POST /push/subscriptions`;
 - `DELETE /push/subscriptions`;
 - `POST /push/test`;
 - `POST /logout`.
 
-Admin/moderator:
+Admin only:
 
-- `GET /design-system`.
+- `GET /stas`;
+- `GET /design-system`;
+- `GET /tests`;
+- CIO source creation, source scans, manual presentation creation, clearing and review mutations.
 
 ## Authentication
 
@@ -82,11 +82,12 @@ Authentication uses Laravel session guard and Eloquent `User`.
 
 Login identifier is `username`, not email.
 
-Roles currently normalized to:
+Roles are normalized to exactly two values:
 
 - `admin`;
-- `moderator`;
 - `user`.
+
+Guests are unauthenticated sessions, not a database role. Any legacy non-admin/non-user role is migrated to `user`.
 
 Session storage is file-based in production and persists through shared Laravel storage.
 
@@ -133,10 +134,10 @@ Pages:
 - `DesignSystem.vue`;
 - `Tests.vue` — operational browser tests, currently Web Push;
 - `Stas.vue` — interactive greeting;
-- `Projects.vue` — public tool catalog;
+- `Projects.vue` — authenticated project catalog;
 - `BmpToMip.vue` — client-only bulk BMP → Quake 1 MIP converter;
-- `PushkinFairytales.vue` — public interactive living-book animation with local Vue/CSS artwork;
-- `ReadingDiary.vue` — public browser-local reading diary rendered as an interactive bookshelf.
+- `PushkinFairytales.vue` — authenticated interactive living-book animation with local Vue/CSS artwork;
+- `ReadingDiary.vue` — authenticated browser-local reading diary rendered as an interactive bookshelf.
 
 Shared UI components live in `resources/js/components/ui/`.
 
@@ -194,7 +195,7 @@ Implementation:
 
 ## CIO presentations project
 
-The internal `/projects/cio-presentations` section is available to authenticated admin/moderator users.
+The `/projects/cio-presentations` section is available to every authenticated user. Regular `user` accounts have read-only access; source management, scanning and mutation actions are admin-only.
 
 Laravel owns source/presentation persistence and the lightweight public-page scan. Vue renders the project workspace and opens presentation URLs directly in a new browser tab.
 
@@ -222,7 +223,7 @@ Presentation files are not proxied or persisted. See `docs/CIO_PRESENTATIONS.md`
 
 ## Pushkin fairytales project
 
-The public `/projects/pushkin-fairytales` page is a frontend-only visual experiment.
+The authenticated `/projects/pushkin-fairytales` page is a frontend-only visual experiment.
 
 - no database state;
 - no external image assets;
@@ -245,7 +246,7 @@ The page is listed as project #03 in `Projects.vue`.
 
 ## Reading diary project
 
-The public `/projects/reading-diary` page is project #04.
+The authenticated `/projects/reading-diary` page is project #04.
 
 - frontend-only MVP; no Laravel persistence and no shared user data;
 - data is stored in browser `localStorage` under `zampolit73.reading-diary.v1`;

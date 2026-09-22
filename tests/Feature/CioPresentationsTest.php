@@ -29,7 +29,7 @@ class CioPresentationsTest extends TestCase
         $this->get('/projects/cio-presentations')->assertRedirect('/login');
     }
 
-    public function test_regular_user_cannot_open_cio_project(): void
+    public function test_regular_user_can_open_cio_project_but_cannot_manage_it(): void
     {
         $user = User::query()->create([
             'username' => 'regular-user',
@@ -37,7 +37,20 @@ class CioPresentationsTest extends TestCase
             'role' => 'user',
         ]);
 
-        $this->actingAs($user)->get('/projects/cio-presentations')->assertForbidden();
+        $source = PresentationSource::query()->firstOrFail();
+
+        $this->actingAs($user)
+            ->get('/projects/cio-presentations?tab=sources')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('CioPresentations')
+                ->where('canManage', false)
+                ->where('tab', 'overview')
+            );
+
+        $this->actingAs($user)
+            ->post('/projects/cio-presentations/sources/'.$source->id.'/scan')
+            ->assertForbidden();
     }
 
     public function test_starter_sources_use_only_approved_families_and_exclude_rejected_presets(): void
@@ -105,6 +118,7 @@ class CioPresentationsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('CioPresentations')
+                ->where('canManage', true)
                 ->where('stats.total', 0)
                 ->where('stats.sources', $sourceCount)
             );

@@ -14,11 +14,6 @@ class User extends Authenticatable
 
     public function roleLabel(): string
     {
-        return match ($this->role) {
-            'admin' => 'Админ',
-            'moderator' => 'Модератор',
-            'user' => 'Пользователь',
-            default => 'Пользователь',
-        };
+        return $this->role === 'admin' ? 'Администратор' : 'Пользователь';
     }
 }
