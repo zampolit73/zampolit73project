@@ -1,48 +1,46 @@
-# Project context / handoff
+# Полный контекст проекта / handoff
 
-Updated: 2026-09-22
+Обновлено: 2026-09-22
 
-This file is the primary handoff for continuing work on `zampolit73/zampolit73project`.
-It is a snapshot, not a substitute for checking the live repository. Before changing code, always read `AGENTS.md`, fetch the current `main` HEAD, and follow the optimistic-lock rules for `main`.
+Этот файл — канонический handoff по репозиторию `zampolit73/zampolit73project`.
+Он нужен для продолжения работы в новой сессии без потери решений, истории и ограничений.
 
-## Repository and production
+Перед любыми изменениями всё равно обязательно:
 
-- Repository: `zampolit73/zampolit73project`
-- Branch: `main`
+1. прочитать `AGENTS.md`;
+2. получить актуальный `main` HEAD;
+3. перечитать файлы, которых касается задача;
+4. перед финальным обновлением `main` повторно проверить HEAD;
+5. обновлять `main` только fast-forward, без force push;
+6. считать production deploy успешным только после полностью зелёного GitHub Actions run, включая Health Check и Notify.
+
+---
+
+# 1. Репозиторий и production
+
+- Репозиторий: `zampolit73/zampolit73project`
+- Основная ветка: `main`
 - Production: `https://zampolit73.duckdns.org`
-- Snapshot HEAD before this access-model change: `9c7a0250da45010f48575fcd1b250df8bf56ee74`
-- Last verified production deploy before this access-model change: GitHub Actions run #60 — success
-- Production is native Ubuntu; there is no Docker/Compose deployment
+- HEAD на момент этого handoff: `5b4769561aa7ecd28e1f1a7fe43232b05f5967da`
+- Последний подтверждённый зелёный deploy: GitHub Actions run **#63**
+- Production работает напрямую на Ubuntu, без Docker/Compose.
 
-## Product shape
+Текущий production stack:
 
-The site is a small multi-project application. The user wants new tools to live under the existing **Проекты** section instead of becoming unrelated top-level pages.
+- Nginx;
+- PHP 8.3-FPM;
+- Laravel 13;
+- Inertia Laravel 3;
+- Vue 3.5;
+- Vite 7;
+- Tailwind CSS 4;
+- SQLite;
+- Let's Encrypt / Certbot;
+- PWA;
+- Web Push / VAPID;
+- GitHub Actions CI/CD.
 
-Current projects:
-
-1. `/projects/bmp-to-mip` — authenticated client-side Quake 1 texture converter.
-2. `/projects/cio-presentations` — authenticated CIO / IT-director presentation catalog with full functionality for both `admin` and `user`.
-3. `/projects/pushkin-fairytales` — authenticated animated living-book experiment based on Pushkin's fairytales.
-4. `/projects/reading-diary` — authenticated browser-local reading diary presented as a bookshelf.
-
-The `/projects` page is the authenticated project selector. Do not replace or collapse the existing BMP → MIP project when changing the CIO project.
-
-## Stack
-
-- Laravel 13
-- PHP 8.3
-- Inertia Laravel 3
-- Vue 3.5
-- Vite 7
-- Tailwind CSS 4
-- SQLite
-- Nginx + PHP 8.3-FPM
-- Let's Encrypt / Certbot
-- PWA
-- Web Push / VAPID
-- GitHub Actions CI/CD
-
-## Production layout
+Production layout:
 
 ```text
 /var/www/zampolit73project/
@@ -54,13 +52,103 @@ The `/projects` page is the authenticated project selector. Do not replace or co
     └── storage/
 ```
 
-TLS state lives under `/etc/letsencrypt/`.
+Persistent state всегда должен оставаться вне release-директорий.
 
-Persistent state must stay outside release directories. Never commit production SQLite, `.env`, passwords, SSH credentials, VAPID private keys or other secrets.
+Нельзя коммитить:
 
-## CI/CD
+- production `.env`;
+- production SQLite;
+- реальные пароли;
+- приватные SSH-ключи;
+- VAPID private key;
+- DuckDNS token;
+- другие секреты.
+
+---
+
+# 2. Общая форма продукта
+
+Сайт — это одно Laravel/Inertia/Vue приложение с несколькими самостоятельными проектами внутри раздела **«Проекты»**.
+
+Пользовательское правило: новые инструменты должны жить внутри существующего раздела `/projects`, а не становиться случайными независимыми top-level страницами.
+
+Текущие проекты:
+
+1. `/projects/bmp-to-mip`
+2. `/projects/cio-presentations`
+3. `/projects/pushkin-fairytales`
+4. `/projects/reading-diary`
+
+Раздел `/projects` — общий селектор проектов.
+
+Проект с площадкой для дрессировки собак был создан экспериментально, затем **полностью удалён** commit `7a038f2c266e99bf8944a52db0e8bea097c3d281`.
+Не восстанавливать его и не возвращать маршрут/карточку/страницу без отдельного запроса.
+
+---
+
+# 3. Визуальный язык
+
+Сайт должен сохранять уже сложившийся editorial/poster стиль:
+
+- тёплый кремовый фон;
+- почти чёрный основной цвет;
+- глубокий красный акцент;
+- толстые рамки;
+- offset shadows;
+- condensed display typography;
+- геометрические декоративные элементы;
+- минимум generic SaaS-карточек и округлых dashboard-компонентов.
+
+Responsive обязателен:
+
+- usable с 320 px;
+- без случайного горизонтального скролла страницы;
+- читаемо без browser zoom;
+- touch targets пригодны для мобильного;
+- sticky/fixed UI не должен закрывать контент;
+- учитывать не только широкие мониторы, но и небольшую высоту ноутбука.
+
+---
+
+# 4. Архитектурные правила
+
+Laravel отвечает за:
+
+- маршруты;
+- session auth;
+- роли;
+- серверные mutation endpoints;
+- persistence;
+- migrations.
+
+Inertia связывает Laravel и Vue.
+
+Frontend:
+
+- страницы: `resources/js/pages/`;
+- shared components: `resources/js/components/`;
+- layouts: `resources/js/layouts/`;
+- navigation: `resources/js/navigation.js`;
+- frontend entrypoint: `resources/js/app.js`;
+- общие стили: `resources/css/`.
+
+Blade используется только как минимальная Inertia shell.
+
+Новый user-facing section обычно должен включать в одной задаче:
+
+- route;
+- Vue page;
+- navigation entry;
+- tests;
+- docs.
+
+---
+
+# 5. CI/CD и production deploy
 
 Workflow: `.github/workflows/deploy.yml`.
+
+Pipeline:
 
 ```text
 Backend CI ─────┐
@@ -68,123 +156,219 @@ Backend CI ─────┐
 Frontend Build ─┘
 ```
 
-Backend CI uses PHP 8.3, Composer and PHPUnit.
-Frontend Build uses Node.js 22, npm and Vite.
-Package combines tested backend/source with built `public/build`.
-Deploy uploads the release to the VPS, links shared persistent state, runs migrations, optimizes Laravel and atomically switches `current`.
-Health Check verifies production externally.
-Notify sends the deploy-success Web Push only after health checks pass.
+Backend CI:
 
-A deployment is not considered successful until the relevant Actions run is fully green and public HTTPS checks have passed.
+- PHP 8.3;
+- Composer;
+- PHPUnit.
 
-Production deploy runs migrations with `--force` but does **not** run seeders.
+Frontend Build:
 
-## Main branch safety
+- Node.js 22;
+- npm;
+- Vite build;
+- JS smoke tests where applicable.
 
-Treat `main` as an optimistic-lock target.
+Deploy:
 
-1. Record current `main` HEAD before editing.
-2. Re-fetch `main` immediately before updating the ref.
-3. If HEAD changed, rebuild/rebase the task on the new HEAD.
-4. Update only by fast-forward.
-5. Never force-update `main`.
+- собирает release;
+- подцепляет shared `.env`, SQLite и storage;
+- запускает migrations с `--force`;
+- не запускает seeders;
+- оптимизирует Laravel;
+- атомарно переключает `current` symlink;
+- reload Nginx;
+- выполняет локальные проверки.
 
-One logical task should normally be one commit.
+Health Check:
 
-## Visual language
+- проверяет DNS;
+- HTTPS `/up`;
+- homepage;
+- PWA manifest;
+- service worker;
+- HTTP → HTTPS redirect.
 
-Keep the established editorial/poster design:
+В health-check уже внесены две стабилизации:
 
-- warm cream background;
-- near-black foreground;
-- deep red accent;
-- hard borders;
-- offset shadows;
-- condensed display typography;
-- geometric decoration.
+1. локальные post-reload HTTPS checks используют retry, чтобы переживать короткий socket handoff после `nginx reload`;
+2. публичный health-check один раз получает IPv4 через `getent ahostsv4`, затем использует curl `--resolve`, чтобы повторные DNS lookup на hosted runner не роняли deploy.
 
-Avoid generic rounded SaaS dashboards unless explicitly requested.
+После успешного Health Check job `Notify` отправляет deploy-success Web Push.
 
-Responsive behavior is mandatory, including 320 px mobile widths and laptop-height viewports.
-
-## Main routes
-
-- `/` — public home
-- `/login` — guest login
-- `/projects` — authenticated project selector
-- `/projects/bmp-to-mip` — authenticated browser-only BMP → Quake 1 MIP converter
-- `/projects/cio-presentations` — authenticated CIO presentation project with full functionality for both roles
-- `/projects/pushkin-fairytales` — authenticated animated Pushkin fairytales book
-- `/projects/reading-diary` — authenticated local reading diary / bookshelf
-- `/admin/users` — admin-only user management / account creation
-- `/stas` — admin only
-- `/design-system` — admin only
-- `/tests` — admin only service/test page
-- `/up` — public Laravel health endpoint
-
-Authenticated push API:
-
-- `GET /push/config`
-- `POST /push/subscriptions`
-- `POST /push/test`
-- `DELETE /push/subscriptions`
-
-## Authentication
-
-Access model:
-
-- guest — only `/` and `/login` as user-facing pages;
-- `user` — home plus `/projects` and full functionality inside every project;
-- `admin` — the same project access plus site-administration pages and user management.
-
-Database roles are exactly:
-
-- `admin`
-- `user`
-
-Legacy non-admin/non-user roles are normalized to `user`.
-
-Admin user management:
-
-- `/admin/users` is admin-only;
-- admin can create a new account with username + initial password;
-- accounts created there always have role `user`;
-- passwords are hashed immediately and are never displayed back from storage.
-
-## PWA / Web Push
-
-- manifest: `public/site.webmanifest`
-- service worker: `public/sw.js`
-- PWA bootstrap: `resources/js/pwa.js`
-- frontend push client: `resources/js/push.js`
-- push backend: `PushSubscriptionController`
-- sender: `WebPushService`
-- VAPID bootstrap: `scripts/ensure-vapid.php`
-
-VAPID private keys belong only in production `.env`.
+Production deploy нельзя считать успешным до полного зелёного run.
 
 ---
 
-# BMP → MIP project
+# 6. Навигация после atomic deploy
 
-The first project under `/projects` is a browser-only Quake 1 texture converter.
+В прошлом долгоживущие вкладки могли ссылаться на старые hashed Vite chunks после atomic deploy.
 
-Current behavior:
+Для защиты от этого:
 
-- input: local BMP files/folder;
-- source images never leave the browser;
+- карточки проектов в `Projects.vue` используют обычные full-document `<a>`, а не Inertia `Link`;
+- `resources/js/app.js` слушает `vite:preloadError` и перезагружает страницу.
+
+Это общее hardening-поведение. Не удалять его без причины.
+
+---
+
+# 7. Модель доступа и роли
+
+Это важное текущее решение.
+
+В базе только две роли:
+
+- `admin`;
+- `user`.
+
+`guest` — не роль в БД, а неавторизованная сессия.
+
+Модель доступа:
+
+## Guest
+
+Не вошедший пользователь видит только пользовательские страницы:
+
+- `/`
+- `/login`
+
+Попытка открыть `/projects` или любой `/projects/*` должна отправлять на `/login`.
+
+## User
+
+Авторизованный `user` получает:
+
+- главную;
+- `/projects`;
+- **полный функционал всех проектов**.
+
+Внутри проектов у `user` те же действия, что и у `admin`.
+
+Особенно важно: в CIO PRESENTATIONS `user` может:
+
+- смотреть презентации;
+- фильтровать;
+- добавлять источники;
+- запускать сканирование;
+- добавлять презентации вручную;
+- менять статусы и флаги;
+- очищать презентации;
+- пользоваться вкладками «Источники» и «Поиск / сканирование».
+
+## Admin
+
+`admin` имеет тот же полный доступ к проектам плюс site-administration функции:
+
+- `/admin/users`;
+- `/stas`;
+- `/design-system`;
+- `/tests`.
+
+Текущее различие между `admin` и `user` относится к администрированию сайта, а не к возможностям проектов.
+
+Legacy роли, отличные от `admin` / `user`, миграцией нормализуются в `user`.
+
+---
+
+# 8. Администрирование пользователей
+
+Admin page:
+
+`/admin/users`
+
+Реализация:
+
+- `app/Http/Controllers/Admin/UserController.php`
+- `resources/js/pages/AdminUsers.vue`
+- admin-only middleware: `EnsureUserIsAdmin`
+
+Возможности сейчас:
+
+- увидеть список аккаунтов;
+- создать нового пользователя;
+- задать username;
+- задать начальный пароль;
+- повторить пароль для подтверждения.
+
+Правила:
+
+- аккаунт, созданный через админку, всегда имеет роль `user`;
+- нельзя через эту форму создать ещё одного admin;
+- пароль минимум 8 символов;
+- username уникален;
+- пароль сразу хешируется через Laravel `Hash`;
+- plaintext пароль не хранится;
+- plaintext пароль не возвращается в список пользователей;
+- после создания администратор должен передать начальный пароль пользователю самостоятельно безопасным способом.
+
+На данный момент в админке **нет** функций удаления пользователя, блокировки или сброса пароля.
+Не добавлять их как будто они уже существуют.
+
+Production users живут в SQLite на VPS.
+Seeder — только dev/bootstrap helper и production deploy его не запускает.
+
+---
+
+# 9. Текущая route-модель
+
+Public:
+
+- `GET /`
+- `GET /login`
+- `POST /login`
+- `GET /up`
+
+Authenticated:
+
+- `GET /projects`
+- `GET /projects/bmp-to-mip`
+- `GET /projects/cio-presentations`
+- `GET /projects/pushkin-fairytales`
+- `GET /projects/reading-diary`
+- CIO mutation routes
+- push API
+- `POST /logout`
+
+Admin-only:
+
+- `GET /admin/users`
+- `POST /admin/users`
+- `GET /stas`
+- `GET /design-system`
+- `GET /tests`
+
+Push API остаётся под auth.
+
+---
+
+# 10. Проект №01 — BMP → MIP
+
+Route:
+
+`/projects/bmp-to-mip`
+
+Назначение:
+
+браузерный массовый конвертер BMP → Quake 1 MIP/miptex.
+
+Ключевые решения:
+
+- исходные картинки не загружаются на сервер;
+- конвертация идёт в браузере;
 - classic Quake 1 palette quantization;
-- avoids accidental fullbright colors for normal source images;
-- automatically resizes invalid dimensions to a multiple-of-16 target while preserving proportions;
-- centers content and extends edge pixels instead of adding black bars;
-- proportionally downscales oversized inputs to the browser safety ceiling;
-- writes raw little-endian `miptex_t` with four mip levels;
-- packs successful conversions into a ZIP;
-- invalid inputs are reported and skipped without aborting the batch.
+- normal source images не должны случайно превращаться в fullbright;
+- размеры приводятся к допустимым multiple-of-16;
+- пропорции сохраняются;
+- oversized inputs уменьшаются;
+- контент центрируется;
+- края растягиваются вместо чёрных полос;
+- пишется little-endian miptex с четырьмя mip levels;
+- успешные результаты собираются в ZIP;
+- плохой файл не должен ронять весь batch.
 
-Main implementation:
+Основные файлы:
 
-- `resources/js/pages/Projects.vue`
 - `resources/js/pages/BmpToMip.vue`
 - `resources/js/lib/quakeMip.js`
 - `tests/js/quake-mip.mjs`
@@ -192,396 +376,481 @@ Main implementation:
 
 ---
 
-# CIO presentations project
+# 11. Проект №02 — CIO PRESENTATIONS
 
-## Intent
-
-This is an internal sales-support tool for finding public presentations by CIOs / IT directors and quickly reviewing them.
-
-The primary MVP question is:
-
-> Can the application regularly discover useful public presentation links for IT decision-makers using only free/public sources, while keeping VPS traffic and CPU usage very low?
-
-The tool is a **catalog of links and metadata**, not a PDF repository and not an outreach/CRM system.
-
-## Critical product decisions
-
-These decisions were explicitly chosen and should not be reversed without a new user request:
-
-- Do **not** automatically download presentation files to the VPS.
-- Do **not** store presentation files.
-- Do **not** proxy presentation downloads through the VPS.
-- Clicking **Открыть презентацию** must send the user's browser directly to the original source URL.
-- The server may fetch lightweight HTML/XML source pages for discovery.
-- The MVP should remain free: no paid search API, paid proxy, paid LLM or paid scraping service.
-- No OCR or PDF parsing is required for the current MVP.
-- Contacts inside presentations are not automatically extracted in the current version.
-- Review is manual: the user can mark whether a presentation has email, phone, is a good lead, is verified or does not fit.
-- Do not add automatic cold-emailing / mass outreach.
-- The preinstalled source families approved by the user are **TAdviser, CNews, Industrial++, ЦИПР and IB-Bank / «Цифровая устойчивость промышленных систем»**.
-- **1C must not be reintroduced as a preset source.**
-- **Global CIO must not be reintroduced as a preset source unless the user explicitly approves it later.**
-
-## Route and access
-
-Main route:
+Route:
 
 `/projects/cio-presentations`
 
-Access:
+Назначение:
 
-- admin — full project access
-- user — the same full project access
-- guest — redirected to login
+внутренний sales-support инструмент для поиска публичных презентаций CIO / ИТ-директоров и ручной квалификации.
 
-Source creation, scans, manual additions, clearing and review mutations are available to every authenticated user. Admin-only restrictions apply outside the project area.
+Главный вопрос MVP:
 
-Main backend:
+> Можно ли регулярно находить полезные публичные презентации ИТ-руководителей на бесплатных источниках, не создавая тяжёлую нагрузку на VPS?
+
+Это **каталог ссылок и метаданных**, а не PDF-хранилище и не CRM для рассылки.
+
+## 11.1. Критические продуктовые решения
+
+Не менять без отдельного запроса:
+
+- не скачивать презентации автоматически на VPS;
+- не хранить presentation files на VPS;
+- не проксировать скачивание презентаций через VPS;
+- «Открыть презентацию» должен вести браузер пользователя прямо на исходный URL;
+- сервер может получать только лёгкие HTML/XML страницы для discovery;
+- текущий MVP остаётся бесплатным;
+- не добавлять paid search API;
+- не добавлять paid scraping/proxy service;
+- не добавлять LLM для discovery без отдельного решения;
+- не делать OCR;
+- не парсить содержимое PDF;
+- контакты из презентаций автоматически не извлекаются;
+- нет автоматической холодной рассылки;
+- manual review остаётся частью workflow.
+
+Желаемая схема трафика:
+
+```text
+VPS -> source HTML/XML only
+User browser -> original PDF/PPT/PPTX directly
+```
+
+Нельзя превращать её в:
+
+```text
+source -> VPS -> user
+```
+
+для самих презентационных файлов.
+
+## 11.2. Доступ
+
+`admin` и `user` имеют одинаковый полный доступ к проекту.
+
+Guest → login.
+
+## 11.3. Основные backend файлы
 
 - `app/Http/Controllers/CioPresentationController.php`
 - `app/Services/PublicPresentationScanner.php`
 - `app/Models/Presentation.php`
 - `app/Models/PresentationSource.php`
 
-Main frontend:
+Frontend:
 
 - `resources/js/pages/CioPresentations.vue`
-- CIO styles live in `resources/css/app.css`
+- CIO styles в `resources/css/app.css`
 
-Main docs:
+Docs:
 
 - `docs/CIO_PRESENTATIONS.md`
 
-## Data model
+## 11.4. Интерфейс
 
-### presentation_sources
-
-Stores source pages used for discovery:
-
-- name
-- URL
-- domain
-- priority
-- active state
-- last scan timestamp
-- number of newly found links
-- last scan error
-- timestamps
-
-### presentations
-
-Stores metadata only:
-
-- optional source
-- title
-- speaker name
-- job title
-- company
-- event name
-- event year
-- file type: PDF / PPT / PPTX
-- direct file URL
-- source page URL
-- review status
-- link status
-- manual `has_email`
-- manual `has_phone`
-- manual `is_good_lead`
-- discovery timestamp
-- review timestamp
-
-`file_url` is unique and is the primary URL-level dedupe mechanism.
-
-## Current interface
-
-Tabs:
+Вкладки:
 
 - Обзор
 - Презентации
 - Источники
 - Поиск / сканирование
 
-The project includes:
+Функции:
 
-- statistics cards;
-- presentation filters/search;
-- source list;
-- manual source creation;
-- manual presentation-link creation;
-- manual source scan;
-- quick review buttons;
-- direct **Открыть презентацию ↗** link;
-- destructive **Очистить презентации** action.
+- статистика;
+- фильтры;
+- поиск;
+- список presentation candidates;
+- список источников;
+- ручное добавление источника;
+- ручное добавление presentation URL;
+- ручной запуск сканирования;
+- review flags;
+- открыть оригинальную презентацию;
+- очистить найденные презентации.
 
-The UI follows the existing cream / black / red poster language and has mobile layouts.
+Review flags:
 
-## Clear presentations / clean restart
+- email есть;
+- телефон есть;
+- хороший лид;
+- проверено;
+- не подходит;
+- другие существующие review/link statuses.
 
-The user explicitly requested the ability to start from zero.
+## 11.5. Data model
 
-The presentations tab now contains **Очистить презентации**.
+`presentation_sources`:
 
-Behavior:
+- name;
+- url;
+- domain;
+- priority;
+- is_active;
+- last_scanned_at;
+- last_scan_found;
+- last_error;
+- timestamps.
 
-- hard-delete every row from `presentations`;
-- keep `presentation_sources`;
-- reset all source `last_scanned_at`;
-- reset source `last_scan_found` to 0;
-- clear source `last_error`;
-- browser confirmation is required before the destructive request.
+`presentations`:
 
-The migration that introduced this feature also performed a **one-time production reset**, so the project started again from zero when commit `039090139...` was deployed.
+- optional source;
+- title;
+- speaker_name;
+- job_title;
+- company;
+- event_name;
+- event_year;
+- file_type;
+- file_url;
+- source_page_url;
+- review_status;
+- link_status;
+- has_email;
+- has_phone;
+- is_good_lead;
+- discovered_at;
+- reviewed_at.
 
-Do not make future migrations repeatedly wipe presentation data. Future resets should happen only via the explicit UI action unless the user asks for another one-time reset.
+`file_url` unique и служит основным URL-level dedupe.
 
-## Lightweight scanner
+## 11.6. Очистка презентаций
 
-Current scanner behavior is intentionally narrow.
+Кнопка **«Очистить презентации»**:
 
-For one selected source:
+- hard-delete всех строк `presentations`;
+- источники сохраняются;
+- `last_scanned_at` сбрасывается;
+- `last_scan_found` → 0;
+- `last_error` очищается;
+- требуется browser confirmation.
 
-1. Validate that the source is public HTTP/HTTPS.
-2. Fetch the source HTML/XML page.
-3. Optionally fetch root `/sitemap.xml`.
-4. Extract direct URLs ending in `.pdf`, `.ppt`, `.pptx`.
-5. Save new URLs as presentation candidates.
-6. Never request the presentation file itself.
+Ранее migration выполнила один раз production reset истории.
+Не делать новые migrations, которые при каждом deploy снова очищают презентации.
 
-Security / traffic controls:
+Дальнейшая очистка — только явным действием пользователя, если отдельно не заказан другой one-time reset.
 
-- only HTTP/HTTPS;
-- only ports 80/443;
-- localhost is rejected;
-- private/reserved IP ranges are rejected;
-- redirects are followed manually and revalidated;
-- short connect/request timeouts;
-- HTML/XML body size cap;
-- scans are manual in the current MVP.
+## 11.7. Approved preset sources
 
-The scanner includes UTF-8 handling for Russian link titles.
+Текущие одобренные preset families:
 
-The scanner now also follows up to 6 relevant same-origin HTML pages one level deep. It prioritizes presentation/material/abstract/report pages and related CIO/industrial keywords. It does not recurse beyond that level and still never requests presentation files.
+- TAdviser / TAdviser SummIT;
+- CNews / CNews FORUM Кейсы;
+- Industrial++;
+- ЦИПР;
+- IB-Bank / «Цифровая устойчивость промышленных систем».
 
-## Approved preset source policy
+Нельзя без отдельного решения возвращать:
 
-Approved preset families are TAdviser, CNews, Industrial++, ЦИПР and IB-Bank / «Цифровая устойчивость промышленных систем».
+- **1C** как preset;
+- **Global CIO** как preset.
 
-Earlier preset rows for 1C and Global CIO were removed by corrective migration.
+Manual sources пользователя — отдельная категория.
+Preset-maintenance migrations не должны удалять manual rows без явного запроса.
 
-Manual sources added by the user are separate from presets and should not be deleted by preset-maintenance migrations unless explicitly requested.
+Важные добавленные discovery points:
 
-## Current preset sources
+- `https://cnewsforum.ru/cases/presentations`
+- `https://industrialconf.ru/2025/abstracts`
+- `https://cipr-reports.ru/`
+- `https://cipr.ru/media-2025/`
+- `https://tsups.ib-bank.ru/materials`
 
-The preset set contains TAdviser/CNews historical discovery points plus 2026-specific sources.
+2026 TAdviser/CNews sources также уже добавлены отдельным preset layer.
 
-### TAdviser / TAdviser SummIT
+## 11.8. Scanner
 
-2026 sources currently include:
+Текущий scanner остаётся намеренно ограниченным.
 
-- `https://tadvisersummit.ru/a/2026-1/` — TAdviser SummIT, 28 May 2026
-- `https://tadvisersummit.ru/` — TAdviser SummIT, 26 November 2026 / current event entry
-- `https://itprize.tadviser.ru/` — TAdviser IT Prize 2026
+Для выбранного source:
 
-Existing historical TAdviser presets also include older SummIT archives/pages such as 2016/2017 and the archive/plans entry already added before the 2026 layer.
+1. валидирует публичный HTTP/HTTPS URL;
+2. получает source HTML/XML;
+3. находит direct links на `.pdf`, `.ppt`, `.pptx`;
+4. может пройти до **6 релевантных same-origin HTML страниц**;
+5. глубина обхода — один уровень;
+6. пытается получить root `/sitemap.xml`;
+7. не скачивает presentation files;
+8. найденные URL сохраняются как candidates.
 
-### CNews
+Приоритет discovery links:
 
-2026 sources currently include:
+- presentation;
+- materials;
+- abstracts;
+- reports;
+- speakers;
+- program;
+- «презентация»;
+- «материалы»;
+- «доклад»;
+- «спикер»;
+- CIO / CTO / CDO;
+- ИТ-директор;
+- цифровизация;
+- industrial / промышленность.
 
-- `https://www.cnews.ru/news/top/2026-09-16_sotni_it-direktorov_rossii`
-- `https://www.cnews.ru/news/top/2026-08-13_cnews_forum_2026_pervye_dokladchiki`
-- `https://www.cnews.ru/news/top/2026-05-13_cnews_forum_kejsy_2026_sotni_it-direktorov`
-- `https://www.cnews.ru/articles/2026-06-29_ot_temnyh_dannyh_do_avtonomnyh/4`
+Неинтересные категории вроде registration/sponsors/partners должны иметь отрицательный приоритет.
 
-Existing CNews presets also include the CIO / IT-director index and selected historical event/material pages.
+Security / traffic:
 
-## Discovery strategy going forward
+- только HTTP/HTTPS;
+- только 80/443;
+- localhost запрещён;
+- private/reserved IP запрещены;
+- redirects revalidate destination;
+- короткие connect/request timeouts;
+- HTML/XML size cap;
+- bounded page count;
+- manual scans в MVP.
 
-The intended free discovery model is:
+## 11.9. Ошибки сканирования
 
-```text
-approved source catalog
-        ↓
-lightweight HTML / sitemap discovery
-        ↓
-internal event/archive/material pages
-        ↓
-direct PDF/PPT/PPTX links
-        ↓
-metadata catalog
-        ↓
-manual browser review
-```
+Была production проблема: внешний сайт мог оборвать соединение/зависнуть, Laravel HTTP client кидал `ConnectionException`, а код ловил только `RuntimeException`. В результате Inertia показывал белый `500 Server Error`.
 
-The preferred direction is to make the application better at mining **known high-value sources** rather than depending on a paid web-search API.
+Исправлено:
 
-Potential next implementation step:
+- `ConnectionException` нормализуется в понятную scan error;
+- ожидаемые scanner errors сохраняются в `presentation_sources.last_error`;
+- UI получает validation error вместо 500;
+- неожиданные `Throwable` логируются через Laravel `report()`, а пользователю отдаётся безопасная ошибка;
+- malformed origin явно отклоняется.
 
-- add **Просканировать все активные**;
-- add source-specific HTML metadata extraction for title / speaker / role / company;
-- keep strict per-domain request limits;
-- keep presentation files untouched.
+Не возвращать поведение, где recoverable source/network failure роняет страницу 500.
 
-Do not build a broad aggressive crawler before adding domain limits and URL caps.
+## 11.10. Следующий логичный слой развития CIO
 
-## Traffic philosophy
+Уже обсуждавшееся направление, но пока не реализованное полностью:
 
-The key architecture choice is to keep presentation traffic off the VPS.
+- кнопка «Просканировать все активные»;
+- source-specific metadata extraction из surrounding HTML;
+- автоматически заполнять ФИО, должность, компанию и название доклада без чтения PDF;
+- сохранять строгие per-domain/request caps;
+- не расширять crawler до бесконтрольного recursive обхода;
+- не скачивать presentation files.
 
-Desired flow:
-
-```text
-VPS -> source HTML/XML only
-
-User browser -> original PDF/PPT/PPTX source directly
-```
-
-Not:
-
-```text
-source -> VPS -> user
-```
-
-Deleting a downloaded file would not undo network traffic, which is why presentation files are not downloaded by the server in the first place.
-
-## Review workflow
-
-The practical sales workflow is:
-
-1. Scanner finds a candidate URL.
-2. Candidate appears under **Презентации**.
-3. User opens the original presentation in the browser.
-4. User manually marks:
-   - email present;
-   - phone present;
-   - good lead;
-   - verified;
-   - not relevant.
-5. Filters help process the remaining queue.
-
-The application currently stores only those flags; it does not automatically store contact details from inside the document.
-
-## Privacy / outreach boundary
-
-Publicly available professional contact information is not automatically permission for unrestricted marketing.
-
-The current product intentionally stops at internal sourcing/review. It does not automatically send email, place calls or run campaigns.
-
-If outbound automation is added later, channel-specific privacy/direct-marketing requirements must be reviewed separately.
-
-## Current recent CIO commits
-
-- `e4ae504d...` — Add CIO presentations project MVP
-- `86067119...` — Fix UTF-8 presentation link titles
-- `35b0c867...` — Preinstall CIO presentation sources
-- `f29b5f57...` — Replace CIO presets with TAdviser and CNews
-- `03909013...` — Reset CIO history and add 2026 sources
-
-## Continuing in a new session
-
-Start with:
-
-> Continue work on `zampolit73/zampolit73project`. Read `AGENTS.md`, `docs/PROJECT_CONTEXT.md` and `docs/CIO_PRESENTATIONS.md`, then fetch the current `main` HEAD before changing anything. The CIO project must keep presentation files off the VPS and preset sources must remain TAdviser/CNews only unless the user explicitly changes that decision.
-
-Before implementing a new CIO feature, verify:
-
-- current `main` HEAD;
-- current routes/controller/page/migrations;
-- latest Actions status;
-- whether a production data migration is really necessary;
-- that the change does not reintroduce 1C/Global CIO presets;
-- that presentation files are still opened directly from the original source.
-
+Лучше углублять известные high-value sources, чем строить широкий агрессивный crawler.
 
 ---
 
-# Pushkin fairytales project
-
-Project #03 under `/projects`.
+# 12. Проект №03 — «Сказки Пушкина»
 
 Route:
 
 `/projects/pushkin-fairytales`
 
-Implementation:
+Проект доступен после авторизации.
+
+Основной файл:
 
 - `resources/js/pages/PushkinFairytales.vue`
-- styles in `resources/css/app.css`
-- project card in `resources/js/pages/Projects.vue`
 
-Product/design decisions:
+Решения:
 
-- public route;
-- frontend-only, no database;
-- no external images or third-party visual libraries;
-- animated 3D book that opens on entry and turns pages;
-- five tale-themed spreads: golden fish, Tsar Saltan, dead princess, golden cockerel, Balda;
-- autoplay every few seconds plus manual previous/next and direct dot selection;
-- pause/play control;
-- CSS-only decorative miniatures, paper texture, moon/stars, ornaments and table shadow;
-- follows the site's cream / black / red visual language but adds dark blue night and muted gold accents;
-- mobile adaptation down to 320 px;
-- `prefers-reduced-motion` disables autoplay and heavy movement.
+- frontend-only;
+- без БД;
+- без внешних изображений;
+- без third-party visual libraries;
+- animated 3D book;
+- книга открывается и перелистывает страницы;
+- ручная навигация;
+- autoplay;
+- pause/play;
+- CSS-only illustrations / ornaments;
+- cream/black/red база + dark blue night / muted gold;
+- mobile adaptation;
+- `prefers-reduced-motion` отключает тяжёлые motion effects и autoplay.
 
+Тематические spreads:
 
+- золотая рыбка;
+- царь Салтан;
+- мёртвая царевна;
+- золотой петушок;
+- Балда.
 
-## Post-deploy project navigation hardening
-
-The project catalog uses normal document links rather than Inertia `Link` components. This intentionally forces a fresh document/app-manifest load when entering an independent project.
-
-The frontend also listens for Vite `vite:preloadError` and reloads the page, which recovers long-lived tabs when a lazy page chunk no longer exists after an atomic deployment.
-
-
-
-
+Этот проект используется также как ссылка из предустановленной книги в читательском дневнике.
 
 ---
 
-# Reading diary project
-
-Project #04 under `/projects`.
+# 13. Проект №04 — «Читательский дневник»
 
 Route:
 
 `/projects/reading-diary`
 
-Implementation:
+Проект доступен после авторизации, но **данные дневника не привязаны к аккаунту**.
+
+Storage:
+
+- browser `localStorage`;
+- key: `zampolit73.reading-diary.v1`.
+
+То есть:
+
+- сервер не получает записи дневника;
+- БД для дневника нет;
+- разные браузеры/устройства автоматически не синхронизируются;
+- два пользователя в одном и том же browser profile фактически увидят один и тот же localStorage state.
+
+Основной файл:
 
 - `resources/js/pages/ReadingDiary.vue`
-- project card in `resources/js/pages/Projects.vue`
 
-Product decisions:
+UI:
 
-- public frontend-only MVP;
-- personal data stays in the current browser via `localStorage`;
-- storage key: `zampolit73.reading-diary.v1`;
-- no server database rows and no cross-device sync in this version;
-- **Сказки Пушкина** by Александр Пушкин is built in on first use and remains a protected starter entry;
-- the application does not invent a rating for the user: the starter book begins unrated;
-- custom books support title, author, completion date, 1–5 rating and free-form notes;
-- the interface is a CSS-rendered wooden bookshelf with interactive book spines and a selected-book cover/card;
-- the built-in Pushkin entry links to `/projects/pushkin-fairytales`;
-- responsive down to 320 px; shelf overflow is contained inside the shelf rather than the page.
+- деревянная книжная полка;
+- интерактивные корешки;
+- карточка выбранной книги;
+- 1–5 stars;
+- дата прочтения;
+- заметка;
+- добавление собственной книги;
+- удаление пользовательской книги;
+- статистика total/rated/average.
 
+Предустановленная книга:
 
-### Additional approved discovery sources — 2026-09-22
+- **Сказки Пушкина**
+- Александр Пушкин
+- starter entry
+- не удаляется
+- изначально без оценки
+- изначально без даты
+- изначально без личной заметки
+- содержит переход в `/projects/pushkin-fairytales`.
 
-A new idempotent migration preinstalls:
+Важно: не придумывать пользователю оценку за него.
 
-- `https://cnewsforum.ru/cases/presentations` — dedicated CNews FORUM Кейсы presentation archive;
-- `https://industrialconf.ru/2025/abstracts` — Industrial++ 2025 talks/presentations index;
-- `https://cipr-reports.ru/` — ЦИПР presentation/report archive;
-- `https://cipr.ru/media-2025/` — ЦИПР 2025 report/presentation entry page;
-- `https://tsups.ib-bank.ru/materials` — «Цифровая устойчивость промышленных систем» materials.
+Docs:
 
-These are additional approved preset families. 1C remains excluded, and Global CIO remains excluded unless explicitly approved later.
+- `docs/READING_DIARY.md`
 
+---
 
-### Scanner failure handling — 2026-09-22
+# 14. PWA / Web Push
 
-Manual source scanning must not surface Laravel's generic 500 page for recoverable source/network failures.
+Активные компоненты:
 
-- HTTP connection timeouts and connection resets are normalized to a user-facing scan error;
-- expected scanner `RuntimeException` messages are stored in `presentation_sources.last_error` and returned as validation errors;
-- unexpected parser/runtime throwables are reported to Laravel logs, while the UI receives a safe scan error instead of an Inertia 500 modal;
-- malformed origins are rejected explicitly instead of relying on PHP warnings.
+- `public/site.webmanifest`
+- `public/sw.js`
+- `resources/js/pwa.js`
+- `resources/js/push.js`
+- `PushSubscriptionController`
+- `WebPushService`
+- `scripts/ensure-vapid.php`
+
+VAPID private key только в production `.env`.
+
+Admin-only page `/tests` используется для browser push tests.
+
+После успешного production deploy отправляется deploy-success push администраторам.
+
+---
+
+# 15. Важные последние commits и зачем они нужны
+
+Хронология последних значимых изменений:
+
+- `860671195ac5d4205e521b8c7e863d6e9999d498` — исправление UTF-8 названий ссылок презентаций;
+- `35b0c8671f7357ba84c51c84d9dc37e92b6daa5e` — первичная предустановка CIO sources;
+- `f29b5f57c58f65a873c448a29c4118418e583d68` — presets заменены на TAdviser/CNews;
+- `039090139b1907532d8c0ba0d5a6a4255f8e40f6` — reset CIO history + 2026 sources;
+- `89651a7c340ee37a305dca36691d7608533516d8` — animated Pushkin project;
+- `94e69807ad107095c639034ea0096adc2733d205` — hardening project navigation after deploys;
+- `7a038f2c266e99bf8944a52db0e8bea097c3d281` — dog project полностью удалён;
+- `d85b3e33ad7c4526ceea5ee1b8e1e19f61f02d1d` — bookshelf reading diary;
+- `2b6ec1c88f6295495c2a3286ddd8346406aafc41` — новые CIO discovery sources + bounded depth-1 scanning;
+- `a9d80d7f7bbe7171a842f4e5a6dc6b71fff01280` — retry локальных health checks после nginx reload;
+- `be672daa16ee7533d4771ed9cccdd3925e93c3c6` — scan failures больше не дают пользователю 500;
+- `9c7a0250da45010f48575fcd1b250df8bf56ee74` — стабилизация public health-check DNS;
+- `9c23a27055274d787cc246dcec5a27177e910e22` — проекты закрыты auth, роли сокращены до admin/user;
+- `256f8fe1a901cb02ef0e14ae42388bb0ef53ebcf` — admin user management;
+- `5b4769561aa7ecd28e1f1a7fe43232b05f5967da` — `user` получил полный функционал всех проектов.
+
+---
+
+# 16. Что не надо случайно откатывать
+
+При следующих изменениях особенно не сломать:
+
+1. Guest не должен получать доступ к `/projects*`.
+2. User должен иметь полный функционал проектов.
+3. Admin-only должна оставаться именно site administration, прежде всего `/admin/users`.
+4. Не возвращать роль `moderator` без явного решения.
+5. Не возвращать dog-training-ground project.
+6. Не возвращать 1C preset.
+7. Не возвращать Global CIO preset без явного одобрения.
+8. Не скачивать PDF/PPT/PPTX на VPS.
+9. Не проксировать presentation files.
+10. Не удалять manual presentation sources миграцией presets.
+11. Не делать migrations, которые повторно очищают presentation history каждый deploy.
+12. Не убирать scanner SSRF protections.
+13. Не убирать scan error handling, из-за которого внешняя сеть не валит UI 500.
+14. Не убирать full-document project navigation / `vite:preloadError` reload protection без проверки причины.
+15. Не запускать production seeders.
+16. Не коммитить secrets.
+17. Не считать deploy успешным до полного зелёного pipeline.
+
+---
+
+# 17. Чек-лист для следующей задачи
+
+Перед работой:
+
+- получить свежий `main`;
+- прочитать `AGENTS.md`;
+- прочитать этот файл;
+- прочитать профильный doc;
+- прочитать текущие routes/controller/page/tests;
+- проверить migrations, если задача касается данных.
+
+Если задача про CIO:
+
+- проверить `docs/CIO_PRESENTATIONS.md`;
+- проверить `PublicPresentationScanner.php`;
+- не трогать presentation binaries;
+- соблюдать bounded traffic;
+- помнить approved preset families;
+- проверить regular `user`, а не только admin.
+
+Если задача про auth:
+
+- guest = только home/login;
+- user = полный доступ к projects;
+- admin = projects + site admin;
+- создание users только через admin page;
+- новый account получает role `user`.
+
+Если задача про deploy:
+
+- не force push;
+- один логический commit;
+- дождаться Backend CI;
+- дождаться Frontend Build;
+- дождаться Package;
+- дождаться Deploy;
+- дождаться Health Check;
+- дождаться Notify;
+- только после этого сообщать production success.
+
+---
+
+# 18. Куда смотреть дальше
+
+Основные документы:
+
+- `AGENTS.md` — обязательные repo rules;
+- `README.md` — короткое состояние приложения;
+- `docs/PROJECT_CONTEXT.md` — этот полный handoff;
+- `docs/ARCHITECTURE.md` — архитектура;
+- `docs/PRODUCTION.md` — VPS/deploy;
+- `docs/PWA_PUSH.md` — PWA/Web Push;
+- `docs/CIO_PRESENTATIONS.md` — CIO project;
+- `docs/BMP_TO_MIP.md` — Quake converter;
+- `docs/READING_DIARY.md` — reading diary;
+- `docs/TECHNICAL_DEBT.md` — известный technical debt.
+
+Этот handoff описывает **текущее намерение продукта**, но код и актуальный `main` всегда имеют приоритет при проверке фактического состояния.

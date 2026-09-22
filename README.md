@@ -228,7 +228,7 @@ tests/
 - `docs/PRODUCTION.md` — VPS, deploy, HTTPS, persistent state и эксплуатация.
 - `docs/PWA_PUSH.md` — PWA, service worker, push и VAPID.
 - `docs/TECHNICAL_DEBT.md` — известные ограничения и что стоит улучшить дальше.
-- `docs/PROJECT_CONTEXT.md` — компактный handoff-контекст для продолжения работы в новой сессии.
+- `docs/PROJECT_CONTEXT.md` — канонический полный handoff: решения, история, доступы, проекты, CIO scanner и deploy-правила.
 - `docs/BMP_TO_MIP.md` — формат Quake MIP и поведение конвертера.
 - `docs/CIO_PRESENTATIONS.md` — устройство каталога презентаций, лёгкого сканера и ограничения по трафику/безопасности.
 - `AGENTS.md` — обязательные правила разработки для работы с репозиторием.
