@@ -61,7 +61,7 @@ class RussianCioSourcesTest extends TestCase
             'is_good_lead' => true,
         ]);
         $sourcesBefore = PresentationSource::query()->orderBy('id')->get()->toArray();
-        $presentationBefore = $presentation->toArray();
+        $presentationBefore = $presentation->fresh()->toArray();
 
         $migration = require database_path('migrations/2026_09_22_120000_add_russian_cio_presentation_sources.php');
         $migration->up();
