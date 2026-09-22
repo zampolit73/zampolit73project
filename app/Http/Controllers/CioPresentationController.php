@@ -43,7 +43,7 @@ class CioPresentationController extends Controller
             $query->where('review_status', $status);
         }
 
-        if (in_array($fileType, ['pdf', 'ppt', 'pptx'], true)) {
+        if (in_array($fileType, ['pdf', 'ppt', 'pptx', 'link'], true)) {
             $query->where('file_type', $fileType);
         }
 
@@ -164,7 +164,7 @@ class CioPresentationController extends Controller
             'event_name' => ['nullable', 'string', 'max:255'],
             'event_year' => ['nullable', 'integer', 'min:1990', 'max:2100'],
             'file_url' => ['required', 'url:http,https', 'max:2048', 'unique:presentations,file_url'],
-            'file_type' => ['nullable', 'in:pdf,ppt,pptx'],
+            'file_type' => ['nullable', 'in:pdf,ppt,pptx,link'],
             'source_page_url' => ['nullable', 'url:http,https', 'max:2048'],
         ]);
 
@@ -174,7 +174,7 @@ class CioPresentationController extends Controller
 
         if (! $fileType) {
             throw ValidationException::withMessages([
-                'file_type' => 'Укажи тип файла: PDF, PPT или PPTX.',
+                'file_type' => 'Укажи тип: PDF, PPT, PPTX или ссылка на презентацию.',
             ]);
         }
 

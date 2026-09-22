@@ -1,6 +1,6 @@
 # Project context / handoff
 
-Updated: 2026-09-21
+Updated: 2026-09-22
 
 This file is the primary handoff for continuing work on `zampolit73/zampolit73project`.
 It is a snapshot, not a substitute for checking the live repository. Before changing code, always read `AGENTS.md`, fetch the current `main` HEAD, and follow the optimistic-lock rules for `main`.
@@ -203,7 +203,7 @@ These decisions were explicitly chosen and should not be reversed without a new 
 - Contacts inside presentations are not automatically extracted in the current version.
 - Review is manual: the user can mark whether a presentation has email, phone, is a good lead, is verified or does not fit.
 - Do not add automatic cold-emailing / mass outreach.
-- The preinstalled source families approved by the user are **TAdviser and CNews only**.
+- The preinstalled source families approved by the user are **TAdviser, CNews, 4CIO / ОКИТ and ИТ-Диалог**. The latter two families and additional CNews archives were approved on 2026-09-22.
 - **1C must not be reintroduced as a preset source.**
 - **Global CIO must not be reintroduced as a preset source unless the user explicitly approves it later.**
 
@@ -263,8 +263,8 @@ Stores metadata only:
 - company
 - event name
 - event year
-- file type: PDF / PPT / PPTX
-- direct file URL
+- file type: PDF / PPT / PPTX / link (public presentation share with unknown format)
+- original file or public share URL
 - source page URL
 - review status
 - link status
@@ -327,7 +327,7 @@ For one selected source:
 1. Validate that the source is public HTTP/HTTPS.
 2. Fetch the source HTML/XML page.
 3. Optionally fetch root `/sitemap.xml`.
-4. Extract direct URLs ending in `.pdf`, `.ppt`, `.pptx`.
+4. Extract direct URLs ending in `.pdf`, `.ppt`, `.pptx`, plus explicitly labelled public Yandex Disk presentation shares.
 5. Save new URLs as presentation candidates.
 6. Never request the presentation file itself.
 
@@ -344,11 +344,13 @@ Security / traffic controls:
 
 The scanner includes UTF-8 handling for Russian link titles.
 
-Known limitation: it currently finds direct file links on the given page / root sitemap; it does not yet deeply crawl event archives or follow candidate internal pages recursively.
+Public share candidates use `file_type=link`, are filterable and open directly in the user's browser. The scanner never requests the share page to infer its file format. Recognition requires a presentation/slide label and an allowlisted Yandex Disk host/path; video and photo links are excluded. CNews empty overlay anchors use their talk/speaker card text as the title. URL fragments are removed for deduplication.
+
+Known limitation: it currently finds file/share links on the given page / root sitemap; it does not yet deeply crawl event archives or follow candidate internal pages recursively.
 
 ## Approved preset source policy
 
-Only TAdviser and CNews are approved preset families.
+Approved preset families are TAdviser, CNews, 4CIO / ОКИТ and ИТ-Диалог.
 
 Earlier preset rows for 1C and Global CIO were removed by corrective migration.
 
@@ -356,7 +358,7 @@ Manual sources added by the user are separate from presets and should not be del
 
 ## Current preset sources
 
-The preset set contains TAdviser/CNews historical discovery points plus 2026-specific sources.
+The preset set contains TAdviser/CNews historical discovery points, 2026-specific sources and seven additional Russian archive pages approved on 2026-09-22.
 
 ### TAdviser / TAdviser SummIT
 
@@ -379,6 +381,18 @@ Existing historical TAdviser presets also include older SummIT archives/pages su
 
 Existing CNews presets also include the CIO / IT-director index and selected historical event/material pages.
 
+### Additional Russian archives (2026-09-22)
+
+- `https://okit2026.4cio.ru/report`
+- `https://okit2025.4cio.ru/report`
+- `https://okit2024.4cio.ru/report`
+- `https://xn--90ard6a.xn--80agbpbtv1a.xn--p1ai/kc2025` — ИТ-Диалог / Киберконтур 2025
+- `https://cnewsforum.ru/cases/2026/presentations`
+- `https://cnewsforum.ru/cases/2025/presentations`
+- `https://cnewsforum.ru/cases/2024/presentations`
+
+These public pages were checked for presentation links on 2026-09-22. Their additive data migration preserves existing source settings, presentation reviews and scan history on both repeat application and rollback. See `docs/CIO_PRESENTATIONS.md` for priorities and share-link handling. ComNews paid material packages remain outside the preset set.
+
 ## Discovery strategy going forward
 
 The intended free discovery model is:
@@ -390,7 +404,7 @@ lightweight HTML / sitemap discovery
         ↓
 internal event/archive/material pages
         ↓
-direct PDF/PPT/PPTX links
+direct PDF/PPT/PPTX or public presentation-share links
         ↓
 metadata catalog
         ↓
@@ -467,7 +481,7 @@ If outbound automation is added later, channel-specific privacy/direct-marketing
 
 Start with:
 
-> Continue work on `zampolit73/zampolit73project`. Read `AGENTS.md`, `docs/PROJECT_CONTEXT.md` and `docs/CIO_PRESENTATIONS.md`, then fetch the current `main` HEAD before changing anything. The CIO project must keep presentation files off the VPS and preset sources must remain TAdviser/CNews only unless the user explicitly changes that decision.
+> Continue work on `zampolit73/zampolit73project`. Read `AGENTS.md`, `docs/PROJECT_CONTEXT.md` and `docs/CIO_PRESENTATIONS.md`, then fetch the current `main` HEAD before changing anything. The CIO project must keep presentation files off the VPS. Approved source families are TAdviser, CNews, 4CIO / ОКИТ and ИТ-Диалог; preserve existing source settings and review history.
 
 Before implementing a new CIO feature, verify:
 
@@ -516,6 +530,5 @@ Product/design decisions:
 The project catalog uses normal document links rather than Inertia `Link` components. This intentionally forces a fresh document/app-manifest load when entering an independent project.
 
 The frontend also listens for Vite `vite:preloadError` and reloads the page, which recovers long-lived tabs when a lazy page chunk no longer exists after an atomic deployment.
-
 
 

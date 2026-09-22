@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\PresentationSource;
 use DOMDocument;
+use DOMElement;
 use DOMXPath;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -141,8 +142,7 @@ class PublicPresentationScanner
             }
 
             $url = $this->resolveUrl($baseUrl, $href);
-            $title = trim(preg_replace('/\\s+/u', ' ', $anchor->textContent ?? '') ?? '');
-            $this->addCandidate($candidates, $url, $title !== '' ? $title : null, $baseUrl);
+            $this->addCandidate($candidates, $url, $this->anchorTitle($xpath, $anchor), $baseUrl);
         }
 
         foreach ($xpath->query('//*[local-name()="loc"]') ?: [] as $loc) {
@@ -155,10 +155,34 @@ class PublicPresentationScanner
         return array_values($candidates);
     }
 
+    private function anchorTitle(DOMXPath $xpath, DOMElement $anchor): ?string
+    {
+        $text = trim($anchor->textContent);
+
+        if ($text === '') {
+            // CNews Forum uses empty overlay anchors inside a talk/speaker card.
+            $card = $xpath->query(
+                'ancestor::*[contains(concat(" ", normalize-space(@class), " "), " presentations__item ")][1]',
+                $anchor,
+            )->item(0);
+            $text = $card?->textContent ?? '';
+        }
+
+        $title = trim(preg_replace('/\s+/u', ' ', $text) ?? '');
+
+        return $title !== '' ? mb_substr($title, 0, 500) : null;
+    }
+
     private function addCandidate(array &$candidates, string $url, ?string $title, string $sourcePage): void
     {
-        $url = html_entity_decode(trim($url));
+        $url = $this->normalizeUrl(html_entity_decode(trim($url)));
         $type = $this->presentationType($url);
+
+        if (! $type && $this->isPresentationShare($url, $title)) {
+            // The original public share opens in the user's browser; never fetch it.
+            // Its actual file format is unknown until the user reviews it.
+            $type = 'link';
+        }
 
         if (! $type || ! preg_match('~^https?://~i', $url)) {
             return;
@@ -170,6 +194,19 @@ class PublicPresentationScanner
             'file_type' => $type,
             'source_page_url' => $sourcePage,
         ];
+    }
+
+    private function isPresentationShare(string $url, ?string $title): bool
+    {
+        $parts = parse_url($url);
+
+        return is_array($parts)
+            && in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+            && in_array(strtolower($parts['host'] ?? ''), ['disk.yandex.ru', 'disk.yandex.com', 'yadi.sk'], true)
+            && ! isset($parts['user']) && ! isset($parts['pass'])
+            && (! isset($parts['port']) || in_array($parts['port'], [80, 443], true))
+            && preg_match('~^/(?:i|d)/[a-zA-Z0-9_-]+/?$~D', $parts['path'] ?? '') === 1
+            && preg_match('~\b(?:презентаци\p{L}*|слайды|presentations?|slides)\b~iu', $title ?? '') === 1;
     }
 
     private function presentationType(string $url): ?string
@@ -190,7 +227,7 @@ class PublicPresentationScanner
 
     private function normalizeUrl(string $url): string
     {
-        return trim($url);
+        return explode('#', trim($url), 2)[0];
     }
 
     private function resolveUrl(string $base, string $href): string
