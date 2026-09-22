@@ -489,18 +489,24 @@ jobs:
 
           $SUDO nginx -t
           $SUDO systemctl reload nginx
+          sleep 1
 
-          curl -fsS --connect-timeout 3 --max-time 8 \
-            --resolve "$APP_DOMAIN:443:127.0.0.1" \
-            "https://$APP_DOMAIN/up" >/dev/null
+          local_https_check() {
+            url="$1"
+            curl -fsS \
+              --connect-timeout 3 \
+              --max-time 8 \
+              --retry 3 \
+              --retry-delay 1 \
+              --retry-max-time 20 \
+              --retry-all-errors \
+              --resolve "$APP_DOMAIN:443:127.0.0.1" \
+              "$url" >/dev/null
+          }
 
-          curl -fsS --connect-timeout 3 --max-time 8 \
-            --resolve "$APP_DOMAIN:443:127.0.0.1" \
-            "https://$APP_DOMAIN/site.webmanifest" >/dev/null
-
-          curl -fsS --connect-timeout 3 --max-time 8 \
-            --resolve "$APP_DOMAIN:443:127.0.0.1" \
-            "https://$APP_DOMAIN/sw.js" >/dev/null
+          local_https_check "https://$APP_DOMAIN/up"
+          local_https_check "https://$APP_DOMAIN/site.webmanifest"
+          local_https_check "https://$APP_DOMAIN/sw.js"
 
           echo "Local deployment checks passed."
 

@@ -101,7 +101,7 @@ Downloads the assembled release, uploads it to the VPS over SSH and activates it
 - migrations and Laravel optimize;
 - atomic `current` symlink switch;
 - Certbot issuance only when the certificate is missing;
-- Nginx reload and local HTTPS/PWA checks.
+- Nginx reload and local HTTPS/PWA checks with short retries to tolerate the brief socket handoff immediately after reload.
 
 ### Health Check
 
@@ -177,7 +177,7 @@ A release is not considered deployed until:
 - public service worker succeeds;
 - HTTP redirects to HTTPS.
 
-Public checks have explicit DNS/connect/request timeouts and print DNS, remote IP and timing diagnostics, so an unreachable domain fails quickly instead of occupying the deploy runner until the job-level timeout.
+Local post-reload checks use short retry windows because Nginx can briefly reset a connection while workers hand off. Public checks have explicit DNS/connect/request timeouts and print DNS, remote IP and timing diagnostics, so an unreachable domain fails quickly instead of occupying the deploy runner until the job-level timeout.
 
 Only after those checks does the workflow execute `push:deploy-success`.
 
