@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\PresentationSource;
 use DOMDocument;
+use DOMElement;
 use DOMXPath;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -13,6 +14,7 @@ class PublicPresentationScanner
 {
     private const MAX_PAGE_BYTES = 2_500_000;
     private const MAX_REDIRECTS = 3;
+    private const MAX_DISCOVERY_PAGES = 6;
 
     public function scan(PresentationSource $source): array
     {
@@ -34,10 +36,22 @@ class PublicPresentationScanner
             $candidates[$candidate['file_url']] = $candidate;
         }
 
-        $parts = parse_url($page['url']);
-        $origin = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
-        if (isset($parts['port'])) {
-            $origin .= ':'.$parts['port'];
+        $origin = $this->origin($page['url']);
+
+        foreach ($this->extractDiscoveryUrls($page['body'], $page['url'], $origin) as $discoveryUrl) {
+            try {
+                $discoveryPage = $this->fetchText($discoveryUrl, false);
+            } catch (RuntimeException) {
+                continue;
+            }
+
+            if ($this->origin($discoveryPage['url']) !== $origin) {
+                continue;
+            }
+
+            foreach ($this->extractCandidates($discoveryPage['body'], $discoveryPage['url']) as $candidate) {
+                $candidates[$candidate['file_url']] = $candidate;
+            }
         }
 
         $sitemapUrl = $origin.'/sitemap.xml';
@@ -50,7 +64,7 @@ class PublicPresentationScanner
                     $candidates[$candidate['file_url']] = $candidate;
                 }
             } catch (RuntimeException) {
-                // Sitemap is optional. The source page itself remains useful.
+                // Sitemap is optional. The source/discovery pages remain useful.
             }
         }
 
@@ -66,7 +80,7 @@ class PublicPresentationScanner
 
             $response = Http::accept('text/html,application/xhtml+xml,application/xml,text/xml;q=0.9,*/*;q=0.1')
                 ->withHeaders([
-                    'User-Agent' => 'Zampolit73PresentationIndex/0.1 (+https://zampolit73.duckdns.org)',
+                    'User-Agent' => 'Zampolit73PresentationIndex/0.2 (+https://zampolit73.duckdns.org)',
                 ])
                 ->withOptions(['allow_redirects' => false])
                 ->connectTimeout(3)
@@ -121,14 +135,9 @@ class PublicPresentationScanner
             $this->addCandidate($candidates, $url, null, $baseUrl);
         }
 
-        $document = new DOMDocument();
+        $document = $this->htmlDocument($body);
 
-        $previous = libxml_use_internal_errors(true);
-        $loaded = $document->loadHTML('<meta charset="utf-8">'.$body, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
-
-        if (! $loaded) {
+        if (! $document) {
             return array_values($candidates);
         }
 
@@ -142,7 +151,12 @@ class PublicPresentationScanner
 
             $url = $this->resolveUrl($baseUrl, $href);
             $title = trim(preg_replace('/\\s+/u', ' ', $anchor->textContent ?? '') ?? '');
-            $this->addCandidate($candidates, $url, $title !== '' ? $title : null, $baseUrl);
+            $this->addCandidate(
+                $candidates,
+                $url,
+                $this->usefulAnchorTitle($title) ? $title : null,
+                $baseUrl,
+            );
         }
 
         foreach ($xpath->query('//*[local-name()="loc"]') ?: [] as $loc) {
@@ -153,6 +167,103 @@ class PublicPresentationScanner
         }
 
         return array_values($candidates);
+    }
+
+    private function extractDiscoveryUrls(string $body, string $baseUrl, string $origin): array
+    {
+        $document = $this->htmlDocument($body);
+
+        if (! $document) {
+            return [];
+        }
+
+        $xpath = new DOMXPath($document);
+        $ranked = [];
+
+        foreach ($xpath->query('//a[@href]') ?: [] as $anchor) {
+            if (! ($anchor instanceof DOMElement)) {
+                continue;
+            }
+
+            $href = trim((string) $anchor->getAttribute('href'));
+
+            if (
+                $href === ''
+                || str_starts_with($href, '#')
+                || preg_match('~^(?:mailto:|tel:|javascript:)~i', $href)
+            ) {
+                continue;
+            }
+
+            $url = $this->stripFragment($this->resolveUrl($baseUrl, $href));
+
+            if (
+                $url === $this->stripFragment($baseUrl)
+                || $this->presentationType($url)
+                || $this->origin($url) !== $origin
+            ) {
+                continue;
+            }
+
+            $path = mb_strtolower((string) parse_url($url, PHP_URL_PATH));
+            $text = mb_strtolower(trim(preg_replace('/\\s+/u', ' ', $anchor->textContent ?? '') ?? ''));
+            $haystack = $path.' '.$text;
+            $score = 0;
+
+            if (preg_match('~/(?:abstracts?|presentations?|materials?|reports?|speakers?|program(?:me)?)(?:/|$)~iu', $path)) {
+                $score += 7;
+            }
+
+            if (preg_match('~/abstracts?/\\d+(?:/|$)~u', $path)) {
+                $score += 6;
+            }
+
+            if (preg_match('~(?:презентац|материал|доклад|спикер|presentation|material|abstract|report|speaker)~iu', $haystack)) {
+                $score += 4;
+            }
+
+            if (preg_match('~(?:cio|cto|cdo|ит.директор|директор по ит|цифров|industrial|промышлен)~iu', $haystack)) {
+                $score += 2;
+            }
+
+            if (preg_match('~/(?:login|register|registration|sponsors?|partners?|contacts?)(?:/|$)~iu', $path)) {
+                $score -= 10;
+            }
+
+            if ($score > 0) {
+                $ranked[$url] = max($ranked[$url] ?? 0, $score);
+            }
+        }
+
+        arsort($ranked);
+
+        return array_slice(array_keys($ranked), 0, self::MAX_DISCOVERY_PAGES);
+    }
+
+    private function htmlDocument(string $body): ?DOMDocument
+    {
+        $document = new DOMDocument();
+
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML('<meta charset="utf-8">'.$body, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        return $loaded ? $document : null;
+    }
+
+    private function usefulAnchorTitle(string $title): bool
+    {
+        $normalized = mb_strtolower(trim($title));
+
+        return $normalized !== ''
+            && ! in_array($normalized, [
+                'скачать',
+                'скачать презентацию',
+                'презентация',
+                'download',
+                'download presentation',
+            ], true);
     }
 
     private function addCandidate(array &$candidates, string $url, ?string $title, string $sourcePage): void
@@ -191,6 +302,23 @@ class PublicPresentationScanner
     private function normalizeUrl(string $url): string
     {
         return trim($url);
+    }
+
+    private function stripFragment(string $url): string
+    {
+        return explode('#', $url, 2)[0];
+    }
+
+    private function origin(string $url): string
+    {
+        $parts = parse_url($url);
+        $origin = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
+
+        if (isset($parts['port'])) {
+            $origin .= ':'.$parts['port'];
+        }
+
+        return strtolower($origin);
     }
 
     private function resolveUrl(string $base, string $href): string

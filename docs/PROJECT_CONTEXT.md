@@ -205,7 +205,7 @@ These decisions were explicitly chosen and should not be reversed without a new 
 - Contacts inside presentations are not automatically extracted in the current version.
 - Review is manual: the user can mark whether a presentation has email, phone, is a good lead, is verified or does not fit.
 - Do not add automatic cold-emailing / mass outreach.
-- The preinstalled source families approved by the user are **TAdviser and CNews only**.
+- The preinstalled source families approved by the user are **TAdviser, CNews, Industrial++, ЦИПР and IB-Bank / «Цифровая устойчивость промышленных систем»**.
 - **1C must not be reintroduced as a preset source.**
 - **Global CIO must not be reintroduced as a preset source unless the user explicitly approves it later.**
 
@@ -346,11 +346,11 @@ Security / traffic controls:
 
 The scanner includes UTF-8 handling for Russian link titles.
 
-Known limitation: it currently finds direct file links on the given page / root sitemap; it does not yet deeply crawl event archives or follow candidate internal pages recursively.
+The scanner now also follows up to 6 relevant same-origin HTML pages one level deep. It prioritizes presentation/material/abstract/report pages and related CIO/industrial keywords. It does not recurse beyond that level and still never requests presentation files.
 
 ## Approved preset source policy
 
-Only TAdviser and CNews are approved preset families.
+Approved preset families are TAdviser, CNews, Industrial++, ЦИПР and IB-Bank / «Цифровая устойчивость промышленных систем».
 
 Earlier preset rows for 1C and Global CIO were removed by corrective migration.
 
@@ -404,11 +404,9 @@ The preferred direction is to make the application better at mining **known high
 Potential next implementation step:
 
 - add **Просканировать все активные**;
-- crawl a small number of same-domain internal links from event/archive/material pages;
-- prioritize URLs/pages containing terms such as CIO, ИТ-директор, директор по ИТ, директор по информационным технологиям, Head of IT, доклад, презентация, материалы, спикеры;
-- strict per-domain request limits;
-- keep presentation files untouched;
-- collect surrounding HTML context so title / speaker / company can be inferred without opening the PDF.
+- add source-specific HTML metadata extraction for title / speaker / role / company;
+- keep strict per-domain request limits;
+- keep presentation files untouched.
 
 Do not build a broad aggressive crawler before adding domain limits and URL caps.
 
@@ -550,3 +548,16 @@ Product decisions:
 - the interface is a CSS-rendered wooden bookshelf with interactive book spines and a selected-book cover/card;
 - the built-in Pushkin entry links to `/projects/pushkin-fairytales`;
 - responsive down to 320 px; shelf overflow is contained inside the shelf rather than the page.
+
+
+### Additional approved discovery sources — 2026-09-22
+
+A new idempotent migration preinstalls:
+
+- `https://cnewsforum.ru/cases/presentations` — dedicated CNews FORUM Кейсы presentation archive;
+- `https://industrialconf.ru/2025/abstracts` — Industrial++ 2025 talks/presentations index;
+- `https://cipr-reports.ru/` — ЦИПР presentation/report archive;
+- `https://cipr.ru/media-2025/` — ЦИПР 2025 report/presentation entry page;
+- `https://tsups.ib-bank.ru/materials` — «Цифровая устойчивость промышленных систем» materials.
+
+These are additional approved preset families. 1C remains excluded, and Global CIO remains excluded unless explicitly approved later.

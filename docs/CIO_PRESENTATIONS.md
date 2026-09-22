@@ -39,10 +39,13 @@ The public `/projects` catalog may link to it; guests are redirected to login an
 
 Production receives an idempotent starter set through a data migration, not a seeder. Existing rows are preserved because preset URLs are inserted with `insertOrIgnore`.
 
-The approved built-in set is intentionally limited to two source families:
+The approved built-in source families are:
 
-- TAdviser / TAdviser SummIT pages with CIO and IT-director programs, speakers and event archives;
-- CNews pages and indexes centered on CIO / IT-director conference materials.
+- TAdviser / TAdviser SummIT;
+- CNews, including the dedicated CNews FORUM Кейсы presentation archive;
+- Industrial++ conference abstracts/presentation pages;
+- ЦИПР, including the dedicated `cipr-reports.ru` presentation archive;
+- IB-Bank's «Цифровая устойчивость промышленных систем» materials archive.
 
 1C and Global CIO are not part of the preset source set. Manual user-added sources outside the preset list are not removed.
 
@@ -58,13 +61,15 @@ The migration that introduced this action also performs a one-time reset of pres
 
 ## Lightweight scanner
 
-The first MVP scanner is intentionally narrow:
+The scanner stays deliberately bounded:
 
-1. An admin/moderator adds a public HTTP/HTTPS source page.
-2. A manual scan fetches only that HTML page plus the site's root `/sitemap.xml` when available.
-3. It extracts direct links ending in `.pdf`, `.ppt` or `.pptx`.
-4. Presentation files themselves are never requested.
-5. New URLs are deduplicated by the unique `file_url` column.
+1. An admin/moderator scans a public HTTP/HTTPS source page.
+2. It extracts direct links ending in `.pdf`, `.ppt` or `.pptx`.
+3. It may follow up to **6 relevant same-origin HTML pages** linked from the source, one level deep. Presentation/material/abstract/report paths and CIO/industrial keywords are prioritized.
+4. Registration, sponsor and unrelated/external links are not discovery targets.
+5. The site's root `/sitemap.xml` is still checked when available.
+6. Presentation files themselves are never requested.
+7. New URLs are deduplicated by the unique `file_url` column.
 
 Safety controls:
 
@@ -76,6 +81,8 @@ Safety controls:
 - HTML/XML body size is capped;
 - scans are user-triggered in the MVP.
 
-## Next discovery layer
+## Discovery limits and next layer
 
-The next stage can expand discovery without paid APIs by adding conservative crawling of known source archives, event/material pages and other public indexes. It should continue to store links only and must keep per-domain request limits.
+The current one-level discovery pass is intentionally small so a manual scan cannot turn into a broad crawler. It does not recursively traverse discovered pages.
+
+A later layer can add source-specific metadata extraction (speaker, role, company, event) from surrounding HTML. It should continue to store links only and keep strict per-domain/request limits.

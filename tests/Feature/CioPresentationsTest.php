@@ -40,7 +40,7 @@ class CioPresentationsTest extends TestCase
         $this->actingAs($user)->get('/projects/cio-presentations')->assertForbidden();
     }
 
-    public function test_starter_sources_only_use_approved_tadviser_and_cnews_sources(): void
+    public function test_starter_sources_use_only_approved_families_and_exclude_rejected_presets(): void
     {
         $this->assertDatabaseMissing('presentation_sources', [
             'url' => 'https://1c.ru/bf/2025/default.jsp',
@@ -60,6 +60,26 @@ class CioPresentationsTest extends TestCase
             'name' => 'CNews — индекс материалов CIO / ИТ-директор',
             'url' => 'https://www.cnews.ru/book/mutual/1667/2195',
             'priority' => 100,
+        ]);
+
+        $this->assertDatabaseHas('presentation_sources', [
+            'url' => 'https://cnewsforum.ru/cases/presentations',
+            'priority' => 130,
+        ]);
+
+        $this->assertDatabaseHas('presentation_sources', [
+            'url' => 'https://industrialconf.ru/2025/abstracts',
+            'priority' => 126,
+        ]);
+
+        $this->assertDatabaseHas('presentation_sources', [
+            'url' => 'https://cipr-reports.ru/',
+            'priority' => 130,
+        ]);
+
+        $this->assertDatabaseHas('presentation_sources', [
+            'url' => 'https://tsups.ib-bank.ru/materials',
+            'priority' => 124,
         ]);
     }
 
@@ -129,6 +149,51 @@ class CioPresentationsTest extends TestCase
             'last_scan_found' => 0,
             'last_error' => null,
         ]);
+    }
+
+    public function test_scanner_follows_a_bounded_relevant_internal_page_to_find_presentations(): void
+    {
+        Http::fake([
+            'https://industrial.example/2025/abstracts' => Http::response(
+                '<html><body>'
+                .'<a href="/2025/abstracts/42">Доклад: цифровое производство</a>'
+                .'<a href="/register">Регистрация</a>'
+                .'<a href="https://outside.example/materials">Внешние материалы</a>'
+                .'</body></html>',
+                200,
+                ['Content-Type' => 'text/html'],
+            ),
+            'https://industrial.example/2025/abstracts/42' => Http::response(
+                '<html><body><a href="/files/cio-industrial.pdf">Скачать презентацию</a></body></html>',
+                200,
+                ['Content-Type' => 'text/html'],
+            ),
+            'https://industrial.example/sitemap.xml' => Http::response('', 404),
+        ]);
+
+        $source = PresentationSource::query()->create([
+            'name' => 'Industrial test',
+            'url' => 'https://industrial.example/2025/abstracts',
+            'domain' => 'industrial.example',
+            'priority' => 50,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->admin())
+            ->post('/projects/cio-presentations/sources/'.$source->id.'/scan')
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('presentations', [
+            'source_id' => $source->id,
+            'file_url' => 'https://industrial.example/files/cio-industrial.pdf',
+            'file_type' => 'pdf',
+            'source_page_url' => 'https://industrial.example/2025/abstracts/42',
+        ]);
+
+        Http::assertNotSent(
+            fn ($request) => str_contains($request->url(), '/register')
+                || str_contains($request->url(), 'outside.example')
+        );
     }
 
     public function test_admin_can_add_source_and_scan_direct_presentation_links(): void
