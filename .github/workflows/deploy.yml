@@ -526,10 +526,13 @@ jobs:
           set -euo pipefail
 
           echo "=== DNS diagnostics for $APP_DOMAIN ==="
-          if ! getent ahostsv4 "$APP_DOMAIN"; then
+          dns_output="$(getent ahostsv4 "$APP_DOMAIN" || true)"
+          if [ -z "$dns_output" ]; then
             echo "::error::IPv4 DNS resolution failed for $APP_DOMAIN"
             exit 41
           fi
+          printf '%s\n' "$dns_output"
+          APP_IPV4="$(printf '%s\n' "$dns_output" | awk 'NR == 1 { print $1 }')"
 
           check_https() {
             label="$1"
@@ -546,6 +549,7 @@ jobs:
               --retry-delay 1 \
               --retry-max-time 18 \
               --retry-all-errors \
+              --resolve "$APP_DOMAIN:443:$APP_IPV4" \
               --output /dev/null \
               --write-out 'HTTP %{http_code} remote=%{remote_ip} dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s total=%{time_total}s\n' \
               "$url"
@@ -560,6 +564,11 @@ jobs:
             --show-error \
             --connect-timeout 3 \
             --max-time 8 \
+            --retry 2 \
+            --retry-delay 1 \
+            --retry-max-time 18 \
+            --retry-all-errors \
+            --resolve "$APP_DOMAIN:80:$APP_IPV4" \
             --output /dev/null \
             --write-out '%{redirect_url}' \
             "http://$APP_DOMAIN/")"

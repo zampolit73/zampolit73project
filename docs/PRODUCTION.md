@@ -209,3 +209,8 @@ The workflow is optimized for frequent small pushes:
 - Nginx receives a lightweight configuration reload after the atomic release switch.
 
 The first run after a dependency or server-package change can still be slower than a normal application-only deploy.
+
+
+### Public health-check DNS behavior
+
+The public health job resolves the production hostname once with `getent ahostsv4`, records the public IPv4 address, then uses curl `--resolve` for HTTPS and redirect probes. This still validates DNS availability at the start of the job while avoiding repeated resolver lookups that can intermittently time out on hosted runners.
