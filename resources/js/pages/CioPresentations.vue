@@ -191,7 +191,7 @@ function formatDate(value) {
                         <h3>КАК ЭТО РАБОТАЕТ</h3>
                         <ol class="cio-flow">
                             <li><b>01</b><span>Добавляем публичную страницу конференции, мероприятия или компании.</span></li>
-                            <li><b>02</b><span>Лёгкий скан читает только HTML/XML и собирает прямые PDF/PPT/PPTX ссылки.</span></li>
+                            <li><b>02</b><span>Сканирование находит PDF/PPT/PPTX и ссылки на презентации в Яндекс Диске.</span></li>
                             <li><b>03</b><span>Презентация открывается напрямую в твоём браузере с сайта-источника.</span></li>
                             <li><b>04</b><span>После просмотра отмечаем email, телефон и качество лида одним кликом.</span></li>
                         </ol>
@@ -214,7 +214,10 @@ function formatDate(value) {
 
                     <div v-if="latest.length" class="cio-list">
                         <div v-for="item in latest" :key="item.id" class="cio-row">
-                            <span class="cio-file">{{ item.file_type }}</span>
+                            <span class="cio-file">
+                                {{ item.file_type === 'link' ? '↗' : item.file_type }}
+                                <span v-if="item.file_type === 'link'" class="sr-only">Ссылка на презентацию</span>
+                            </span>
                             <div class="cio-row__copy">
                                 <strong>{{ item.title || 'Без названия' }}</strong>
                                 <span>{{ item.speaker_name || 'Спикер не указан' }} · {{ item.company || 'Компания не указана' }}</span>
@@ -253,12 +256,13 @@ function formatDate(value) {
                             </select>
                         </label>
                         <label>
-                            Тип файла
+                            Тип материала
                             <select v-model="filterForm.file_type">
                                 <option value="">Все</option>
                                 <option value="pdf">PDF</option>
                                 <option value="ppt">PPT</option>
                                 <option value="pptx">PPTX</option>
+                                <option value="link">Ссылка на презентацию</option>
                             </select>
                         </label>
                         <label>
@@ -292,7 +296,10 @@ function formatDate(value) {
 
                         <div v-if="currentItems.length" class="cio-list">
                             <div v-for="item in currentItems" :key="item.id" class="cio-row cio-row--review">
-                                <span class="cio-file">{{ item.file_type }}</span>
+                                <span class="cio-file">
+                                    {{ item.file_type === 'link' ? '↗' : item.file_type }}
+                                    <span v-if="item.file_type === 'link'" class="sr-only">Ссылка на презентацию</span>
+                                </span>
                                 <div class="cio-row__copy">
                                     <strong>{{ item.title || 'Без названия' }}</strong>
                                     <span>
@@ -413,6 +420,7 @@ function formatDate(value) {
                                     <option value="pdf">PDF</option>
                                     <option value="ppt">PPT</option>
                                     <option value="pptx">PPTX</option>
+                                    <option value="link">Ссылка на презентацию</option>
                                 </select>
                                 <small v-if="candidateForm.errors.file_type">{{ candidateForm.errors.file_type }}</small>
                             </label>
@@ -454,8 +462,9 @@ function formatDate(value) {
                     <article class="cio-panel cio-panel--note">
                         <h3>БЕСПЛАТНЫЙ ПОИСК: ЭТАП 1</h3>
                         <p>
-                            Уже работает лёгкий скан добавленных публичных страниц и их sitemap.xml:
-                            он читает только HTML/XML и забирает прямые ссылки на PDF/PPT/PPTX.
+                            Сканирование находит PDF/PPT/PPTX и ссылки на презентации в Яндекс Диске,
+                            которые организатор пометил как презентации или слайды.
+                            Они открываются на сайте источника; формат можно проверить при просмотре.
                         </p>
                         <p>
                             Следующий слой — автоматическое расширение по архивам конференций и бесплатным

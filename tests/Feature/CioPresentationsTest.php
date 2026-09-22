@@ -40,7 +40,7 @@ class CioPresentationsTest extends TestCase
         $this->actingAs($user)->get('/projects/cio-presentations')->assertForbidden();
     }
 
-    public function test_starter_sources_only_use_approved_tadviser_and_cnews_sources(): void
+    public function test_original_approved_sources_remain_without_removed_presets(): void
     {
         $this->assertDatabaseMissing('presentation_sources', [
             'url' => 'https://1c.ru/bf/2025/default.jsp',
