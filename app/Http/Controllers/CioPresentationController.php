@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Presentation;
 use App\Models\PresentationSource;
+use App\Models\User;
 use App\Services\PublicPresentationScanner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,12 +23,17 @@ class CioPresentationController extends Controller
         $status = $request->string('status')->toString();
         $fileType = $request->string('file_type')->toString();
         $sourceId = $request->integer('source_id') ?: null;
+        $assignee = $request->string('assignee')->toString();
+        $currentUserId = $request->user()->id;
         $canManage = true;
         $allowedTabs = ['overview', 'presentations', 'sources', 'search'];
         $requestedTab = $request->string('tab')->toString();
         $tab = in_array($requestedTab, $allowedTabs, true) ? $requestedTab : 'overview';
 
-        $query = Presentation::query()->with('source:id,name,domain');
+        $query = Presentation::query()->with([
+            'source:id,name,domain',
+            'assignee:id,username',
+        ]);
 
         if ($search !== '') {
             $query->where(function ($inner) use ($search) {
@@ -53,6 +59,16 @@ class CioPresentationController extends Controller
             $query->where('source_id', $sourceId);
         }
 
+        if ($assignee === 'unassigned') {
+            $query->whereNull('assigned_to_user_id');
+        } elseif ($assignee === 'assigned') {
+            $query->whereNotNull('assigned_to_user_id');
+        } elseif ($assignee === 'mine') {
+            $query->where('assigned_to_user_id', $currentUserId);
+        } elseif (preg_match('/^user:(\\d+)$/', $assignee, $matches)) {
+            $query->where('assigned_to_user_id', (int) $matches[1]);
+        }
+
         return Inertia::render('CioPresentations', [
             'tab' => $tab,
             'canManage' => $canManage,
@@ -63,12 +79,15 @@ class CioPresentationController extends Controller
                 'withEmail' => Presentation::query()->where('has_email', true)->count(),
                 'withPhone' => Presentation::query()->where('has_phone', true)->count(),
                 'sources' => PresentationSource::query()->count(),
+                'inWork' => Presentation::query()->whereNotNull('assigned_to_user_id')->count(),
+                'mine' => Presentation::query()->where('assigned_to_user_id', $currentUserId)->count(),
             ],
             'filters' => [
                 'search' => $search,
                 'status' => $status,
                 'file_type' => $fileType,
                 'source_id' => $sourceId,
+                'assignee' => $assignee,
             ],
             'presentations' => $query
                 ->orderByDesc('discovered_at')
@@ -76,7 +95,10 @@ class CioPresentationController extends Controller
                 ->paginate(30)
                 ->withQueryString(),
             'latest' => Presentation::query()
-                ->with('source:id,name,domain')
+                ->with([
+                    'source:id,name,domain',
+                    'assignee:id,username',
+                ])
                 ->orderByDesc('discovered_at')
                 ->orderByDesc('id')
                 ->limit(6)
@@ -86,6 +108,11 @@ class CioPresentationController extends Controller
                 ->orderByDesc('priority')
                 ->orderBy('name')
                 ->get(),
+            'assignees' => User::query()
+                ->select(['id', 'username'])
+                ->orderBy('username')
+                ->get(),
+            'currentUserId' => $currentUserId,
         ]);
     }
 
@@ -232,7 +259,52 @@ class CioPresentationController extends Controller
             'speaker_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'job_title' => ['sometimes', 'nullable', 'string', 'max:255'],
             'company' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'assignment_action' => ['sometimes', 'in:take,release'],
         ]);
+
+        if (array_key_exists('assignment_action', $data)) {
+            $action = $data['assignment_action'];
+            unset($data['assignment_action']);
+            $userId = $request->user()->id;
+
+            if ($action === 'take') {
+                if ($presentation->assigned_to_user_id === $userId) {
+                    // Already mine: keep the original assignment timestamp.
+                } else {
+                    $assigned = Presentation::query()
+                        ->whereKey($presentation->id)
+                        ->whereNull('assigned_to_user_id')
+                        ->update([
+                            'assigned_to_user_id' => $userId,
+                            'assigned_at' => now(),
+                        ]);
+
+                    if ($assigned === 0) {
+                        throw ValidationException::withMessages([
+                            'assignment' => 'Эта презентация уже взята в работу другим пользователем.',
+                        ]);
+                    }
+                }
+            }
+
+            if ($action === 'release') {
+                $released = Presentation::query()
+                    ->whereKey($presentation->id)
+                    ->where('assigned_to_user_id', $userId)
+                    ->update([
+                        'assigned_to_user_id' => null,
+                        'assigned_at' => null,
+                    ]);
+
+                if ($released === 0) {
+                    throw ValidationException::withMessages([
+                        'assignment' => 'Снять с работы можно только презентацию, назначенную на тебя.',
+                    ]);
+                }
+            }
+
+            $presentation->refresh();
+        }
 
         if (array_key_exists('review_status', $data) && in_array($data['review_status'], ['verified', 'rejected'], true)) {
             $data['reviewed_at'] = now();

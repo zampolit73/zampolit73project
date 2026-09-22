@@ -219,9 +219,10 @@ Stores metadata only:
 - title / speaker / role / company / event;
 - PDF/PPT/PPTX URL and source-page URL;
 - manual review/link flags;
+- optional responsible user and assignment timestamp;
 - discovery/review timestamps.
 
-Presentation files are not proxied or persisted. See `docs/CIO_PRESENTATIONS.md`.
+Presentation files are not proxied or persisted. Assignment uses a nullable foreign key from `presentations.assigned_to_user_id` to `users.id`; claiming a presentation is performed with a conditional database update so concurrent users cannot overwrite each other. See `docs/CIO_PRESENTATIONS.md`.
 
 
 ## Pushkin fairytales project

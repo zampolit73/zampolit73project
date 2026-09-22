@@ -307,4 +307,179 @@ class CioPresentationsTest extends TestCase
             'review_status' => 'new',
         ]);
     }
+    public function test_user_can_take_review_and_release_a_presentation(): void
+    {
+        $user = User::query()->create([
+            'username' => 'worker-user',
+            'password' => Hash::make('password'),
+            'role' => 'user',
+        ]);
+
+        $presentation = Presentation::query()->create([
+            'title' => 'Assignment test',
+            'file_type' => 'pdf',
+            'file_url' => 'https://example.com/assignment-test.pdf',
+            'review_status' => 'new',
+            'link_status' => 'unknown',
+            'discovered_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->patch('/projects/cio-presentations/presentations/'.$presentation->id, [
+                'assignment_action' => 'take',
+            ])
+            ->assertRedirect();
+
+        $presentation->refresh();
+
+        $this->assertSame($user->id, $presentation->assigned_to_user_id);
+        $this->assertNotNull($presentation->assigned_at);
+
+        $assignedAt = $presentation->assigned_at?->toISOString();
+
+        $this->actingAs($user)
+            ->patch('/projects/cio-presentations/presentations/'.$presentation->id, [
+                'review_status' => 'verified',
+            ])
+            ->assertRedirect();
+
+        $presentation->refresh();
+
+        $this->assertSame($user->id, $presentation->assigned_to_user_id);
+        $this->assertSame($assignedAt, $presentation->assigned_at?->toISOString());
+        $this->assertSame('verified', $presentation->review_status);
+
+        $this->actingAs($user)
+            ->patch('/projects/cio-presentations/presentations/'.$presentation->id, [
+                'assignment_action' => 'release',
+            ])
+            ->assertRedirect();
+
+        $presentation->refresh();
+
+        $this->assertNull($presentation->assigned_to_user_id);
+        $this->assertNull($presentation->assigned_at);
+    }
+
+    public function test_user_cannot_take_or_release_another_users_presentation(): void
+    {
+        $owner = User::query()->create([
+            'username' => 'owner-user',
+            'password' => Hash::make('password'),
+            'role' => 'user',
+        ]);
+
+        $other = User::query()->create([
+            'username' => 'other-user',
+            'password' => Hash::make('password'),
+            'role' => 'user',
+        ]);
+
+        $presentation = Presentation::query()->create([
+            'title' => 'Occupied presentation',
+            'file_type' => 'pdf',
+            'file_url' => 'https://example.com/occupied.pdf',
+            'review_status' => 'new',
+            'link_status' => 'unknown',
+            'assigned_to_user_id' => $owner->id,
+            'assigned_at' => now(),
+            'discovered_at' => now(),
+        ]);
+
+        $this->actingAs($other)
+            ->from('/projects/cio-presentations?tab=presentations')
+            ->patch('/projects/cio-presentations/presentations/'.$presentation->id, [
+                'assignment_action' => 'take',
+            ])
+            ->assertRedirect('/projects/cio-presentations?tab=presentations')
+            ->assertSessionHasErrors('assignment');
+
+        $this->actingAs($other)
+            ->from('/projects/cio-presentations?tab=presentations')
+            ->patch('/projects/cio-presentations/presentations/'.$presentation->id, [
+                'assignment_action' => 'release',
+            ])
+            ->assertRedirect('/projects/cio-presentations?tab=presentations')
+            ->assertSessionHasErrors('assignment');
+
+        $this->assertDatabaseHas('presentations', [
+            'id' => $presentation->id,
+            'assigned_to_user_id' => $owner->id,
+        ]);
+    }
+
+    public function test_assignment_filter_supports_mine_free_and_specific_user(): void
+    {
+        $me = User::query()->create([
+            'username' => 'filter-me',
+            'password' => Hash::make('password'),
+            'role' => 'user',
+        ]);
+
+        $other = User::query()->create([
+            'username' => 'filter-other',
+            'password' => Hash::make('password'),
+            'role' => 'user',
+        ]);
+
+        Presentation::query()->create([
+            'title' => 'Mine',
+            'file_type' => 'pdf',
+            'file_url' => 'https://example.com/mine.pdf',
+            'review_status' => 'new',
+            'link_status' => 'unknown',
+            'assigned_to_user_id' => $me->id,
+            'assigned_at' => now(),
+            'discovered_at' => now(),
+        ]);
+
+        Presentation::query()->create([
+            'title' => 'Other',
+            'file_type' => 'pdf',
+            'file_url' => 'https://example.com/other.pdf',
+            'review_status' => 'new',
+            'link_status' => 'unknown',
+            'assigned_to_user_id' => $other->id,
+            'assigned_at' => now(),
+            'discovered_at' => now(),
+        ]);
+
+        Presentation::query()->create([
+            'title' => 'Free',
+            'file_type' => 'pdf',
+            'file_url' => 'https://example.com/free.pdf',
+            'review_status' => 'new',
+            'link_status' => 'unknown',
+            'discovered_at' => now(),
+        ]);
+
+        $this->actingAs($me)
+            ->get('/projects/cio-presentations?tab=presentations&assignee=mine')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.assignee', 'mine')
+                ->where('stats.inWork', 2)
+                ->where('stats.mine', 1)
+                ->has('presentations.data', 1)
+                ->where('presentations.data.0.title', 'Mine')
+                ->has('assignees', 2)
+            );
+
+        $this->actingAs($me)
+            ->get('/projects/cio-presentations?tab=presentations&assignee=unassigned')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('presentations.data', 1)
+                ->where('presentations.data.0.title', 'Free')
+            );
+
+        $this->actingAs($me)
+            ->get('/projects/cio-presentations?tab=presentations&assignee=user:'.$other->id)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('presentations.data', 1)
+                ->where('presentations.data.0.title', 'Other')
+            );
+    }
+
 }

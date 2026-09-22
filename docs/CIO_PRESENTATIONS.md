@@ -37,6 +37,8 @@ The admin role is reserved for site-administration functions outside this projec
 - source-page URL;
 - review and link status;
 - manual flags for email, phone and good lead;
+- optional responsible user (`assigned_to_user_id`);
+- assignment timestamp (`assigned_at`);
 - discovery / review timestamps.
 
 ## Built-in starter sources
@@ -56,6 +58,21 @@ The approved built-in source families are:
 Preset sources are normal rows after installation: any authenticated user can scan them the same way as manually added sources.
 
 The 2026 preset layer adds the official TAdviser SummIT pages for May and November 2026, TAdviser IT Prize 2026, and year-specific CNews FORUM / CNews FORUM Кейсы pages.
+
+## Assignment / responsibility workflow
+
+Presentations can be claimed by an authenticated user.
+
+- an unassigned presentation shows **Свободна** and **Взять в работу**;
+- taking it stores the current user's id in `assigned_to_user_id` and the current time in `assigned_at`;
+- a presentation assigned to the current user is marked **Моя** and may be released with **Снять с себя**;
+- another user's assignment cannot be silently overwritten or released;
+- taking is guarded by an atomic conditional update so two users cannot successfully claim the same free presentation at the same time;
+- changing review status to **Проверено** or **Не подходит** does not clear the assignment, preserving who handled the presentation;
+- the presentations filter supports all, free, mine, all assigned, and a specific user;
+- the list header shows total in work and the current user's count.
+
+Deleting a user uses the foreign key's `nullOnDelete`, so historical presentations remain but become unassigned.
 
 ## Clean restart
 

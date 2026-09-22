@@ -10,6 +10,8 @@ const props = defineProps({
     presentations: { type: Object, required: true },
     latest: { type: Array, required: true },
     sources: { type: Array, required: true },
+    assignees: { type: Array, required: true },
+    currentUserId: { type: Number, required: true },
     canManage: { type: Boolean, default: false },
 });
 
@@ -39,6 +41,7 @@ const filterForm = ref({
     status: props.filters.status ?? '',
     file_type: props.filters.file_type ?? '',
     source_id: props.filters.source_id ?? '',
+    assignee: props.filters.assignee ?? '',
 });
 
 const tabs = computed(() => [
@@ -69,7 +72,7 @@ function applyFilters() {
 }
 
 function resetFilters() {
-    filterForm.value = { search: '', status: '', file_type: '', source_id: '' };
+    filterForm.value = { search: '', status: '', file_type: '', source_id: '', assignee: '' };
     applyFilters();
 }
 
@@ -107,7 +110,7 @@ function clearPresentations() {
         preserveScroll: false,
         onSuccess: () => {
             activeTab.value = 'presentations';
-            filterForm.value = { search: '', status: '', file_type: '', source_id: '' };
+            filterForm.value = { search: '', status: '', file_type: '', source_id: '', assignee: '' };
         },
     });
 }
@@ -120,6 +123,33 @@ function patchPresentation(presentation, payload) {
 
 function toggleFlag(presentation, field) {
     patchPresentation(presentation, { [field]: !presentation[field] });
+}
+
+function assignmentAction(presentation, action) {
+    patchPresentation(presentation, { assignment_action: action });
+}
+
+function isMine(presentation) {
+    return presentation.assigned_to_user_id === props.currentUserId;
+}
+
+function assignmentLabel(presentation) {
+    if (!presentation.assignee) {
+        return 'Свободна';
+    }
+
+    return isMine(presentation) ? 'Моя' : 'В работе';
+}
+
+function formatAssignmentDate(value) {
+    if (!value) return '';
+
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(new Date(value));
 }
 
 function statusLabel(value) {
@@ -176,6 +206,9 @@ function formatDate(value) {
 
             <div v-if="$page.props.errors?.scan" class="cio-alert" role="alert">
                 {{ $page.props.errors.scan }}
+            </div>
+            <div v-if="$page.props.errors?.assignment" class="cio-alert" role="alert">
+                {{ $page.props.errors.assignment }}
             </div>
 
             <section v-if="activeTab === 'overview'" class="cio-section">
@@ -273,6 +306,22 @@ function formatDate(value) {
                                 </option>
                             </select>
                         </label>
+                        <label>
+                            Ответственный
+                            <select v-model="filterForm.assignee">
+                                <option value="">Все</option>
+                                <option value="unassigned">Свободные</option>
+                                <option value="mine">Мои</option>
+                                <option value="assigned">Все в работе</option>
+                                <option
+                                    v-for="assignee in assignees"
+                                    :key="assignee.id"
+                                    :value="`user:${assignee.id}`"
+                                >
+                                    {{ assignee.username }}
+                                </option>
+                            </select>
+                        </label>
                         <button type="button" class="cio-button cio-button--primary" @click="applyFilters">Применить</button>
                         <button type="button" class="cio-button" @click="resetFilters">Сбросить</button>
                     </aside>
@@ -281,7 +330,7 @@ function formatDate(value) {
                         <div class="cio-panel__title-row">
                             <h3>ПРЕЗЕНТАЦИИ</h3>
                             <div class="cio-panel__actions">
-                                <span>{{ presentations.total }} шт.</span>
+                                <span>{{ presentations.total }} шт. · В работе: {{ stats.inWork }} · Моих: {{ stats.mine }}</span>
                                 <button
                                     v-if="canManage && stats.total > 0"
                                     type="button"
@@ -294,7 +343,12 @@ function formatDate(value) {
                         </div>
 
                         <div v-if="currentItems.length" class="cio-list">
-                            <div v-for="item in currentItems" :key="item.id" class="cio-row cio-row--review">
+                            <div
+                                v-for="item in currentItems"
+                                :key="item.id"
+                                class="cio-row cio-row--review"
+                                :class="{ 'is-mine': isMine(item) }"
+                            >
                                 <span class="cio-file">{{ item.file_type }}</span>
                                 <div class="cio-row__copy">
                                     <strong>{{ item.title || 'Без названия' }}</strong>
@@ -315,12 +369,38 @@ function formatDate(value) {
                                         <button type="button" class="is-danger" @click="patchPresentation(item, { review_status: 'rejected' })">Не подходит</button>
                                     </div>
                                 </div>
-                                <span class="cio-tag" :class="{ 'cio-tag--new': item.review_status === 'new' }">
-                                    {{ statusLabel(item.review_status) }}
-                                </span>
-                                <a :href="item.file_url" target="_blank" rel="noopener noreferrer" class="cio-button">
-                                    Открыть презентацию ↗
-                                </a>
+                                <div class="cio-assignment" :class="{ 'is-mine': isMine(item), 'is-free': !item.assignee }">
+                                    <div class="cio-assignment__status">
+                                        <span class="cio-assignment__dot" aria-hidden="true"></span>
+                                        <b>{{ assignmentLabel(item) }}</b>
+                                    </div>
+                                    <strong v-if="item.assignee">{{ item.assignee.username }}</strong>
+                                    <small v-if="item.assigned_at">{{ formatAssignmentDate(item.assigned_at) }}</small>
+                                    <button
+                                        v-if="!item.assignee"
+                                        type="button"
+                                        class="cio-assignment__action"
+                                        @click="assignmentAction(item, 'take')"
+                                    >
+                                        Взять в работу
+                                    </button>
+                                    <button
+                                        v-else-if="isMine(item)"
+                                        type="button"
+                                        class="cio-assignment__action"
+                                        @click="assignmentAction(item, 'release')"
+                                    >
+                                        Снять с себя
+                                    </button>
+                                </div>
+                                <div class="cio-row__right">
+                                    <span class="cio-tag" :class="{ 'cio-tag--new': item.review_status === 'new' }">
+                                        {{ statusLabel(item.review_status) }}
+                                    </span>
+                                    <a :href="item.file_url" target="_blank" rel="noopener noreferrer" class="cio-button">
+                                        Открыть презентацию ↗
+                                    </a>
+                                </div>
                             </div>
                         </div>
                         <div v-else class="cio-empty">По текущим фильтрам ничего нет.</div>

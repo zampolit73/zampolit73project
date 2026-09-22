@@ -23,6 +23,8 @@ class Presentation extends Model
         'has_email',
         'has_phone',
         'is_good_lead',
+        'assigned_to_user_id',
+        'assigned_at',
         'discovered_at',
         'reviewed_at',
     ];
@@ -34,6 +36,7 @@ class Presentation extends Model
             'has_email' => 'boolean',
             'has_phone' => 'boolean',
             'is_good_lead' => 'boolean',
+            'assigned_at' => 'datetime',
             'discovered_at' => 'datetime',
             'reviewed_at' => 'datetime',
         ];
@@ -42,5 +45,10 @@ class Presentation extends Model
     public function source(): BelongsTo
     {
         return $this->belongsTo(PresentationSource::class, 'source_id');
+    }
+
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to_user_id');
     }
 }
