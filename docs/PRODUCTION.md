@@ -105,7 +105,7 @@ Downloads the assembled release, uploads it to the VPS over SSH and activates it
 
 ### Health Check
 
-Runs from a separate GitHub runner after Deploy. It verifies public DNS, HTTPS `/up`, homepage, manifest, service worker and the HTTP→HTTPS redirect with strict request timeouts.
+Runs from a separate GitHub runner after Deploy. It verifies public DNS, HTTPS `/up`, homepage, manifest, service worker and the HTTP→HTTPS redirect with bounded request timeouts and retries. The HTTPS connection/TLS phase allows up to 8 seconds per attempt so temporary hosted-runner TLS handshake latency does not create a false failed deploy.
 
 ### Notify
 
@@ -177,7 +177,7 @@ A release is not considered deployed until:
 - public service worker succeeds;
 - HTTP redirects to HTTPS.
 
-Local post-reload checks use short retry windows because Nginx can briefly reset a connection while workers hand off. Public checks have explicit DNS/connect/request timeouts and print DNS, remote IP and timing diagnostics, so an unreachable domain fails quickly instead of occupying the deploy runner until the job-level timeout.
+Local post-reload checks use short retry windows because Nginx can briefly reset a connection while workers hand off. Public checks have explicit DNS/connect/request timeouts, bounded retries and print DNS, remote IP and timing diagnostics. HTTPS probes allow a longer TLS connection budget than the local checks because hosted runners can occasionally establish TCP quickly but take more than three seconds to complete the remote TLS handshake; persistent failures still fail the deploy.
 
 Only after those checks does the workflow execute `push:deploy-success`.
 

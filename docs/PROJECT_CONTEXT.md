@@ -189,10 +189,11 @@ Health Check:
 - service worker;
 - HTTP → HTTPS redirect.
 
-В health-check уже внесены две стабилизации:
+В health-check уже внесены три стабилизации:
 
 1. локальные post-reload HTTPS checks используют retry, чтобы переживать короткий socket handoff после `nginx reload`;
-2. публичный health-check один раз получает IPv4 через `getent ahostsv4`, затем использует curl `--resolve`, чтобы повторные DNS lookup на hosted runner не роняли deploy.
+2. публичный health-check один раз получает IPv4 через `getent ahostsv4`, затем использует curl `--resolve`, чтобы повторные DNS lookup на hosted runner не роняли deploy;
+3. публичные HTTPS probes имеют увеличенный budget на connect/TLS handshake (до 8 секунд на попытку) и bounded retries, потому что hosted runners могут быстро установить TCP, но эпизодически задержать TLS handshake дольше прежних 3 секунд.
 
 После успешного Health Check job `Notify` отправляет deploy-success Web Push.
 
