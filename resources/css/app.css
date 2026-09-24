@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './design-system.css';
+@import './kommersant-ranking.css';
 
 :root {
     font-family: Arial, Helvetica, sans-serif;

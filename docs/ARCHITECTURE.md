@@ -1,6 +1,6 @@
 # Architecture
 
-Updated for the current application structure on 2026-09-22.
+Updated for the current application structure on 2026-09-24.
 
 ## Application stack
 
@@ -63,6 +63,9 @@ Authenticated users:
 - `GET /projects/pushkin-fairytales` → `PushkinFairytales.vue`;
 - `GET /projects/reading-diary` → `ReadingDiary.vue`;
 - `GET /projects/cio-presentations` → `CioPresentations.vue` with full project functionality for any authenticated user;
+- `GET /projects/kommersant-ranking` → `KommersantRanking.vue`, shared Kommersant manager-ranking workspace;
+- `PATCH /projects/kommersant-ranking/managers/{manager}` → LinkedIn / assignment mutation;
+- `PATCH /projects/kommersant-ranking/candidates/{candidate}` → candidate LinkedIn / assignment mutation;
 - `GET /push/config`;
 - `POST /push/subscriptions`;
 - `DELETE /push/subscriptions`;
@@ -122,6 +125,12 @@ Each browser/device subscription stores:
 
 A single user can therefore have multiple device/browser subscriptions.
 
+### kommersant_categories / kommersant_managers / kommersant_candidates / kommersant_activities
+
+The Kommersant ranking project persists shared team state in SQLite. Categories preserve the spreadsheet directions/tabs; manager rows store ranking metadata and editable LinkedIn URLs; candidates store the manual-verification queue. Managers and candidates can each reference one nullable responsible `users.id` plus an assignment timestamp. Activity rows record assignment and LinkedIn changes for the project overview.
+
+The initial 2026 dataset is imported exactly once by a migration from gzip/base64 text chunks committed under `database/data/kommersant-ranking-2026/`. Normal deploys never re-import or overwrite subsequent user edits.
+
 ### jobs
 
 A jobs table exists, but production currently uses `QUEUE_CONNECTION=sync`; there is no queue worker in the current deployment.
@@ -141,6 +150,7 @@ Pages:
 - `BmpToMip.vue` — client-only bulk BMP → Quake 1 MIP converter;
 - `PushkinFairytales.vue` — authenticated interactive living-book animation with local Vue/CSS artwork;
 - `ReadingDiary.vue` — authenticated browser-local reading diary rendered as an interactive bookshelf.
+- `KommersantRanking.vue` — authenticated shared ranking workspace with category tabs, filters, inline LinkedIn editing and assignment actions.
 
 Shared UI components live in `resources/js/components/ui/`.
 
@@ -238,6 +248,21 @@ The authenticated `/projects/pushkin-fairytales` page is a frontend-only visual 
 
 The page is listed as project #03 in `Projects.vue`.
 
+
+
+## Kommersant ranking project
+
+The authenticated `/projects/kommersant-ranking` page is project #05 and is shared by all authenticated users.
+
+- Laravel/SQLite owns the ranking rows, candidate queue, LinkedIn edits, assignment state and activity history;
+- the imported 2026 source contains 19 ranking directions, 1120 manager rows, 338 initial LinkedIn URLs and 55 LinkedIn candidates;
+- the workbook title says TOP-1000, but the actual category sheets contain 1120 rows; the application reports the imported rows rather than inventing a 1000-row cap;
+- LinkedIn edits accept only HTTP(S) URLs on `linkedin.com` or its subdomains; clearing the value is supported;
+- claiming a manager/candidate uses a conditional database update and cannot overwrite another user's assignment; release is owner-only;
+- category and candidate tables are horizontally scrollable inside their own containers on narrow screens, avoiding page-level overflow;
+- imported payload chunks are a one-time bootstrap only and must not overwrite later user edits on normal deploys.
+
+See `docs/KOMMERSANT_RANKING.md`.
 
 
 ## Project navigation across atomic deploys

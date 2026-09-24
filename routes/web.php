@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\CioPresentationController;
+use App\Http\Controllers\KommersantRankingController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/projects/reading-diary', fn () => Inertia::render('ReadingDiary'))->name('projects.reading-diary');
     Route::get('/projects/cio-presentations', [CioPresentationController::class, 'index'])
         ->name('projects.cio-presentations');
+    Route::get('/projects/kommersant-ranking', [KommersantRankingController::class, 'index'])
+        ->name('projects.kommersant-ranking');
+    Route::patch('/projects/kommersant-ranking/managers/{manager}', [KommersantRankingController::class, 'updateManager'])
+        ->name('projects.kommersant-ranking.managers.update');
+    Route::patch('/projects/kommersant-ranking/candidates/{candidate}', [KommersantRankingController::class, 'updateCandidate'])
+        ->name('projects.kommersant-ranking.candidates.update');
 
     Route::prefix('/projects/cio-presentations')->group(function () {
         Route::post('/sources', [CioPresentationController::class, 'storeSource'])->name('projects.cio-presentations.sources.store');

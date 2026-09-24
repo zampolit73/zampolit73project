@@ -1,6 +1,6 @@
 # Полный контекст проекта / handoff
 
-Обновлено: 2026-09-22
+Обновлено: 2026-09-24
 
 Этот файл — канонический handoff по репозиторию `zampolit73/zampolit73project`.
 Он нужен для продолжения работы в новой сессии без потери решений, истории и ограничений.
@@ -21,8 +21,7 @@
 - Репозиторий: `zampolit73/zampolit73project`
 - Основная ветка: `main`
 - Production: `https://zampolit73.duckdns.org`
-- HEAD на момент этого handoff: `5b4769561aa7ecd28e1f1a7fe43232b05f5967da`
-- Последний подтверждённый зелёный deploy: GitHub Actions run **#63**
+- Актуальные `main` HEAD, GitHub Actions, PR и deployment status намеренно не фиксируются здесь как источник истины: перед работой их нужно получать непосредственно из GitHub.
 - Production работает напрямую на Ubuntu, без Docker/Compose.
 
 Текущий production stack:
@@ -78,6 +77,7 @@ Persistent state всегда должен оставаться вне release-�
 2. `/projects/cio-presentations`
 3. `/projects/pushkin-fairytales`
 4. `/projects/reading-diary`
+5. `/projects/kommersant-ranking`
 
 Раздел `/projects` — общий селектор проектов.
 
@@ -326,6 +326,8 @@ Authenticated:
 - `GET /projects/cio-presentations`
 - `GET /projects/pushkin-fairytales`
 - `GET /projects/reading-diary`
+- `GET /projects/kommersant-ranking`
+- Kommersant ranking manager/candidate mutation routes
 - CIO mutation routes
 - push API
 - `POST /logout`
@@ -755,7 +757,96 @@ Docs:
 
 ---
 
-# 14. PWA / Web Push
+# 14. Проект №05 — «Рейтинг Коммерсанта»
+
+Route:
+
+`/projects/kommersant-ranking`
+
+Назначение:
+
+общая командная рабочая база по рейтингу топ-менеджеров «Коммерсанта» 2026 года с сохранением структуры направлений исходной таблицы, редактируемыми LinkedIn-ссылками и ответственными.
+
+Доступ:
+
+- guest → login;
+- `user` и `admin` имеют одинаковый полный доступ к проекту;
+- данные общие для команды и хранятся в production SQLite.
+
+Исходный импорт 2026:
+
+- 19 рейтинговых направлений;
+- 1120 manager rows по фактическим строкам вкладок;
+- 338 исходно заполненных LinkedIn URL;
+- 55 записей во вкладке «Кандидаты на проверку»;
+- источник: газета «Коммерсантъ», №171 от 17 сентября 2026 года / `KOM_171_170926.pdf`.
+
+Важно: название исходного workbook содержит TOP-1000, но фактические 19 рейтинговых вкладок содержат 1120 строк. Приложение показывает фактически импортированные записи, а не искусственно обрезает их до 1000.
+
+Вкладки:
+
+- Обзор;
+- все 19 направлений рейтинга в исходном порядке;
+- Кандидаты на проверку.
+
+Основная таблица направления:
+
+`№ | Отрасль | Место | Ф.И.О. | LinkedIn | В работе у | Должность | Компания | Стр. PDF`
+
+Workflow ответственного:
+
+- свободную строку можно атомарно «Взять в работу»;
+- у строки максимум один ответственный;
+- свою строку можно «Снять с себя»;
+- чужую строку нельзя перехватить или освободить;
+- assignment хранится через nullable FK на `users` и timestamp;
+- тот же workflow применяется к кандидатам на проверку;
+- фильтр поддерживает свободные / мои / все в работе / конкретного пользователя.
+
+LinkedIn:
+
+- ссылка редактируется inline прямо в таблице;
+- можно добавить, заменить или очистить URL;
+- принимаются только HTTP/HTTPS URL домена `linkedin.com` и его subdomains;
+- изменения сохраняются в общей БД;
+- assignment и LinkedIn actions пишутся в activity history.
+
+Persistence:
+
+- `kommersant_categories`;
+- `kommersant_managers`;
+- `kommersant_candidates`;
+- `kommersant_activities`.
+
+Начальный dataset хранится в Git как gzip-compressed JSON, разбитый на небольшие base64 text chunks под `database/data/kommersant-ranking-2026/`.
+Migration импортирует его **один раз** при создании таблиц.
+
+Критическое правило для будущих обновлений рейтинга:
+
+- обычный deploy не должен повторно импортировать dataset;
+- будущий импорт нового года не должен молча перезаписывать ручные LinkedIn-исправления, assignment или другую рабочую историю;
+- обновление данных должно быть отдельным явным продуктовым решением и migration/import strategy.
+
+Основные файлы:
+
+- `app/Http/Controllers/KommersantRankingController.php`;
+- `app/Models/KommersantCategory.php`;
+- `app/Models/KommersantManager.php`;
+- `app/Models/KommersantCandidate.php`;
+- `app/Models/KommersantActivity.php`;
+- `resources/js/pages/KommersantRanking.vue`;
+- `resources/css/kommersant-ranking.css`;
+- `docs/KOMMERSANT_RANKING.md`.
+
+Responsive:
+
+- UI сохраняет общий cream/black/deep-red editorial/poster язык;
+- tabs и широкие data tables скроллятся внутри собственных контейнеров;
+- страница не должна создавать общий horizontal overflow на 320px.
+
+---
+
+# 15. PWA / Web Push
 
 Активные компоненты:
 
@@ -775,7 +866,7 @@ Admin-only page `/tests` используется для browser push tests.
 
 ---
 
-# 15. Важные последние commits и зачем они нужны
+# 16. Важные исторические commits и зачем они нужны
 
 Хронология последних значимых изменений:
 
@@ -793,11 +884,14 @@ Admin-only page `/tests` используется для browser push tests.
 - `9c7a0250da45010f48575fcd1b250df8bf56ee74` — стабилизация public health-check DNS;
 - `9c23a27055274d787cc246dcec5a27177e910e22` — проекты закрыты auth, роли сокращены до admin/user;
 - `256f8fe1a901cb02ef0e14ae42388bb0ef53ebcf` — admin user management;
-- `5b4769561aa7ecd28e1f1a7fe43232b05f5967da` — `user` получил полный функционал всех проектов.
+- `5b4769561aa7ecd28e1f1a7fe43232b05f5967da` — `user` получил полный функционал всех проектов;
+- `b81698f35a830c0ee1133ee2500d3afe9af0ec92` — assignment workflow «Взять в работу» для CIO presentations.
+
+Этот список — исторические опорные изменения, а не live-список последних commits. Текущий HEAD всегда проверять непосредственно в GitHub.
 
 ---
 
-# 16. Что не надо случайно откатывать
+# 17. Что не надо случайно откатывать
 
 При следующих изменениях особенно не сломать:
 
@@ -820,10 +914,13 @@ Admin-only page `/tests` используется для browser push tests.
 17. Не считать deploy успешным до полного зелёного pipeline.
 18. Не разрешать молча перехватывать презентацию, уже назначенную другому пользователю.
 19. Не очищать assignment автоматически при review status; ответственность должна сохраняться.
+20. Не запускать повторный импорт Kommersant dataset на обычном deploy.
+21. Не перезаписывать ручные LinkedIn-исправления и assignment в «Рейтинге Коммерсанта» будущей миграцией без отдельного решения.
+22. Не разрешать перехватывать manager/candidate, уже назначенного другому пользователю.
 
 ---
 
-# 17. Чек-лист для следующей задачи
+# 18. Чек-лист для следующей задачи
 
 Перед работой:
 
@@ -842,6 +939,14 @@ Admin-only page `/tests` используется для browser push tests.
 - соблюдать bounded traffic;
 - помнить approved preset families;
 - проверить regular `user`, а не только admin.
+
+Если задача про «Рейтинг Коммерсанта»:
+
+- проверить `docs/KOMMERSANT_RANKING.md`;
+- помнить, что данные shared SQLite, а не browser local;
+- не перезаписывать ручные LinkedIn/assignment повторным импортом;
+- проверять regular `user`, а не только admin;
+- сохранять atomic assignment semantics.
 
 Если задача про auth:
 
@@ -865,7 +970,7 @@ Admin-only page `/tests` используется для browser push tests.
 
 ---
 
-# 18. Куда смотреть дальше
+# 19. Куда смотреть дальше
 
 Основные документы:
 
@@ -878,6 +983,7 @@ Admin-only page `/tests` используется для browser push tests.
 - `docs/CIO_PRESENTATIONS.md` — CIO project;
 - `docs/BMP_TO_MIP.md` — Quake converter;
 - `docs/READING_DIARY.md` — reading diary;
+- `docs/KOMMERSANT_RANKING.md` — рейтинг «Коммерсанта», импорт, LinkedIn и assignment workflow;
 - `docs/TECHNICAL_DEBT.md` — известный technical debt.
 
 Этот handoff описывает **текущее намерение продукта**, но код и актуальный `main` всегда имеют приоритет при проверке фактического состояния.

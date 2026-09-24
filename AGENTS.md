@@ -165,6 +165,7 @@ Keep these files current:
 - `docs/PWA_PUSH.md`;
 - `docs/TECHNICAL_DEBT.md`.
 - `docs/PROJECT_CONTEXT.md`;
-- `docs/BMP_TO_MIP.md`.
+- `docs/BMP_TO_MIP.md`;
+- `docs/KOMMERSANT_RANKING.md`.
 
 Do not document assumptions as deployed facts. Verify current code/workflow first.
