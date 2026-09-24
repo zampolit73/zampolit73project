@@ -124,7 +124,8 @@ function linkedinLabel(url) {
     if (!url) return 'LinkedIn не найден';
     try {
         const parsed = new URL(url);
-        return parsed.pathname.replace(/^\//, '').replace(/\/$/, '') || parsed.hostname;
+        const path = parsed.pathname.replace(/^\//, '').replace(/\/$/, '');
+        return path.replace(/^in\//, '') || parsed.hostname;
     } catch {
         return url;
     }
