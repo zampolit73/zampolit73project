@@ -744,7 +744,11 @@ jobs:
           if [ "$TELEGRAM_READER_SETUP_REQUESTED" -eq 1 ]; then
             echo "Running safe Telegram Reader diagnostics on VPS..."
             cd "$BASE_DIR/current"
-            $SUDO -u www-data php8.3 artisan telegram-reader:diagnose || true
+            if [ -n "$SUDO" ]; then
+              $SUDO -u www-data php8.3 artisan telegram-reader:diagnose || true
+            else
+              runuser -u www-data -- php8.3 artisan telegram-reader:diagnose || true
+            fi
           fi
 
           echo "Running Vacancy Source public-web search probe..."
