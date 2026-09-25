@@ -438,6 +438,7 @@ class ReaderDaemon:
         self.last_error: str | None = None
         self.sync_running = False
         self.sync_lock = asyncio.Lock()
+        self.connect_lock = asyncio.Lock()
         self.selected_peer_ids: set[int] = self.store.active_peer_ids()
         self.server: asyncio.AbstractServer | None = None
 
@@ -446,9 +447,6 @@ class ReaderDaemon:
         self.client.add_event_handler(self._on_deleted_message, events.MessageDeleted)
 
     async def start(self) -> None:
-        await self.client.connect()
-        self.auth_state = "authorized" if await self.client.is_user_authorized() else "not_authorized"
-
         SOCKET_PATH.parent.mkdir(parents=True, exist_ok=True)
         if SOCKET_PATH.exists():
             SOCKET_PATH.unlink()
@@ -456,7 +454,41 @@ class ReaderDaemon:
         self.server = await asyncio.start_unix_server(self._handle_rpc, path=str(SOCKET_PATH))
         os.chmod(SOCKET_PATH, 0o660)
 
+        asyncio.create_task(self._connect_telegram())
         asyncio.create_task(self._sync_loop())
+
+    async def _connect_telegram(self) -> bool:
+        if self.client.is_connected():
+            return True
+
+        async with self.connect_lock:
+            if self.client.is_connected():
+                return True
+
+            try:
+                await asyncio.wait_for(self.client.connect(), timeout=12)
+                authorized = await asyncio.wait_for(
+                    self.client.is_user_authorized(),
+                    timeout=8,
+                )
+                self.auth_state = "authorized" if authorized else "not_authorized"
+                self.last_error = None
+                return True
+            except Exception as exc:  # noqa: BLE001
+                self.auth_state = "connection_error"
+                self.last_error = (
+                    "MTProto connection failed: "
+                    + type(exc).__name__
+                    + (f": {str(exc)[:180]}" if str(exc) else "")
+                )
+                return False
+
+    async def _require_connection(self) -> None:
+        if not await self._connect_telegram():
+            raise ValueError(
+                "Reader запущен, но VPS пока не подключился к Telegram MTProto. "
+                "Проверь сетевую диагностику."
+            )
 
     async def close(self) -> None:
         if self.server is not None:
@@ -470,12 +502,23 @@ class ReaderDaemon:
             SOCKET_PATH.unlink()
 
     async def status(self) -> dict[str, Any]:
-        authorized = await self.client.is_user_authorized()
+        connected = self.client.is_connected()
+        authorized = self.auth_state == "authorized"
         account = None
 
-        if authorized:
+        if connected:
             try:
-                me = await self.client.get_me()
+                authorized = await asyncio.wait_for(
+                    self.client.is_user_authorized(),
+                    timeout=5,
+                )
+                self.auth_state = "authorized" if authorized else "not_authorized"
+            except Exception as exc:  # noqa: BLE001
+                self.last_error = f"Authorization status failed: {type(exc).__name__}"
+
+        if connected and authorized:
+            try:
+                me = await asyncio.wait_for(self.client.get_me(), timeout=8)
                 account = {
                     "username": getattr(me, "username", None),
                     "first_name": getattr(me, "first_name", None),
@@ -487,7 +530,7 @@ class ReaderDaemon:
         selected_folder_title = self.store.setting("selected_folder_title")
 
         return {
-            "connected": self.client.is_connected(),
+            "connected": connected,
             "authorized": authorized,
             "auth_state": self.auth_state,
             "account": account,
@@ -510,6 +553,8 @@ class ReaderDaemon:
         if not re.fullmatch(r"\+[1-9][0-9]{7,14}", phone):
             raise ValueError("Номер должен быть в международном формате, например +79991234567.")
 
+        await self._require_connection()
+
         if await self.client.is_user_authorized():
             self.auth_state = "authorized"
             return {"authorized": True, "auth_state": self.auth_state}
@@ -527,6 +572,8 @@ class ReaderDaemon:
         return {"authorized": False, "auth_state": self.auth_state}
 
     async def submit_code(self, code: str) -> dict[str, Any]:
+        await self._require_connection()
+
         if not self.pending_phone or not self.pending_phone_code_hash:
             raise ValueError("Сначала запроси новый код Telegram.")
 
@@ -559,6 +606,8 @@ class ReaderDaemon:
         return {"authorized": True, "auth_state": self.auth_state}
 
     async def submit_password(self, password: str) -> dict[str, Any]:
+        await self._require_connection()
+
         if self.auth_state != "password_required":
             raise ValueError("Telegram сейчас не ожидает пароль 2FA.")
 
@@ -573,6 +622,7 @@ class ReaderDaemon:
         return {"authorized": True, "auth_state": self.auth_state}
 
     async def folders(self) -> list[dict[str, Any]]:
+        await self._require_connection()
         self._ensure_authorized()
         filters = await self._dialog_filters()
         result = []
@@ -594,6 +644,7 @@ class ReaderDaemon:
         return result
 
     async def select_folder(self, folder_id: int) -> dict[str, Any]:
+        await self._require_connection()
         self._ensure_authorized()
         filters = await self._dialog_filters()
         selected = next(
@@ -626,6 +677,7 @@ class ReaderDaemon:
         }
 
     async def sync_now(self) -> dict[str, Any]:
+        await self._require_connection()
         self._ensure_authorized()
         if self.store.setting("selected_folder_id") is None:
             raise ValueError("Сначала выбери рабочую Telegram-папку.")
@@ -791,8 +843,10 @@ class ReaderDaemon:
     async def _sync_loop(self) -> None:
         while True:
             try:
+                connected = await self._connect_telegram()
                 if (
-                    await self.client.is_user_authorized()
+                    connected
+                    and self.auth_state == "authorized"
                     and self.store.setting("selected_folder_id") is not None
                 ):
                     await self.sync_selected_folder(force_backfill=False)

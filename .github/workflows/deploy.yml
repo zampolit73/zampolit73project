@@ -599,6 +599,15 @@ jobs:
             sleep 3
             $SUDO systemctl is-active --quiet "$TELEGRAM_READER_SERVICE"
             echo "Telegram Reader service is active."
+
+            echo "Telegram MTProto TCP diagnostics:"
+            for ip in 149.154.167.51 149.154.167.91 149.154.175.50 91.108.56.100; do
+              if timeout 4 bash -c "exec 3<>/dev/tcp/$ip/443" 2>/dev/null; then
+                echo "telegram_mtproto_tcp_443=ok ip=$ip"
+              else
+                echo "telegram_mtproto_tcp_443=failed ip=$ip"
+              fi
+            done
           fi
 
           if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
