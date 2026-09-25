@@ -12,4 +12,8 @@ return [
         'api_ip' => env('TELEGRAM_BOT_API_IP'),
         'push_enabled' => env('TELEGRAM_BOT_PUSH_ENABLED', false),
     ],
+
+    'telegram_reader' => [
+        'socket' => env('TELEGRAM_READER_SOCKET', '/run/zampolit73-telegram-reader/reader.sock'),
+    ],
 ];

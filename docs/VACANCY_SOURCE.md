@@ -200,30 +200,47 @@ php8.3 artisan vacancy:web:probe
 
 The probe uses a generic non-user vacancy query and prints only provider/result-host diagnostics. Failure is non-fatal for the website deploy, but is visible in Actions so public-search connectivity can be distinguished from application bugs.
 
-## Planned Telegram research corpus
+## Telegram research corpus — setup implementation
 
-Canonical step-by-step setup: `docs/TELEGRAM_READER_SETUP.md`.
+Canonical setup/runbook: `docs/TELEGRAM_READER_SETUP.md`.
 
-The next active implementation task is the Python MTProto Reader. Do not treat the existing Bot as the research reader: Bot API accepts vacancy input but cannot provide the user's private/work chat history.
+The MTProto Reader foundation is implemented as a separate Python/Telethon daemon. It is distinct from the Telegram Bot transport.
 
+Admin setup page:
 
-The next major source is a separate Python MTProto Reader for the user's work-folder chats.
+`/admin/telegram-reader`
 
-Already-agreed behavior:
+The page supports:
 
-- dynamic folder whitelist of roughly 30 work chats;
-- three-month backfill when a chat is newly added;
-- sync around every five minutes;
-- text/captions only, no media;
-- removed chats stop new sync but historical messages remain;
-- edited messages update;
-- deleted messages should remain marked deleted;
-- strict similarity clustering to avoid counting reposts as independent evidence;
-- chat title is display metadata, not a confidence signal;
-- one shared Telegram user account for MVP, replaceable later without changing Laravel investigation semantics.
+- one-time Telegram phone login;
+- Telegram login code entry;
+- optional Telegram 2FA password;
+- Telegram folder discovery;
+- selecting one work folder as the dynamic whitelist;
+- manual sync trigger;
+- safe status counters.
 
-After the Reader is connected, Telegram and web evidence will be searched in parallel and combined by the deterministic scoring layer.
+Runtime isolation:
 
+- service user: `zampolit-reader`;
+- persistent state: `/var/lib/zampolit73-telegram-reader`;
+- session/corpus directory mode 0700;
+- Laravel never reads the MTProto session file;
+- Laravel↔Reader control uses `/run/zampolit73-telegram-reader/reader.sock`;
+- no media download;
+- local corpus is SQLite with FTS5 when available.
+
+After selecting a folder, Reader starts a 90-day text-only backfill and then syncs about every 5 minutes. Adding chats to the selected folder makes them eligible for backfill/sync; removing chats stops new sync while historical corpus rows remain.
+
+The Reader already exposes local search primitives, but Telegram hits are **not yet merged into investigation scoring**. Until that integration lands, user-facing investigation evidence remains web-only.
+
+Next integration step:
+
+1. query Reader FTS in parallel with web search;
+2. normalize/cluster Telegram reposts so duplicates do not inflate evidence;
+3. persist Telegram source metadata into investigation sources;
+4. combine Telegram + web evidence in the existing deterministic scoring model;
+5. clearly label Telegram-only confirmation when no independent web corroboration exists.
 ## Telegram production transport
 
 Production uses **Bot API long polling**, not webhook delivery.

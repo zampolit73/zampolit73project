@@ -18,7 +18,8 @@ Production runs directly on Ubuntu without Docker:
 - SQLite;
 - Certbot;
 - one Laravel database queue worker managed by systemd for Vacancy Source;
-- one Laravel Telegram Bot long-polling process managed by systemd.
+- one Laravel Telegram Bot long-polling process managed by systemd;
+- one Python/Telethon Telegram Reader process managed by systemd when Reader secrets are configured.
 
 Nginx serves static files from Laravel `public/` and forwards `index.php` to PHP-FPM.
 
@@ -154,6 +155,12 @@ Required repository secrets:
 - `VPS_HOST`;
 - `VPS_USER`;
 - `VPS_PWD`.
+
+Vacancy Source Telegram integrations additionally use:
+
+- `TELEGRAM_BOT_TOKEN`;
+- `TELEGRAM_READER_API_ID`;
+- `TELEGRAM_READER_API_HASH`.
 
 Do not put these values in docs or source.
 
@@ -326,3 +333,40 @@ php8.3 artisan vacancy:web:probe
 It searches a generic vacancy query and reports only result count/source hosts. The probe is intentionally non-fatal for site deployment: search-provider availability must not take down the application, while the Actions log still exposes provider connectivity problems.
 
 Investigation jobs themselves handle provider failures and may finish as `partial`; they never manufacture a client when source evidence is unavailable.
+
+## Telegram Reader production setup
+
+When both `TELEGRAM_READER_API_ID` and `TELEGRAM_READER_API_HASH` exist in GitHub Actions Secrets, deploy provisions the MTProto Reader automatically.
+
+Persistent/private state:
+
+```text
+/var/lib/zampolit73-telegram-reader/
+├── reader.session
+├── corpus.sqlite3
+└── corpus.sqlite3-wal / -shm when active
+```
+
+The directory is owned by `zampolit-reader` with mode 0700. It is outside release directories, outside Nginx webroot and intentionally not part of normal application backups.
+
+Runtime control socket:
+
+`/run/zampolit73-telegram-reader/reader.sock`
+
+Systemd unit:
+
+`zampolit73project-telegram-reader.service`
+
+Runtime:
+
+`/opt/zampolit73-telegram-reader-venv/bin/python /var/www/zampolit73project/current/telegram_reader/reader.py`
+
+The service runs as `zampolit-reader` with group `www-data`. Laravel can connect to the Unix socket but cannot read the session state directory.
+
+Deploy installs/updates Telethon into a persistent virtualenv, refreshes the systemd unit, restarts it and runs:
+
+```bash
+php8.3 artisan telegram-reader:diagnose
+```
+
+The first deploy after adding Reader secrets should report the service as connected but `authorized=no`. One-time MTProto login is then completed from the admin-only page `/admin/telegram-reader`; no terminal/VNC login is required.

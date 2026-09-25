@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Admin\TelegramBindingController as AdminTelegramBindingController;
+use App\Http\Controllers\Admin\TelegramReaderController as AdminTelegramReaderController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\CioPresentationController;
 use App\Http\Controllers\KommersantRankingController;
@@ -59,6 +60,19 @@ Route::middleware('auth')->group(function () {
             ->name('admin.users.telegram-invite.store');
         Route::delete('/admin/users/{user}/telegram-binding', [AdminTelegramBindingController::class, 'destroy'])
             ->name('admin.users.telegram-binding.destroy');
+
+        Route::get('/admin/telegram-reader', [AdminTelegramReaderController::class, 'index'])
+            ->name('admin.telegram-reader');
+        Route::post('/admin/telegram-reader/request-code', [AdminTelegramReaderController::class, 'requestCode'])
+            ->name('admin.telegram-reader.request-code');
+        Route::post('/admin/telegram-reader/submit-code', [AdminTelegramReaderController::class, 'submitCode'])
+            ->name('admin.telegram-reader.submit-code');
+        Route::post('/admin/telegram-reader/submit-password', [AdminTelegramReaderController::class, 'submitPassword'])
+            ->name('admin.telegram-reader.submit-password');
+        Route::post('/admin/telegram-reader/select-folder', [AdminTelegramReaderController::class, 'selectFolder'])
+            ->name('admin.telegram-reader.select-folder');
+        Route::post('/admin/telegram-reader/sync', [AdminTelegramReaderController::class, 'syncNow'])
+            ->name('admin.telegram-reader.sync');
 
     });
 

@@ -262,3 +262,11 @@ The poller preserves pending updates when disabling any old webhook. `/start COD
 
 
 The Bot is only the user interface. Reading the user's work-chat history requires a separate MTProto Telegram Reader. The setup/handoff runbook is `docs/TELEGRAM_READER_SETUP.md`.
+
+## Telegram Reader for Vacancy Source
+
+Work-chat history is read by a separate Python/Telethon service, not by the Bot API. Admin setup lives at `/admin/telegram-reader`.
+
+The Reader owns its MTProto session under `/var/lib/zampolit73-telegram-reader` and communicates with Laravel only through a local Unix socket. The admin page performs one-time phone/code/optional-2FA authorization and lets the admin choose the work Telegram folder. Selecting a folder starts a 90-day text-only backfill and periodic sync.
+
+Credentials come only from GitHub Actions Secrets `TELEGRAM_READER_API_ID` and `TELEGRAM_READER_API_HASH`. Never commit or paste them into project files.

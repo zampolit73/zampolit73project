@@ -332,3 +332,34 @@ The queue worker is `zampolit73project-vacancy-source-worker.service`. Web resea
 The Telegram Bot user interface is handled by Laravel long polling in `zampolit73project-telegram-bot.service`. `TelegramUpdateHandler` is shared by the poller and the stateless webhook fallback. Forward metadata is ignored; only text/caption enters research.
 
 The future Python MTProto Reader remains separate: it will index the user's selected work-folder chats as research sources and feed the same candidate/evidence layer. See `docs/VACANCY_SOURCE.md`.
+
+## Vacancy Source Telegram Reader
+
+The work-chat research source is a separate Python/Telethon process. It is intentionally not part of PHP-FPM and does not expose an HTTP API.
+
+```text
+admin browser
+    |
+Laravel admin routes
+    |
+TelegramReaderClient
+    |
+Unix socket /run/zampolit73-telegram-reader/reader.sock
+    |
+Python Telethon Reader (zampolit-reader)
+    |
+MTProto + selected Telegram folder
+    |
+private SQLite corpus / FTS5
+```
+
+Security boundary:
+
+- MTProto session/corpus state lives under `/var/lib/zampolit73-telegram-reader`;
+- the service user owns that directory with mode 0700;
+- Laravel never opens the session file;
+- the runtime socket is group-accessible to `www-data` and accepts a small JSON RPC surface;
+- phone/code/2FA values are transient RPC inputs and are not persisted by Laravel;
+- media is never downloaded.
+
+The Reader currently provides setup/auth/folder/backfill/sync/search primitives. Investigation scoring integration is a separate next iteration.

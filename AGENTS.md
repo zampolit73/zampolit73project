@@ -153,7 +153,7 @@ Never commit:
 - DuckDNS token;
 - production database.
 
-Repository GitHub secrets used by deployment are `VPS_HOST`, `VPS_USER`, `VPS_PWD`; optional `TELEGRAM_BOT_TOKEN` enables automatic Vacancy Source Telegram Bot provisioning. Never put the Telegram token in source or docs.
+Repository GitHub secrets used by deployment are `VPS_HOST`, `VPS_USER`, `VPS_PWD`; `TELEGRAM_BOT_TOKEN` provisions the Vacancy Source Bot; `TELEGRAM_READER_API_ID` and `TELEGRAM_READER_API_HASH` provision the MTProto Reader. Never put Telegram tokens/API hashes, login codes, 2FA passwords or MTProto session files in source or docs.
 
 ## Documentation
 
@@ -167,6 +167,7 @@ Keep these files current:
 - `docs/PROJECT_CONTEXT.md`;
 - `docs/BMP_TO_MIP.md`;
 - `docs/KOMMERSANT_RANKING.md`;
-- `docs/VACANCY_SOURCE.md`.
+- `docs/VACANCY_SOURCE.md`;
+- `docs/TELEGRAM_READER_SETUP.md`.
 
 Do not document assumptions as deployed facts. Verify current code/workflow first.

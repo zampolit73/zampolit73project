@@ -265,6 +265,7 @@ Production deploy нельзя считать успешным до полног
 `admin` имеет тот же полный доступ к проектам плюс site-administration функции:
 
 - `/admin/users`;
+- `/admin/telegram-reader`;
 - `/stas`;
 - `/design-system`;
 - `/tests`.
@@ -311,6 +312,8 @@ Admin page:
 
 Telegram-коды хранятся только как SHA-256 hash; plaintext показывается админу только в ответе после создания. Новый неиспользованный код инвалидирует предыдущий неиспользованный код этого пользователя. Один site user может быть привязан только к одному Telegram user, и один Telegram user — только к одному site user.
 
+Отдельная admin page `/admin/telegram-reader` управляет MTProto Reader: one-time phone/code/optional-2FA login, выбор рабочей Telegram folder и ручной sync. Она не раскрывает и не читает MTProto session file напрямую.
+
 На данный момент в админке **нет** функций удаления пользователя, блокировки или сброса пароля.
 Не добавлять их как будто они уже существуют.
 
@@ -349,6 +352,12 @@ Admin-only:
 - `POST /admin/users`
 - `POST /admin/users/{user}/telegram-invite`
 - `DELETE /admin/users/{user}/telegram-binding`
+- `GET /admin/telegram-reader`
+- `POST /admin/telegram-reader/request-code`
+- `POST /admin/telegram-reader/submit-code`
+- `POST /admin/telegram-reader/submit-password`
+- `POST /admin/telegram-reader/select-folder`
+- `POST /admin/telegram-reader/sync`
 - `GET /stas`
 - `GET /design-system`
 - `GET /tests`
@@ -1029,43 +1038,41 @@ Implemented now:
 
 Current web-search v1 deliberately scores Bing result titles/snippets and does not pretend that full page content was verified when it was not fetched. Query generation uses rare requirement phrases, technology combinations, HH/Habr targeted searches, and RU/EN role variants. Scoring weights are explicit in `config/vacancy_source.php`; geography is zero-weight and seniority is effectively zero-weight.
 
-## Vacancy Source — next active task: Telegram Reader
+## Vacancy Source — Telegram Reader setup state
 
-Current next task is **not** more web-only search tuning. It is connecting the user's selected work-chat folder as a Telegram research corpus through a separate Python MTProto Reader.
+Canonical runbook: `docs/TELEGRAM_READER_SETUP.md`.
 
-Canonical setup/runbook: `docs/TELEGRAM_READER_SETUP.md`.
+Implemented in the current Reader iteration:
 
-Important handoff state:
+- Python Telethon daemon under `telegram_reader/`;
+- GitHub Secrets `TELEGRAM_READER_API_ID` / `TELEGRAM_READER_API_HASH` are the only MTProto credentials provided to deploy;
+- production service `zampolit73project-telegram-reader.service`;
+- dedicated Linux identity `zampolit-reader`;
+- session + Reader corpus under `/var/lib/zampolit73-telegram-reader`, outside webroot;
+- state directory mode 0700; Laravel/PHP cannot read the MTProto session directly;
+- local Unix socket `/run/zampolit73-telegram-reader/reader.sock` is the Laravel↔Reader control boundary;
+- admin-only page `/admin/telegram-reader`;
+- one-time login flow: phone → Telegram code → optional 2FA password;
+- Reader can enumerate Telegram folders/dialog filters and select one explicit work folder;
+- selected folder is the dynamic whitelist;
+- 90-day backfill on selection/newly indexed chats;
+- periodic sync around every 5 minutes;
+- soft high-recall vacancy-like filter;
+- text/caption only, no media download;
+- local SQLite corpus with FTS5 when available;
+- new/edit events upsert; delete events are marked deleted best-effort while the Reader is running;
+- deploy diagnostics via `telegram-reader:diagnose`.
 
-- Telegram Bot input is already production-working via long polling.
-- Real web research v1 is already production-working.
-- Work-chat history is **not connected yet** and must not be described as an active search source.
-- Reader must use a normal Telegram user MTProto session; Bot API is insufficient for reading the user's work-chat history.
-- Preferred Python client for the MVP: Telethon.
-- Reader runs as a separate lightweight systemd service on the existing VPS; no Docker and no FastAPI unless later justified.
-- One selected Telegram folder is the dynamic whitelist. Do not hardcode the ~30 chats.
-- New chat in the folder → 3-month backfill, then regular sync around every 5 minutes.
-- Removed chat → stop new sync but keep historical data.
-- text/caption only; no media download.
-- strict repost clustering is required before Telegram evidence can increase confidence.
-- MTProto session must stay outside webroot, mode 0600, under a separate service identity, never committed or backed up.
-- Laravel/PHP must not directly read the MTProto session file.
-- User explicitly wants a step-by-step setup and does not want to use the problematic noVNC terminal for MTProto login if avoidable.
-- Plan is to provide an admin-only one-time authorization flow (phone → code → optional 2FA) while the Python Reader alone owns the session file.
+GitHub Reader secrets have already been added by the user. Do not ask for `api_hash`, login code or 2FA password in ChatGPT.
 
-**Immediate manual step remaining:** the user obtains `api_id` and `api_hash` from `my.telegram.org → API development tools`. The user must not paste `api_hash`, login code or Telegram 2FA password into ChatGPT. After obtaining them, add GitHub Actions repository secrets `TELEGRAM_READER_API_ID` and `TELEGRAM_READER_API_HASH`, then continue implementation.
+**Immediate next manual step after a successful deploy:** admin opens `/admin/telegram-reader` and performs one-time MTProto authorization there, then selects the work Telegram folder. Until that authorization + folder backfill succeeds, Vacancy Source must still be described as web-only for research evidence.
 
-Still not implemented:
+Still not integrated into investigation scoring:
 
-- Python MTProto Telegram Reader / work-folder authorization;
-- three-month Telegram folder backfill and five-minute sync;
-- Telegram-message FTS5/BM25 index;
-- combined Telegram + web evidence clustering;
-- richer safe page fetching/corroboration beyond SERP snippets;
-- admin review UI and quality metrics.
-
-Canonical product and implementation decisions live in `docs/VACANCY_SOURCE.md`.
-
+- Reader FTS search results are not yet merged into `VacancyWebResearchService`;
+- strict repost/source clustering for Telegram evidence is still pending;
+- Telegram + web combined confidence/scoring is still pending;
+- admin review UI and quality metrics remain pending.
 ### Vacancy Source Telegram Bot networking
 
 The VPS route to the DNS-selected `api.telegram.org` address is unreliable, while `149.154.167.220` is reachable. Production therefore uses `TELEGRAM_BOT_API_IP=149.154.167.220` inside `TelegramBotClient`, preserving `api.telegram.org` for TLS/SNI. The Bot runs as `zampolit73project-telegram-bot.service` with `telegram:bot:poll`; existing webhook updates were preserved with `drop_pending_updates=false`.

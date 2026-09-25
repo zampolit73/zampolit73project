@@ -7,7 +7,7 @@
 Важно не путать два разных Telegram-контура:
 
 1. **Telegram Bot** уже работает и принимает от пользователя вакансию.
-2. **Telegram Reader** ещё не подключён. Именно он должен читать историю выбранной рабочей папки обычного Telegram-аккаунта через MTProto и индексировать её как исследовательский корпус.
+2. **Telegram Reader** получает отдельный Python/Telethon runtime. До one-time MTProto авторизации и выбора папки он ещё не является активным research source.
 
 Bot API сам по себе не даёт боту доступ к истории личных/рабочих чатов пользователя.
 
@@ -23,16 +23,21 @@ Bot API сам по себе не даёт боту доступ к истори
 - deterministic scoring;
 - кандидаты/источники/история.
 
-Пока **нет**:
+Текущая Reader-итерация добавляет:
 
-- Telegram MTProto user session;
-- чтения рабочей папки Telegram;
-- backfill последних 3 месяцев;
-- синхронизации чатов;
-- Telegram-корпуса в scoring.
+- Python + Telethon daemon;
+- отдельный systemd service/user;
+- Unix socket между Laravel и Reader;
+- admin-only UI `/admin/telegram-reader`;
+- one-time auth: phone → code → optional 2FA;
+- Telegram folder selection;
+- 3-month backfill;
+- sync every ~5 minutes;
+- local SQLite corpus + FTS5;
+- text/caption only, no media;
+- service/status diagnostics.
 
-До завершения этого документа система должна считаться **web-only + Bot input**, а не полноценным Telegram+web расследованием.
-
+До выбора папки и завершения backfill система всё ещё считается **web-only + Bot input**. Telegram corpus начинает считаться подключённым только после успешной MTProto авторизации и sync.
 ## Архитектурное решение
 
 Reader — отдельный лёгкий Python-процесс на том же VPS.
@@ -97,36 +102,32 @@ Telegram evidence + web evidence
 
 ### Шаг 2 — добавить credentials в GitHub Actions Secrets
 
-После получения credentials пользователь добавляет в:
-
-`GitHub → repository Settings → Secrets and variables → Actions → Repository secrets`
-
-секреты:
+Выполнено: пользователь добавил repository secrets:
 
 ```text
 TELEGRAM_READER_API_ID
 TELEGRAM_READER_API_HASH
 ```
 
-`TELEGRAM_READER_API_ID` можно считать low-sensitivity, но для единого безопасного workflow всё равно хранить его как Actions Secret.
-
-После этого пользователь пишет в чат только: **«Reader secrets добавил»**.
-
+Значения не передавались в ChatGPT и не коммитятся.
 ### Шаг 3 — реализовать Reader
 
-Следующая кодовая итерация должна добавить:
+Реализовано в текущей итерации:
 
-- Python dependency/runtime для Telethon;
-- отдельный каталог Reader внутри репозитория;
+- `telegram_reader/reader.py` + Telethon;
 - production env wiring из GitHub Secrets;
-- отдельный systemd service;
-- persistent session directory outside release/webroot;
-- health/status diagnostics;
-- migrations/tables для Telegram corpus;
-- tests/docs.
+- отдельный systemd unit `zampolit73project-telegram-reader.service`;
+- отдельный Linux user `zampolit-reader`;
+- persistent state under `/var/lib/zampolit73-telegram-reader`;
+- session/corpus never live in webroot or Git;
+- local Unix socket `/run/zampolit73-telegram-reader/reader.sock`;
+- Laravel communicates only through that socket and does not read the session file;
+- SQLite corpus with FTS5 when available;
+- safe `telegram-reader:diagnose`;
+- CI Python syntax check;
+- admin-only setup page.
 
-Не использовать Docker в production.
-
+No Docker and no FastAPI.
 ### Шаг 4 — one-time MTProto authorization
 
 Пользователь не должен снова мучаться с noVNC/terminal.
@@ -235,10 +236,13 @@ Telegram и web evidence объединяются в существующую de
 
 ## Что должен сделать пользователь прямо сейчас
 
-Только **Шаг 1**:
+После зелёного production deploy:
 
-- открыть `my.telegram.org`;
-- получить `api_id` и `api_hash`;
-- не присылать секреты в ChatGPT.
+1. открыть `/admin/telegram-reader`;
+2. ввести номер Telegram в международном формате;
+3. ввести код, который пришлёт Telegram;
+4. если включена облачная 2FA — ввести пароль прямо на этой admin page;
+5. после статуса «авторизован» выбрать рабочую Telegram folder;
+6. дождаться 3-month backfill и проверить, что chat/message counters растут.
 
-После этого переходим к Шагу 2 и заводим два GitHub Actions Secrets.
+Телефон, код и 2FA password не присылать в ChatGPT.
