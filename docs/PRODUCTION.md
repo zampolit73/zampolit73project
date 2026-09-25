@@ -370,3 +370,20 @@ php8.3 artisan telegram-reader:diagnose
 ```
 
 The first deploy after adding Reader secrets should report the service as connected but `authorized=no`. One-time MTProto login is then completed from the admin-only page `/admin/telegram-reader`; no terminal/VNC login is required.
+
+
+### Telegram Reader MTProto network caveat
+
+The Reader service can be systemd-active and its Unix socket healthy even when Telegram MTProto itself is unreachable from the VPS. Current production diagnostics after Reader provisioning show:
+
+```text
+telegram_reader=ok
+connected=no
+authorized=no
+auth_state=connection_error
+last_error=MTProto connection failed: TimeoutError
+```
+
+Direct TCP:443 probes to several standard Telegram MTProto data-center addresses time out from this VPS, while the rest of the site remains healthy. Do not treat `systemctl is-active` alone as Reader readiness.
+
+Before one-time account authorization, production must first reach a Telegram MTProto transport and `telegram-reader:diagnose` must report `connected=yes`. The preferred next fix is a local/self-hosted transport bridge to Telegram-owned WSS endpoints or a provider routing fix; do not move application data to Vercel merely to work around this path.

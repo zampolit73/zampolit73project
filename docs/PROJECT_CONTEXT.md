@@ -1065,7 +1065,7 @@ Implemented in the current Reader iteration:
 
 GitHub Reader secrets have already been added by the user. Do not ask for `api_hash`, login code or 2FA password in ChatGPT.
 
-**Immediate next manual step after a successful deploy:** admin opens `/admin/telegram-reader` and performs one-time MTProto authorization there, then selects the work Telegram folder. Until that authorization + folder backfill succeeds, Vacancy Source must still be described as web-only for research evidence.
+**Current blocker after production deploy:** the Reader service and Unix socket are healthy, but the VPS cannot establish direct MTProto TCP connections to the tested Telegram DC addresses (`149.154.167.51`, `149.154.167.91`, `149.154.175.50`, `91.108.56.100`) on port 443. Production diagnostics report `telegram_reader=ok`, `connected=no`, `authorized=no`, `auth_state=connection_error`, `last_error=MTProto connection failed: TimeoutError`. Therefore do **not** ask the user to enter their phone/login code yet: Telegram cannot deliver the MTProto login flow through this VPS route. The next technical task is to provide an MTProto transport that works over the VPS network (prefer a self-hosted/local bridge using Telegram-owned WSS endpoints or get the provider route fixed; do not reintroduce Vercel). Once `connected=yes` is verified, the admin opens `/admin/telegram-reader`, completes one-time auth, selects the work folder, and starts backfill. Until authorization + folder backfill succeeds, Vacancy Source remains web-only for research evidence.
 
 Still not integrated into investigation scoring:
 
