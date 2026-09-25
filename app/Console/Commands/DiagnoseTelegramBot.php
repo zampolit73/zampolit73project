@@ -32,13 +32,18 @@ class DiagnoseTelegramBot extends Command
             $this->line('iptables_output='.$this->commandOutput('iptables -S OUTPUT'));
             $this->line('iptables_input='.$this->commandOutput('iptables -S INPUT'));
 
-            $telegramIps = $this->telegramIpv4Addresses();
+            $resolvedTelegramIps = $this->telegramIpv4Addresses();
 
-            if ($telegramIps === []) {
+            if ($resolvedTelegramIps === []) {
                 $this->warn('telegram_dns=failed');
             } else {
-                $this->line('telegram_dns=ok '.implode(',', $telegramIps));
+                $this->line('telegram_dns=ok '.implode(',', $resolvedTelegramIps));
             }
+
+            $telegramIps = array_values(array_unique([
+                ...$resolvedTelegramIps,
+                '149.154.167.220',
+            ]));
 
             foreach ($telegramIps as $ip) {
                 $this->line('telegram_route_'.$ip.'='.$this->commandOutput('ip -4 route get '.escapeshellarg($ip)));
