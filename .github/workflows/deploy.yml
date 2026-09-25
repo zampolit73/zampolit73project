@@ -580,6 +580,12 @@ jobs:
           local_https_check "https://$APP_DOMAIN/site.webmanifest"
           local_https_check "https://$APP_DOMAIN/sw.js"
 
+          if [ "$TELEGRAM_SETUP_REQUESTED" -eq 1 ]; then
+            echo "Running safe Telegram Bot diagnostics on VPS..."
+            cd "$BASE_DIR/current"
+            $SUDO php8.3 artisan telegram:bot:diagnose || true
+          fi
+
           echo "Local deployment checks passed."
 
           ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +4 | xargs -r $SUDO rm -rf
@@ -624,6 +630,33 @@ jobs:
           fi
 
           echo "Telegram webhook configured from GitHub runner for @${bot_username}."
+
+          webhook_info="$(
+            curl               --silent               --show-error               --connect-timeout 8               --max-time 20               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"               || true
+          )"
+
+          if printf '%s' "$webhook_info" | jq -e '.ok == true' >/dev/null 2>&1; then
+            echo "Telegram webhook info:"
+            printf '%s' "$webhook_info"               | jq -r '
+                  .result
+                  | "url=" + (.url // ""),
+                    "pending_update_count=" + ((.pending_update_count // 0) | tostring),
+                    "last_error_date=" + ((.last_error_date // 0) | tostring),
+                    "last_error_message=" + (.last_error_message // "none")
+                '
+          else
+            echo "::warning::Could not read Telegram getWebhookInfo."
+          fi
+
+          webhook_probe_status="$(
+            curl               --silent               --output /dev/null               --write-out '%{http_code}'               --connect-timeout 8               --max-time 20               --request POST               --header "Content-Type: application/json"               --header "X-Telegram-Bot-Api-Secret-Token: ${TELEGRAM_WEBHOOK_SECRET}"               --data '{"update_id":0}'               "https://${APP_DOMAIN}/api/telegram/bot/webhook"               || true
+          )"
+
+          if [ "$webhook_probe_status" = "200" ]; then
+            echo "Signed Telegram webhook endpoint probe: HTTP 200."
+          else
+            echo "::warning::Signed Telegram webhook endpoint probe returned HTTP ${webhook_probe_status:-no-response}."
+          fi
 
   health:
     name: Health Check

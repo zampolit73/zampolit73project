@@ -55,6 +55,36 @@ class TelegramBotClient
         return true;
     }
 
+    public function probe(): array
+    {
+        if (! $this->isConfigured()) {
+            return [
+                'ok' => false,
+                'username' => null,
+                'description' => 'Bot token is not configured.',
+            ];
+        }
+
+        try {
+            $response = Http::withOptions(['curl' => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4]])
+                ->connectTimeout(5)
+                ->timeout(12)
+                ->get($this->apiUrl('getMe'));
+        } catch (ConnectionException) {
+            return [
+                'ok' => false,
+                'username' => null,
+                'description' => 'Connection to Telegram Bot API failed.',
+            ];
+        }
+
+        return [
+            'ok' => $response->successful() && $response->json('ok') === true,
+            'username' => $response->json('result.username'),
+            'description' => (string) ($response->json('description') ?: 'Telegram Bot API probe failed.'),
+        ];
+    }
+
     public function setWebhook(string $url, string $secretToken, bool $dropPendingUpdates = false): bool
     {
         if (! $this->isConfigured()) {

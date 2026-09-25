@@ -146,3 +146,8 @@ The repository contains no BotFather token. Preferred production activation is o
 4. Web search provider abstraction and safe page fetching.
 5. Deterministic evidence/scoring and source clustering.
 6. Admin review UI and quality metrics.
+
+
+## Telegram diagnostics
+
+Operational troubleshooting is built into the deploy pipeline. `telegram:bot:diagnose` prints only safe aggregate state and an outbound `getMe` probe. GitHub Actions also reads Telegram `getWebhookInfo` and performs a signed synthetic webhook POST so inbound delivery, Laravel secret validation and outbound Bot API connectivity can be distinguished without exposing user/chat IDs or secrets.

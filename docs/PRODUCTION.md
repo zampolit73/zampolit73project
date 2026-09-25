@@ -257,3 +257,13 @@ The webhook URL is:
 Laravel checks Telegram's `X-Telegram-Bot-Api-Secret-Token` header before processing an update. Bot tokens and webhook secrets must never be committed or pasted into docs.
 
 The token is never committed to Git and the transient upload file is removed by the remote deploy cleanup trap.
+
+
+### Telegram Bot diagnostics
+
+Production deploy runs two safe diagnostics when `TELEGRAM_BOT_TOKEN` is configured:
+
+- on the VPS: `php8.3 artisan telegram:bot:diagnose` reports whether token/webhook secret are configured, counts linked accounts and used/unused invites, and probes outbound Bot API connectivity without printing secrets;
+- on the GitHub runner: `getWebhookInfo` reports pending updates / last delivery error, and a signed synthetic POST checks that Laravel accepts the configured webhook secret with HTTP 200.
+
+These diagnostics intentionally avoid printing the BotFather token, webhook secret, Telegram user IDs or chat IDs.
