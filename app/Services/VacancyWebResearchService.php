@@ -238,6 +238,18 @@ class VacancyWebResearchService
             }
         }
 
+        if (preg_match(
+            '/(?:работа\\s+)?в\\s+компании\\s+[«"“]?([^|—,]{2,80}?)[»"”]?\\s*$/iu',
+            $title,
+            $matches,
+        )) {
+            $company = $this->cleanCompany($matches[1]);
+
+            if ($company !== null) {
+                return $company;
+            }
+        }
+
         $patterns = [
             '/работа\s+в\s+компании\s+[«"“]?(.+?)[»"”]?(?:\s*[|—]|,\s*(?:москва|санкт|россия)|$)/iu',
             '/в\s+компании\s+[«"“]?(.+?)[»"”]?(?:\s*[|—]|,|$)/iu',
