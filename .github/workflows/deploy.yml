@@ -576,7 +576,7 @@ jobs:
           TELEGRAM_READER_BRIDGE_SERVICE="$APP_NAME-telegram-ws-bridge"
           TELEGRAM_READER_SERVICE="$APP_NAME-telegram-reader"
           if [ "$TELEGRAM_READER_SETUP_REQUESTED" -eq 1 ]; then
-            $SUDO tee "/etc/systemd/system/$TELEGRAM_READER_BRIDGE_SERVICE.service" >/dev/null <<TELEGRAM_BRIDGE
+            $SUDO tee "/etc/systemd/system/$TELEGRAM_READER_BRIDGE_SERVICE.service" >/dev/null <<'TELEGRAM_BRIDGE'
           [Unit]
           Description=Zampolit73 Telegram MTProto local WSS bridge
           Wants=network-online.target
