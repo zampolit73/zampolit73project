@@ -197,6 +197,7 @@ jobs:
           VPS_PWD: ${{ secrets.VPS_PWD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           SSH_ASKPASS: /home/runner/.ssh/askpass.sh
           SSH_ASKPASS_REQUIRE: force
           DISPLAY: ":0"
@@ -209,6 +210,22 @@ jobs:
             -o ServerAliveCountMax=2 \
             release.tar.gz \
             "$VPS_USER@$VPS_HOST:/tmp/zampolit73-${GITHUB_SHA}.tar.gz" </dev/null
+
+          if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
+            telegram_token_file="$(mktemp)"
+            trap 'rm -f "$telegram_token_file"' EXIT
+            chmod 600 "$telegram_token_file"
+            printf '%s' "$TELEGRAM_BOT_TOKEN" > "$telegram_token_file"
+
+            scp \
+              -P 22 \
+              -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=10 \
+              -o ServerAliveInterval=15 \
+              -o ServerAliveCountMax=2 \
+              "$telegram_token_file" \
+              "$VPS_USER@$VPS_HOST:/tmp/zampolit73-telegram-token-${GITHUB_SHA}" </dev/null
+          fi
 
       - name: Activate release
         env:
@@ -244,7 +261,13 @@ jobs:
           SHARED_DIR="$BASE_DIR/shared"
           RELEASE_DIR="$RELEASES_DIR/$RELEASE_SHA"
           ARCHIVE="/tmp/zampolit73-$RELEASE_SHA.tar.gz"
+          TELEGRAM_TOKEN_FILE="/tmp/zampolit73-telegram-token-$RELEASE_SHA"
           NGINX_SITE="/etc/nginx/sites-available/$APP_NAME"
+
+          cleanup_sensitive_files() {
+            $SUDO rm -f "$TELEGRAM_TOKEN_FILE"
+          }
+          trap cleanup_sensitive_files EXIT
           CERT_DIR="/etc/letsencrypt/live/$APP_DOMAIN"
 
           RESOLVED_IPS="$(getent ahostsv4 "$APP_DOMAIN" | awk '{print $1}' | sort -u || true)"
@@ -330,6 +353,27 @@ jobs:
           set_env QUEUE_CONNECTION database
           set_env QUEUE_FAILED_DRIVER null
           set_env LOG_LEVEL warning
+
+          TELEGRAM_SETUP_REQUESTED=0
+          if [ -s "$TELEGRAM_TOKEN_FILE" ]; then
+            TELEGRAM_BOT_TOKEN_VALUE="$($SUDO cat "$TELEGRAM_TOKEN_FILE")"
+            $SUDO rm -f "$TELEGRAM_TOKEN_FILE"
+
+            if [ -n "$TELEGRAM_BOT_TOKEN_VALUE" ]; then
+              set_env TELEGRAM_BOT_TOKEN "$TELEGRAM_BOT_TOKEN_VALUE"
+              TELEGRAM_SETUP_REQUESTED=1
+            fi
+
+            unset TELEGRAM_BOT_TOKEN_VALUE
+          else
+            $SUDO rm -f "$TELEGRAM_TOKEN_FILE"
+          fi
+
+          if [ "$TELEGRAM_SETUP_REQUESTED" -eq 1 ]             && ! $SUDO grep -q '^TELEGRAM_BOT_WEBHOOK_SECRET=.' "$ENV_FILE"; then
+            TELEGRAM_WEBHOOK_SECRET="$(php8.3 -r 'echo bin2hex(random_bytes(32));')"
+            set_env TELEGRAM_BOT_WEBHOOK_SECRET "$TELEGRAM_WEBHOOK_SECRET"
+            unset TELEGRAM_WEBHOOK_SECRET
+          fi
 
           $SUDO touch "$SHARED_DIR/database/database.sqlite"
 
@@ -534,6 +578,19 @@ jobs:
           local_https_check "https://$APP_DOMAIN/up"
           local_https_check "https://$APP_DOMAIN/site.webmanifest"
           local_https_check "https://$APP_DOMAIN/sw.js"
+
+          if [ "$TELEGRAM_SETUP_REQUESTED" -eq 1 ]; then
+            echo "Configuring Telegram Bot webhook from GitHub Actions secret..."
+            cd "$BASE_DIR/current"
+            $SUDO php8.3 artisan config:clear
+            $SUDO php8.3 artisan optimize
+
+            if $SUDO php8.3 artisan telegram:bot:set-webhook; then
+              echo "Telegram Bot webhook configured."
+            else
+              echo "::warning::Telegram Bot webhook setup failed. Website deployment remains healthy; retry after checking the bot token."
+            fi
+          fi
 
           echo "Local deployment checks passed."
 

@@ -235,24 +235,18 @@ The public health job resolves the production hostname once with `getent ahostsv
 
 ## Telegram Bot production setup
 
-Telegram Bot credentials are production secrets and must be written directly to the shared production `.env`; they are not GitHub source values and the deploy workflow must not overwrite them:
+Telegram Bot credentials are production secrets. The preferred setup uses one GitHub Actions repository secret, `TELEGRAM_BOT_TOKEN`; the deploy workflow transfers it to the VPS through a short-lived mode-600 temp file, writes it into the shared production `.env`, generates the webhook secret on the VPS if missing, removes the temp file, and configures the webhook automatically.
+
+Only this value needs to be entered manually in GitHub:
 
 ```text
-TELEGRAM_BOT_TOKEN=<BotFather token>
-TELEGRAM_BOT_USERNAME=<bot username without @ is preferred>
-TELEGRAM_BOT_WEBHOOK_SECRET=<random A-Z/a-z/0-9/_/- secret>
+Settings → Secrets and variables → Actions
+TELEGRAM_BOT_TOKEN=<fresh BotFather token>
 ```
 
-After adding or changing them:
+`TELEGRAM_BOT_WEBHOOK_SECRET` is generated automatically on the VPS and stays in the persistent shared `.env`. `TELEGRAM_BOT_USERNAME` is optional; the bot works without it, but the admin UI can show a direct `t.me` link when it is configured.
 
-```bash
-cd /var/www/zampolit73project/current
-php8.3 artisan config:clear
-php8.3 artisan optimize
-php8.3 artisan telegram:bot:set-webhook
-```
-
-For the initial setup only, `telegram:bot:set-webhook --drop-pending` may be used to discard stale updates.
+On every later main deployment, if the GitHub secret exists, the token is refreshed in the shared `.env` and `php8.3 artisan telegram:bot:set-webhook` is called automatically. Telegram webhook setup is deliberately non-fatal for the website deployment: a Telegram outage must not take the site down, and the Actions log will contain a warning instead.
 
 The webhook URL is:
 
@@ -260,4 +254,4 @@ The webhook URL is:
 
 Laravel checks Telegram's `X-Telegram-Bot-Api-Secret-Token` header before processing an update. Bot tokens and webhook secrets must never be committed or pasted into docs.
 
-Deploy does not automatically call `setWebhook`: an external Telegram outage must not make the website deployment fail, and production secrets are intentionally managed outside Git.
+The token is never committed to Git and the transient upload file is removed by the remote deploy cleanup trap.

@@ -136,11 +136,11 @@ Later iterations should keep these already-agreed product rules:
 
 ## Telegram production configuration
 
-The repository contains no BotFather token. Production becomes live only after `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and `TELEGRAM_BOT_WEBHOOK_SECRET` are written to the shared server `.env` and `php8.3 artisan telegram:bot:set-webhook` succeeds. Until then, the admin UI may generate codes but Telegram cannot deliver `/start` or vacancy messages to Laravel.
+The repository contains no BotFather token. Preferred production activation is now one manual GitHub Actions secret: `TELEGRAM_BOT_TOKEN`. On a main deploy, Actions securely transfers that token to the VPS, the VPS generates `TELEGRAM_BOT_WEBHOOK_SECRET` if it does not already exist, writes both to the persistent shared `.env`, and runs `telegram:bot:set-webhook`. `TELEGRAM_BOT_USERNAME` is optional and only improves the admin deep-link UX. Until a fresh GitHub secret is added and a main deployment runs, Telegram cannot deliver `/start` or vacancy messages to Laravel.
 
 ## Next implementation steps
 
-1. Configure the real production bot credentials/webhook outside Git.
+1. Add a fresh `TELEGRAM_BOT_TOKEN` GitHub Actions secret and run/trigger a main deployment; token/env/webhook setup is automatic after that.
 2. Python Telegram Reader with the user's MTProto session and Telegram folder sync.
 3. SQLite FTS5 + normalization + technology aliases.
 4. Web search provider abstraction and safe page fetching.

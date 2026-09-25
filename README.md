@@ -245,20 +245,14 @@ tests/
 
 ## Telegram Bot for Vacancy Source
 
-Код интеграции бота не содержит production token. На сервере вручную задаются:
+Код интеграции бота не содержит production token. Для production предпочтителен один GitHub Actions secret:
 
 ```text
-TELEGRAM_BOT_TOKEN=...
-TELEGRAM_BOT_USERNAME=...
-TELEGRAM_BOT_WEBHOOK_SECRET=...
+TELEGRAM_BOT_TOKEN=<fresh BotFather token>
 ```
 
-После этого webhook настраивается из текущего release:
+На следующем deploy в `main` workflow сам передаст token на VPS через временный защищённый файл, запишет его в shared production `.env`, сгенерирует `TELEGRAM_BOT_WEBHOOK_SECRET`, если его ещё нет, удалит временный файл и вызовет `php8.3 artisan telegram:bot:set-webhook`.
 
-```bash
-php8.3 artisan telegram:bot:set-webhook
-```
-
-Для очистки уже ожидающих Telegram updates при первом подключении можно один раз использовать `--drop-pending`.
+`TELEGRAM_BOT_USERNAME` необязателен: без него бот работает, просто в админке не будет прямой `t.me`-ссылки.
 
 Администратор создаёт одноразовый код рядом с пользователем на `/admin/users`; plaintext кода показывается только в текущем ответе админки и не сохраняется в БД. Пользователь отправляет боту `/start CODE`. После привязки обычный текст или Forward создаёт то же `vacancy_investigations`, что и веб-форма; Forward metadata не используется как доказательство.

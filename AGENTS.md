@@ -153,7 +153,7 @@ Never commit:
 - DuckDNS token;
 - production database.
 
-Repository GitHub secrets are currently `VPS_HOST`, `VPS_USER`, `VPS_PWD`.
+Repository GitHub secrets used by deployment are `VPS_HOST`, `VPS_USER`, `VPS_PWD`; optional `TELEGRAM_BOT_TOKEN` enables automatic Vacancy Source Telegram Bot provisioning. Never put the Telegram token in source or docs.
 
 ## Documentation
 
