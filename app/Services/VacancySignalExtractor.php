@@ -212,7 +212,7 @@ class VacancySignalExtractor
         }
 
         $candidate = trim(preg_split('/[,;\n\r|]/u', $matches[1])[0] ?? '');
-        $candidate = trim($candidate, " .\t\n\r\0\x0B»”"'");
+        $candidate = trim($candidate, " .\t\n\r\0\x0B»”\"'");
 
         if (
             mb_strlen($candidate) < 2
