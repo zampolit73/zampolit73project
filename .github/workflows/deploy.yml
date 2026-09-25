@@ -462,7 +462,7 @@ jobs:
           $SUDO php8.3 artisan optimize
 
           if [ "$TELEGRAM_READER_SETUP_REQUESTED" -eq 1 ]; then
-            if ! command -v python3 >/dev/null 2>&1 || ! python3 -m venv --help >/dev/null 2>&1; then
+            if ! command -v python3 >/dev/null 2>&1; then
               echo "Installing Python runtime for Telegram Reader..."
               $SUDO apt-get update
               $SUDO apt-get install -y python3 python3-venv
@@ -477,6 +477,10 @@ jobs:
             $SUDO chmod 700 "$TELEGRAM_READER_STATE_DIR"
 
             if [ ! -x "$TELEGRAM_READER_VENV/bin/python" ]; then
+              echo "Provisioning Telegram Reader Python venv..."
+              $SUDO apt-get update
+              $SUDO apt-get install -y python3-venv
+              $SUDO rm -rf "$TELEGRAM_READER_VENV"
               $SUDO python3 -m venv "$TELEGRAM_READER_VENV"
             fi
 
