@@ -311,3 +311,18 @@ It reports, without exposing secrets or Telegram IDs:
 - real Bot API `getMe` through the configured pinned API IP.
 
 The BotFather token must never be committed or pasted into documentation.
+
+
+## Vacancy Source public web search
+
+Real web research v1 uses Bing's public RSS-formatted web-search result page. No additional production secret is required.
+
+The deploy runs a non-user diagnostic after local application checks:
+
+```bash
+php8.3 artisan vacancy:web:probe
+```
+
+It searches a generic vacancy query and reports only result count/source hosts. The probe is intentionally non-fatal for site deployment: search-provider availability must not take down the application, while the Actions log still exposes provider connectivity problems.
+
+Investigation jobs themselves handle provider failures and may finish as `partial`; they never manufacture a client when source evidence is unavailable.

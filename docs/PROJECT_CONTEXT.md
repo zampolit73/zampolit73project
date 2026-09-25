@@ -1010,48 +1010,37 @@ Project #06: `/projects/vacancy-source`.
 
 Implemented now:
 
-- authenticated web launcher with one textarea;
-- per-user history; admin sees team history;
-- SQLite `vacancy_investigations`, `investigation_candidates` and `investigation_reviews` tables;
-- Laravel database queue on named queue `vacancy-source`;
-- one production systemd queue worker;
-- polling progress endpoint;
+- authenticated web launcher;
+- private Telegram Bot input bound to existing site users;
+- Bot production transport via long polling and pinned reachable Telegram API IPv4;
+- Laravel database queue `vacancy-source` with one production worker;
+- live web status polling and history;
 - queued-only cancellation;
-- a deliberately labelled demo job that exercises the pipeline and never fabricates a client;
-- `user_telegram_accounts` and `telegram_invites` persistence;
-- Telegram binding controls on `/admin/users`;
-- one-time `/start CODE` binding;
-- bot input from private messages/Forward text into the same investigation queue;
-- group/supergroup bot messages ignored;
-- Forward metadata ignored as evidence/input context;
-- Telegram progress/final notifications for bot-started demo investigations.
+- normalized vacancy text + fingerprint;
+- **real public-web search** through Bing RSS SERP, with no paid search key;
+- deterministic signal extraction and scoring;
+- up to three end-client candidates above the 60% threshold;
+- direct vs indirect hypothesis label;
+- intermediaries separated with `is_end_client=false`;
+- persisted source links/snippets/evidence scores in `investigation_sources`;
+- web UI shows candidates, explanations and clickable sources;
+- Telegram progress/final result and `/status` include persisted candidate/source information;
+- deploy probe `vacancy:web:probe` checks public search connectivity without user data.
 
-### Telegram Bot production transport
+Current web-search v1 deliberately scores Bing result titles/snippets and does not pretend that full page content was verified when it was not fetched. Query generation uses rare requirement phrases, technology combinations, HH/Habr targeted searches, and RU/EN role variants. Scoring weights are explicit in `config/vacancy_source.php`; geography is zero-weight and seniority is effectively zero-weight.
 
-Production Bot transport is **long polling**, managed by systemd unit `zampolit73project-telegram-bot.service`.
+Still not implemented:
 
-The reason is a verified provider/network route issue, not Laravel/firewall configuration:
-
-- the VPS DNS result `149.154.166.110` for `api.telegram.org` times out on TCP 443;
-- alternate Telegram Bot API IPv4 `149.154.167.220` succeeds on TCP/TLS;
-- UFW is inactive and iptables INPUT/OUTPUT policies are ACCEPT;
-- control HTTPS to GitHub/Cloudflare succeeds.
-
-Deploy writes `TELEGRAM_BOT_API_IP=149.154.167.220` and `TELEGRAM_BOT_PUSH_ENABLED=true`. `TelegramBotClient` pins `api.telegram.org` to that IP while retaining the hostname for TLS/SNI.
-
-The long poller disables webhook delivery with `drop_pending_updates=false`, consumes `getUpdates`, persists the last processed update ID in shared file cache, routes updates through `TelegramUpdateHandler`, and sends Bot API replies on the pinned IP.
-
-The existing stateless webhook route remains as a fallback/test path but is not the production receive transport while polling is active.
-
-Production still requires only `TELEGRAM_BOT_TOKEN` in GitHub Actions Secrets. The token is copied to shared production `.env` through a short-lived protected temp file and never committed.
-
-Not implemented yet:
-
-- Python Telegram Reader / MTProto session;
-- Telegram folder backfill/sync;
-- FTS5/BM25 matching;
-- web search;
-- deterministic confidence scoring;
-- admin review UI.
+- Python MTProto Telegram Reader / work-folder authorization;
+- three-month Telegram folder backfill and five-minute sync;
+- Telegram-message FTS5/BM25 index;
+- combined Telegram + web evidence clustering;
+- richer safe page fetching/corroboration beyond SERP snippets;
+- admin review UI and quality metrics.
 
 Canonical product and implementation decisions live in `docs/VACANCY_SOURCE.md`.
+
+### Vacancy Source Telegram Bot networking
+
+The VPS route to the DNS-selected `api.telegram.org` address is unreliable, while `149.154.167.220` is reachable. Production therefore uses `TELEGRAM_BOT_API_IP=149.154.167.220` inside `TelegramBotClient`, preserving `api.telegram.org` for TLS/SNI. The Bot runs as `zampolit73project-telegram-bot.service` with `telegram:bot:poll`; existing webhook updates were preserved with `drop_pending_updates=false`.
+

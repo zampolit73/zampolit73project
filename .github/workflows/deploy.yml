@@ -619,6 +619,10 @@ jobs:
             $SUDO php8.3 artisan telegram:bot:diagnose || true
           fi
 
+          echo "Running Vacancy Source public-web search probe..."
+          cd "$BASE_DIR/current"
+          $SUDO php8.3 artisan vacancy:web:probe || true
+
           echo "Local deployment checks passed."
 
           ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +4 | xargs -r $SUDO rm -rf

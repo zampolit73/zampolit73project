@@ -32,13 +32,23 @@ class VacancySourceController extends Controller
 
         if ($activeId > 0) {
             $active = $this->visibleInvestigations($request)
-                ->with(['user:id,username', 'candidates' => fn ($query) => $query->orderBy('rank'), 'review'])
+                ->with([
+                    'user:id,username',
+                    'candidates' => fn ($query) => $query->orderBy('rank'),
+                    'sources' => fn ($query) => $query->orderByDesc('evidence_score'),
+                    'review',
+                ])
                 ->find($activeId);
         } else {
             $active = VacancyInvestigation::query()
                 ->where('user_id', $request->user()->id)
                 ->whereIn('status', ['queued', 'running'])
-                ->with(['user:id,username', 'candidates' => fn ($query) => $query->orderBy('rank'), 'review'])
+                ->with([
+                    'user:id,username',
+                    'candidates' => fn ($query) => $query->orderBy('rank'),
+                    'sources' => fn ($query) => $query->orderByDesc('evidence_score'),
+                    'review',
+                ])
                 ->latest()
                 ->first();
         }
@@ -77,7 +87,12 @@ class VacancySourceController extends Controller
     public function status(Request $request, int $investigation): JsonResponse
     {
         $record = $this->visibleInvestigations($request)
-            ->with(['user:id,username', 'candidates' => fn ($query) => $query->orderBy('rank'), 'review'])
+            ->with([
+                'user:id,username',
+                'candidates' => fn ($query) => $query->orderBy('rank'),
+                'sources' => fn ($query) => $query->orderByDesc('evidence_score'),
+                'review',
+            ])
             ->findOrFail($investigation);
 
         return response()
@@ -129,7 +144,7 @@ class VacancySourceController extends Controller
     private function serializeInvestigation(VacancyInvestigation $investigation): array
     {
         $bestCandidate = $investigation->relationLoaded('candidates')
-            ? $investigation->candidates->sortBy('rank')->first()
+            ? $investigation->candidates->where('is_end_client', true)->sortBy('rank')->first()
             : null;
 
         return [
@@ -154,7 +169,39 @@ class VacancySourceController extends Controller
                 'company_name' => $bestCandidate->company_name,
                 'confidence' => $bestCandidate->confidence,
                 'candidate_type' => $bestCandidate->candidate_type,
+                'is_end_client' => $bestCandidate->is_end_client,
             ] : null,
+            'candidates' => $investigation->relationLoaded('candidates')
+                ? $investigation->candidates
+                    ->sortBy('rank')
+                    ->values()
+                    ->map(fn ($candidate) => [
+                        'id' => $candidate->id,
+                        'company_name' => $candidate->company_name,
+                        'confidence' => $candidate->confidence,
+                        'candidate_type' => $candidate->candidate_type,
+                        'is_end_client' => $candidate->is_end_client,
+                        'rank' => $candidate->rank,
+                        'explanation' => $candidate->explanation,
+                    ])
+                    ->all()
+                : [],
+            'sources' => $investigation->relationLoaded('sources')
+                ? $investigation->sources
+                    ->sortByDesc('evidence_score')
+                    ->take(8)
+                    ->values()
+                    ->map(fn ($source) => [
+                        'id' => $source->id,
+                        'candidate_id' => $source->candidate_id,
+                        'provider' => $source->provider,
+                        'title' => $source->title,
+                        'url' => $source->url,
+                        'snippet' => $source->snippet,
+                        'evidence_score' => $source->evidence_score,
+                    ])
+                    ->all()
+                : [],
             'review_status' => $investigation->relationLoaded('review')
                 ? $investigation->review?->status
                 : null,

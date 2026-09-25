@@ -69,6 +69,18 @@ function reviewLabel(status) {
     }[status] ?? 'Не проверено';
 }
 
+function candidateTypeLabel(type) {
+    return type === 'direct' ? 'Прямое совпадение' : 'Косвенная гипотеза';
+}
+
+function sourceHost(url) {
+    try {
+        return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+        return 'источник';
+    }
+}
+
 function formatDate(value) {
     if (!value) return '—';
 
@@ -159,10 +171,11 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div class="vacancy-source-hero__note">
-                    <strong>ТЕХНИЧЕСКИЙ MVP</strong>
+                    <strong>WEB RESEARCH V1</strong>
                     <p>
-                        Сейчас здесь работает сквозной асинхронный каркас: очередь, статусы и история.
-                        Telegram- и веб-поиск пока не подключены — результат не выдаёт выдуманного клиента.
+                        Веб-поиск уже реальный: сервис ищет совпадения по редким фразам и стеку,
+                        показывает проверяемые ссылки и не выдаёт клиента ниже порога уверенности.
+                        Telegram-корпус подключим следующим слоем.
                     </p>
                 </div>
             </header>
@@ -237,8 +250,67 @@ onBeforeUnmount(() => {
                         </p>
 
                         <div v-if="active.result_summary" class="vacancy-result">
-                            <strong>Результат каркаса</strong>
+                            <strong>Результат расследования</strong>
                             <p>{{ active.result_summary }}</p>
+
+                            <div
+                                v-if="active.candidates?.filter((candidate) => candidate.is_end_client).length"
+                                class="vacancy-result__section"
+                            >
+                                <h3>Кандидаты на конечного клиента</h3>
+
+                                <article
+                                    v-for="candidate in active.candidates.filter((item) => item.is_end_client)"
+                                    :key="candidate.id"
+                                    class="vacancy-candidate"
+                                >
+                                    <div class="vacancy-candidate__top">
+                                        <strong>{{ candidate.company_name }}</strong>
+                                        <span>{{ candidate.confidence }}%</span>
+                                    </div>
+                                    <small>{{ candidateTypeLabel(candidate.candidate_type) }}</small>
+                                    <p>{{ candidate.explanation }}</p>
+                                </article>
+                            </div>
+
+                            <div
+                                v-if="active.candidates?.filter((candidate) => !candidate.is_end_client).length"
+                                class="vacancy-result__section"
+                            >
+                                <h3>Вероятные посредники</h3>
+
+                                <article
+                                    v-for="candidate in active.candidates.filter((item) => !item.is_end_client)"
+                                    :key="candidate.id"
+                                    class="vacancy-candidate vacancy-candidate--vendor"
+                                >
+                                    <div class="vacancy-candidate__top">
+                                        <strong>{{ candidate.company_name }}</strong>
+                                        <span>{{ candidate.confidence }}%</span>
+                                    </div>
+                                    <p>{{ candidate.explanation }}</p>
+                                </article>
+                            </div>
+
+                            <div v-if="active.sources?.length" class="vacancy-result__section">
+                                <h3>Сильнейшие веб-источники</h3>
+
+                                <a
+                                    v-for="source in active.sources"
+                                    :key="source.id"
+                                    class="vacancy-source-link"
+                                    :href="source.url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <span>{{ source.evidence_score }}/100</span>
+                                    <div>
+                                        <strong>{{ source.title || sourceHost(source.url) }}</strong>
+                                        <small>{{ sourceHost(source.url) }}</small>
+                                        <p v-if="source.snippet">{{ source.snippet }}</p>
+                                    </div>
+                                </a>
+                            </div>
                         </div>
 
                         <button
@@ -569,6 +641,112 @@ onBeforeUnmount(() => {
     font-size: 12px;
     font-weight: 750;
     line-height: 1.5;
+}
+
+.vacancy-result__section {
+    display: grid;
+    gap: 9px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 2px solid var(--ds-color-black);
+}
+
+.vacancy-result__section h3 {
+    margin: 0;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.vacancy-candidate {
+    padding: 11px;
+    border: 2px solid var(--ds-color-black);
+    background: #fffaf0;
+}
+
+.vacancy-candidate--vendor {
+    background: #eadfca;
+}
+
+.vacancy-candidate__top {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.vacancy-candidate__top strong {
+    font-size: 13px;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.vacancy-candidate__top span {
+    font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+    font-size: 20px;
+}
+
+.vacancy-candidate > small {
+    display: block;
+    margin-top: 2px;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.vacancy-candidate p {
+    margin-top: 6px;
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.vacancy-source-link {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+    border: 2px solid var(--ds-color-black);
+    background: #fffaf0;
+    color: inherit;
+    text-decoration: none;
+}
+
+.vacancy-source-link:hover {
+    box-shadow: 4px 4px 0 var(--ds-color-red);
+}
+
+.vacancy-source-link > span {
+    display: grid;
+    min-height: 42px;
+    place-items: center;
+    background: var(--ds-color-black);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 950;
+}
+
+.vacancy-source-link strong,
+.vacancy-source-link small {
+    display: block;
+}
+
+.vacancy-source-link strong {
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.vacancy-source-link small {
+    margin-top: 2px;
+    font-size: 9px;
+    opacity: .7;
+}
+
+.vacancy-source-link p {
+    margin-top: 5px;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.35;
 }
 
 .vacancy-empty strong {

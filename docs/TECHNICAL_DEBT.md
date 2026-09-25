@@ -107,3 +107,17 @@ Future server-side scheduled timestamps should deliberately choose whether UTC r
 DNS currently points at the VPS and HTTPS works.
 
 If the VPS public IP can change, automatic DuckDNS update would require a DuckDNS token stored as a secret. The token must never be committed.
+
+
+## Vacancy Source web-search dependency
+
+Web research v1 uses Bing's public RSS-formatted search results because it requires no paid API key. This endpoint has no product-level SLA for this project and can change, rate-limit, or stop returning useful RSS output.
+
+Current mitigation:
+
+- provider is isolated in `BingRssSearchProvider`;
+- failures produce a partial/no-evidence result instead of a fabricated client;
+- production deploy runs `vacancy:web:probe`;
+- scoring uses result title/snippet only and does not claim full-page verification.
+
+Future work should add at least one independent search provider and safe page-level corroboration before treating web coverage as robust.

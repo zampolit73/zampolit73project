@@ -2,49 +2,53 @@
 
 ## Purpose
 
-Vacancy Source is project #06 inside `zampolit73project`. Its product goal is to take an IT vacancy and identify likely end clients from Telegram history and public web sources, while preferring an explicit "not enough data" result over a confident false match.
+Vacancy Source is project #06 inside `zampolit73project`. It takes an IT vacancy and tries to identify the likely end client from verifiable evidence. Precision is preferred over recall: a clear "not enough evidence" result is better than an invented client.
 
-## Current implementation
+## Current investigation flow
 
-The first web iteration remains the asynchronous product skeleton:
+The production pipeline is asynchronous:
 
 ```text
-Web textarea
-   |
+Web textarea or private Telegram Bot message
+        |
 vacancy_investigations
-   |
-Laravel database queue
-   |
-RunVacancyInvestigation
-   |
-progress stages
-   |
-Vue polling + history
+        |
+Laravel database queue: vacancy-source
+        |
+signal extraction
+        |
+public web research (Bing RSS SERP)
+        |
+deterministic evidence scoring
+        |
+candidates + sources
+        |
+web live status/history + Telegram result
 ```
 
-The queued investigation job still does not perform real Telegram-source or web research. Its stages remain explicitly technical/demo so the product never invents a client. On top of that skeleton, Laravel now implements the Telegram Bot user transport and site-account binding.
+The web part is now real, not a demo. Telegram work-chat history is still the next data source and is not counted as evidence yet.
 
 ## Access model
 
-- authenticated `user`: can launch investigations and see only their own history/status;
-- `admin`: can launch investigations and see the team's history;
-- guests are redirected to login.
+- authenticated `user`: launch investigations and see own history/status;
+- `admin`: same investigation functionality plus team history;
+- guests: login required.
 
-Admin review data has a table in the initial schema, but the review UI/actions are a later iteration.
+Admin review storage exists; review UI/actions remain a later iteration.
 
-### Telegram binding and Bot input
+## Telegram Bot input and binding
 
-- `/admin/users` shows Telegram binding state for every site user;
-- an admin can generate a one-time code with no automatic expiry;
-- issuing a new unused code invalidates the previous unused code for that user;
-- only the SHA-256 hash is persisted; plaintext is shown only in the redirect response that created it;
-- the user sends `/start CODE` to the bot in a private chat;
-- one site user can have one Telegram account and one Telegram identity can be linked to one site user;
-- an admin can unlink the binding and later generate a new code;
+- `/admin/users` shows binding state for every site user;
+- admin can generate one-time binding codes without automatic expiry;
+- only SHA-256 hashes of codes are stored;
+- user sends `/start CODE` to the private bot;
+- one site user ↔ one Telegram identity;
 - group/supergroup bot messages are ignored;
-- after binding, ordinary private text or a Forward creates the same `vacancy_investigations` record/queue job as the web form;
-- Forward metadata is deliberately ignored; only message text/caption becomes investigation input;
-- the current demo worker sends Telegram progress/final messages but still labels them as technical demo output.
+- ordinary private text or Forward text creates the same investigation queue job as the web form;
+- Forward metadata is ignored; only message text/caption is research input;
+- `/status` returns the latest investigation state or complete formatted result.
+
+Production Bot transport is long polling; see the Telegram section below.
 
 ## Routes
 
@@ -54,9 +58,9 @@ Admin review data has a table in the initial schema, but the review UI/actions a
 - `POST /projects/vacancy-source/investigations/{id}/cancel`;
 - admin: `POST /admin/users/{user}/telegram-invite`;
 - admin: `DELETE /admin/users/{user}/telegram-binding`;
-- public stateless webhook: `POST /api/telegram/bot/webhook`.
+- fallback/test webhook: `POST /api/telegram/bot/webhook`.
 
-Only a `queued` investigation can be cancelled. Once a worker atomically moves it to `running`, cancellation is rejected.
+Only a queued investigation can be cancelled.
 
 ## Queue
 
@@ -64,75 +68,156 @@ Queue connection: `database`.
 
 Named queue: `vacancy-source`.
 
-Production runs one worker so the small VPS processes at most one investigation at once:
+Production runs one worker:
 
 ```bash
 php8.3 artisan queue:work database --queue=vacancy-source --sleep=1 --tries=1 --timeout=330
 ```
 
-The job class has a 300-second timeout and one try. Database queue `retry_after` is 360 seconds.
+The investigation job has a 300-second timeout and one try. Search-provider failures are handled inside the job and can produce a `partial` result instead of fabricating evidence.
 
-## Initial data model
+## Data model
 
 ### vacancy_investigations
 
-Owns:
+Stores:
 
-- user / input source;
-- original input text (stored, not shown in normal history);
-- future normalization/fingerprint fields;
+- owner and input source;
+- original vacancy text;
+- normalized text and SHA-256 fingerprint;
 - queue/run state;
 - progress stage/text;
-- result summary;
+- final summary;
 - queue/start/finish/cancel/timeout timestamps.
 
 ### investigation_candidates
 
-Reserved for the ranked end-client candidates:
+Stores ranked hypotheses:
 
-- company;
-- direct/indirect type;
-- confidence score;
+- company name;
+- `direct` / `indirect` evidence type;
+- deterministic confidence score;
 - end-client flag;
 - rank;
 - explanation.
 
-The demo job does not insert fake candidates.
+At most three end-client hypotheses are retained above the display threshold. Clear recruitment/outstaff intermediaries are marked `is_end_client=false` and do not occupy end-client slots.
+
+### investigation_sources
+
+Stores the strongest web evidence used by an investigation:
+
+- optional candidate link;
+- provider;
+- title;
+- URL;
+- snippet;
+- search query;
+- evidence score.
+
+The application stores links/snippets only; it does not mirror arbitrary result pages.
 
 ### investigation_reviews
 
-Reserved for admin quality review:
+Reserved for admin validation:
 
 - correct / incorrect / partial;
 - optional corrected client;
 - optional confirmation URL;
 - notes and reviewer.
 
-## Planned search behaviour
+## Real web research v1
 
-Later iterations should keep these already-agreed product rules:
+Current provider: Bing web search RSS output:
 
-- search Telegram and web for each full investigation;
-- Telegram source is a dynamic folder of roughly 30 work chats;
-- initial backfill is three months; new messages sync roughly every five minutes;
-- only vacancy-like text messages are stored; no media;
-- removed chats stop syncing but historical indexed messages remain;
-- edited messages update; deleted messages remain marked deleted;
-- strict dedupe/grouping threshold;
-- chat title does not contribute to confidence;
-- geography contributes zero weight;
-- seniority is near-zero weight;
-- rare requirements, internal product/system names and rare tech combinations are strong signals;
-- contradictory core stack is a strong negative signal;
-- confidence is deterministic/heuristic, not an LLM probability;
-- display threshold starts around 60%;
-- do not force three candidates when fewer are reliable;
-- intermediaries/vendors are shown separately from end-client candidates;
-- result explanations include the strongest matching fragments and source links;
-- web search is two-pass: rare/exact signals first, then broader role + stack + industry if needed;
-- Russian and English query variants are generated for key signals;
-- one investigation has a five-minute hard ceiling;
-- historical admin-confirmed results are hints, not immutable ground truth.
+`https://www.bing.com/search?...&format=rss`
+
+No paid API key is required.
+
+The service generates up to six compact queries from the vacancy:
+
+1. strongest rare/exact requirement phrases + important technologies;
+2. a second rare phrase when available;
+3. targeted `site:hh.ru/vacancy` search;
+4. targeted `site:career.habr.com/vacancies` search;
+5. broader Russian role + stack query;
+6. English role + stack variant / explicit company query when useful.
+
+Search results are deduplicated by URL. The first iteration scores the SERP title/snippet only; it deliberately does not treat inaccessible page content as if it had been verified.
+
+### Deterministic confidence
+
+Weights live in `config/vacancy_source.php`.
+
+Strong signals:
+
+- exact rare phrase match;
+- rare technology combinations;
+- explicit company mention in the input plus corroboration;
+- evidence on more than one distinct domain.
+
+Medium/weak signals:
+
+- technology overlap;
+- role overlap;
+- significant-token overlap.
+
+Explicit product rules remain:
+
+- geography contributes **zero** score;
+- seniority contributes effectively zero;
+- common stack by itself is weak;
+- confidence is a heuristic score, not a calibrated probability;
+- default display threshold is 60%;
+- fewer than three candidates are shown when evidence is weak;
+- probable recruiting/outstaff vendors are separated from end clients.
+
+A candidate is labelled `Прямое совпадение` only when the strongest source has a high evidence score and at least one exact rare phrase. Otherwise it is `Косвенная гипотеза`.
+
+## User-facing result
+
+Web active result shows:
+
+- summary;
+- up to three end-client candidates;
+- confidence;
+- direct/indirect label;
+- explanation;
+- probable intermediaries separately;
+- strongest clickable sources with evidence score and snippet.
+
+Telegram final messages and `/status` use the same persisted candidates/sources and include up to three source links.
+
+If no candidate crosses the threshold, the result explicitly says the end client was not reliably determined.
+
+## Production diagnostics for web research
+
+Deploy runs:
+
+```bash
+php8.3 artisan vacancy:web:probe
+```
+
+The probe uses a generic non-user vacancy query and prints only provider/result-host diagnostics. Failure is non-fatal for the website deploy, but is visible in Actions so public-search connectivity can be distinguished from application bugs.
+
+## Planned Telegram research corpus
+
+The next major source is a separate Python MTProto Reader for the user's work-folder chats.
+
+Already-agreed behavior:
+
+- dynamic folder whitelist of roughly 30 work chats;
+- three-month backfill when a chat is newly added;
+- sync around every five minutes;
+- text/captions only, no media;
+- removed chats stop new sync but historical messages remain;
+- edited messages update;
+- deleted messages should remain marked deleted;
+- strict similarity clustering to avoid counting reposts as independent evidence;
+- chat title is display metadata, not a confidence signal;
+- one shared Telegram user account for MVP, replaceable later without changing Laravel investigation semantics.
+
+After the Reader is connected, Telegram and web evidence will be searched in parallel and combined by the deterministic scoring layer.
 
 ## Telegram production transport
 
@@ -198,7 +283,7 @@ Current diagnostics include:
 ## Next implementation steps
 
 1. Python Telegram Reader with the user's MTProto session and Telegram folder sync.
-2. SQLite FTS5 + normalization + technology aliases.
-3. Web search provider abstraction and safe page fetching.
-4. Deterministic evidence/scoring and source clustering.
+2. SQLite FTS5 index for the Telegram corpus plus strict repost clustering.
+3. Combine Telegram and web evidence in one scoring pass.
+4. Add safe page-level corroboration for selected web sources beyond SERP snippets.
 5. Admin review UI and quality metrics.

@@ -2,8 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Models\InvestigationCandidate;
+use App\Models\InvestigationSource;
 use App\Models\VacancyInvestigation;
 use App\Services\TelegramBotClient;
+use App\Services\VacancySignalExtractor;
+use App\Services\VacancyTelegramResultFormatter;
+use App\Services\VacancyWebResearchService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,15 +30,19 @@ class RunVacancyInvestigation implements ShouldQueue
         $this->onQueue('vacancy-source');
     }
 
-    public function handle(TelegramBotClient $telegramBot): void
-    {
+    public function handle(
+        TelegramBotClient $telegramBot,
+        VacancyWebResearchService $research,
+        VacancySignalExtractor $extractor,
+        VacancyTelegramResultFormatter $formatter,
+    ): void {
         $claimed = VacancyInvestigation::query()
             ->whereKey($this->investigationId)
             ->where('status', 'queued')
             ->update([
                 'status' => 'running',
                 'progress_stage' => 'starting',
-                'progress_text' => 'Запускаю расследование',
+                'progress_text' => 'Разбираю вакансию на сильные сигналы',
                 'started_at' => now(),
             ]);
 
@@ -52,44 +61,98 @@ class RunVacancyInvestigation implements ShouldQueue
         $this->notifyTelegram(
             $telegramBot,
             $telegramChatId,
-            'Проверка #'.$investigation->id.': ищу совпадения. Пока это технический демо-этап.',
+            'Проверка #'.$investigation->id.': разбираю вакансию и выделяю редкие требования.',
         );
 
-        $this->advance('telegram_search', 'Проверяю Telegram-источники — технический демо-этап');
-        $this->pause();
+        $this->advance(
+            'telegram_search',
+            'Telegram-корпус вакансий ещё не подключён — этот источник пока пропускаю',
+        );
 
-        $this->advance('web_search', 'Проверяю веб-источники — технический демо-этап');
+        $this->advance('web_search', 'Ищу совпадения в открытом вебе по редким фразам и стеку');
         $this->notifyTelegram(
             $telegramBot,
             $telegramChatId,
-            'Проверка #'.$investigation->id.': проверяю веб-источники — технический демо-этап.',
+            'Проверка #'.$investigation->id.': ищу совпадения в открытом вебе.',
         );
-        $this->pause();
 
-        $this->advance('candidate_analysis', 'Собираю кандидатов и объяснение — технический демо-этап');
+        $result = $research->research($investigation->input_text);
+
+        $this->advance('candidate_analysis', 'Проверяю кандидатов, источники и силу совпадений');
         $this->notifyTelegram(
             $telegramBot,
             $telegramChatId,
-            'Проверка #'.$investigation->id.': проверяю кандидатов — технический демо-этап.',
+            'Проверка #'.$investigation->id.': нашёл источники, проверяю кандидатов и уверенность.',
         );
-        $this->pause();
 
-        $summary = 'Технический каркас расследования работает. Реальный поиск по Telegram и вебу будет подключён следующими итерациями.';
+        InvestigationSource::query()
+            ->where('investigation_id', $investigation->id)
+            ->delete();
+
+        InvestigationCandidate::query()
+            ->where('investigation_id', $investigation->id)
+            ->delete();
+
+        $candidateIds = [];
+
+        foreach ($result['candidates'] as $index => $candidate) {
+            $record = InvestigationCandidate::query()->create([
+                'investigation_id' => $investigation->id,
+                'company_name' => $candidate['company_name'],
+                'candidate_type' => $candidate['candidate_type'],
+                'confidence' => $candidate['confidence'],
+                'is_end_client' => $candidate['is_end_client'],
+                'rank' => $index + 1,
+                'explanation' => $candidate['explanation'],
+            ]);
+
+            $candidateIds[$this->companyKey($candidate['company_name'], $extractor)] = $record->id;
+        }
+
+        foreach ($result['sources'] as $source) {
+            $candidateId = null;
+
+            if ($source['candidate_name']) {
+                $candidateId = $candidateIds[$this->companyKey($source['candidate_name'], $extractor)] ?? null;
+            }
+
+            InvestigationSource::query()->create([
+                'investigation_id' => $investigation->id,
+                'candidate_id' => $candidateId,
+                'provider' => $source['provider'],
+                'title' => Str::limit($source['title'], 500, ''),
+                'url' => $source['url'],
+                'snippet' => Str::limit($source['snippet'], 1800, '…'),
+                'search_query' => Str::limit($source['search_query'], 500, ''),
+                'evidence_score' => $source['evidence_score'],
+            ]);
+        }
+
+        $status = $result['partial'] ? 'partial' : 'completed';
 
         VacancyInvestigation::query()
             ->whereKey($this->investigationId)
             ->update([
-                'status' => 'completed',
+                'normalized_text' => $result['signals']['normalized_text'],
+                'fingerprint' => $result['signals']['fingerprint'],
+                'status' => $status,
                 'progress_stage' => 'completed',
-                'progress_text' => 'Готово',
-                'result_summary' => $summary,
+                'progress_text' => $result['partial'] ? 'Готово частично' : 'Готово',
+                'result_summary' => $result['summary'],
                 'finished_at' => now(),
             ]);
+
+        $completedInvestigation = VacancyInvestigation::query()
+            ->with([
+                'candidates' => fn ($query) => $query->orderBy('rank'),
+                'sources' => fn ($query) => $query->orderByDesc('evidence_score'),
+            ])
+            ->findOrFail($investigation->id);
 
         $this->notifyTelegram(
             $telegramBot,
             $telegramChatId,
-            'Проверка #'.$investigation->id." готова.\n\n".$summary,
+            $formatter->format($completedInvestigation),
         );
     }
 
@@ -145,12 +208,8 @@ class RunVacancyInvestigation implements ShouldQueue
         }
     }
 
-    private function pause(): void
+    private function companyKey(string $company, VacancySignalExtractor $extractor): string
     {
-        $milliseconds = max(0, (int) config('vacancy_source.demo_stage_delay_ms', 700));
-
-        if ($milliseconds > 0) {
-            usleep($milliseconds * 1000);
-        }
+        return preg_replace('/[^\p{L}\p{N}]+/u', '', $extractor->normalize($company)) ?: $company;
     }
 }

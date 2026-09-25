@@ -146,9 +146,9 @@ The existing `jobs` table backs Laravel's database queue. Production uses `QUEUE
 
 `user_telegram_accounts` links exactly one site user to one private Telegram identity/chat. `telegram_invites` stores only SHA-256 hashes of one-time binding codes; plaintext codes are returned to the admin only once and are never persisted. Unused codes do not expire automatically; issuing a new code invalidates the previous unused code for that user.
 
-### vacancy_investigations / investigation_candidates / investigation_reviews
+### vacancy_investigations / investigation_candidates / investigation_sources / investigation_reviews
 
-The first Vacancy Source iteration stores the submitted vacancy, owner, queue/progress state and result summary in `vacancy_investigations`. Candidate and review tables establish the data boundary for later source matching and admin validation. The first job is intentionally a demo pipeline: it exercises queue/progress/history without claiming that Telegram or web research is already implemented.
+Vacancy Source stores the submitted vacancy, normalized fingerprint, queue/progress state and result summary in `vacancy_investigations`. `investigation_candidates` stores ranked direct/indirect end-client hypotheses and intermediary flags. `investigation_sources` stores the strongest web source URL/title/snippet/query/evidence score and may reference a candidate. `investigation_reviews` remains the admin-validation boundary.
 
 ## Frontend structure
 
@@ -310,43 +310,25 @@ The authenticated `/projects/reading-diary` page is project #04.
 Current implemented flow:
 
 ```text
-Vue textarea
-    |
-Laravel investigation row
-    |
+Web form or private Telegram Bot
+        |
+vacancy_investigations
+        |
 database queue: vacancy-source
-    |
-RunVacancyInvestigation
-    |
-progress/status updates
-    |
-Vue polling + history
+        |
+VacancySignalExtractor
+        |
+BingRssSearchProvider
+        |
+VacancyWebResearchService
+        |
+investigation_candidates + investigation_sources
+        |
+web live status/history + Telegram result
 ```
 
-The production worker is managed by systemd as `zampolit73project-vacancy-source-worker.service`. It runs a single `queue:work` process so investigations are serialized on the small VPS.
+The queue worker is `zampolit73project-vacancy-source-worker.service`. Web research is deterministic and source-backed; Bing RSS titles/snippets are evidence, not silently treated as fetched full pages. Scoring weights live in `config/vacancy_source.php`.
 
-This first iteration does **not** connect Telegram MTProto, Telegram Bot API, external web search or scoring. The queued job uses clearly labelled demo stages and never invents a client. See `docs/VACANCY_SOURCE.md`.
+The Telegram Bot user interface is handled by Laravel long polling in `zampolit73project-telegram-bot.service`. `TelegramUpdateHandler` is shared by the poller and the stateless webhook fallback. Forward metadata is ignored; only text/caption enters research.
 
-## Telegram Bot transport for Vacancy Source
-
-Telegram Bot API is handled by Laravel, not by the future Python Telegram Reader.
-
-```text
-private Telegram chat
-        |
-Telegram Bot API
-        |
-POST /api/telegram/bot/webhook
-        |
-secret-token header validation
-        |
-site user binding lookup
-        |
-vacancy_investigations + database queue
-```
-
-The webhook ignores group/supergroup messages. Forward metadata is ignored; only the message text/caption becomes investigation input. Bound users can submit a vacancy through the bot and receive queue/progress/final technical-pipeline messages.
-
-`app/Services/TelegramBotClient.php` owns outbound Bot API calls. `telegram:bot:set-webhook` configures the HTTPS webhook after production secrets are placed in shared `.env`.
-
-The future Python MTProto Reader remains a separate concern: it will index the work-folder chats used as research sources and will not replace the Bot API user interface.
+The future Python MTProto Reader remains separate: it will index the user's selected work-folder chats as research sources and feed the same candidate/evidence layer. See `docs/VACANCY_SOURCE.md`.

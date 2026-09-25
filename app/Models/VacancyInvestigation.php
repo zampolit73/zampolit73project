@@ -47,6 +47,11 @@ class VacancyInvestigation extends Model
         return $this->hasMany(InvestigationCandidate::class, 'investigation_id');
     }
 
+    public function sources(): HasMany
+    {
+        return $this->hasMany(InvestigationSource::class, 'investigation_id');
+    }
+
     public function review(): HasOne
     {
         return $this->hasOne(InvestigationReview::class, 'investigation_id');

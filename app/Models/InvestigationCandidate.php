@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InvestigationCandidate extends Model
 {
@@ -29,5 +30,10 @@ class InvestigationCandidate extends Model
     public function investigation(): BelongsTo
     {
         return $this->belongsTo(VacancyInvestigation::class, 'investigation_id');
+    }
+
+    public function sources(): HasMany
+    {
+        return $this->hasMany(InvestigationSource::class, 'candidate_id');
     }
 }

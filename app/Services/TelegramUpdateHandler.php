@@ -12,6 +12,10 @@ use Illuminate\Support\Str;
 
 class TelegramUpdateHandler
 {
+    public function __construct(
+        private readonly VacancyTelegramResultFormatter $formatter,
+    ) {
+    }
     /**
      * @return array{chat_id:int,text:string}|null
      */
@@ -142,6 +146,10 @@ class TelegramUpdateHandler
     {
         $investigation = VacancyInvestigation::query()
             ->where('user_id', $userId)
+            ->with([
+                'candidates' => fn ($query) => $query->orderBy('rank'),
+                'sources' => fn ($query) => $query->orderByDesc('evidence_score'),
+            ])
             ->latest('id')
             ->first();
 
@@ -149,12 +157,8 @@ class TelegramUpdateHandler
             return 'У тебя пока нет расследований. Пришли текст вакансии обычным сообщением или Forward.';
         }
 
-        if ($investigation->status === 'completed') {
-            return Str::limit(
-                'Проверка #'.$investigation->id." готова.\n\n".($investigation->result_summary ?: 'Результат сохранён в веб-истории.'),
-                4000,
-                '…',
-            );
+        if (in_array($investigation->status, ['completed', 'partial'], true)) {
+            return $this->formatter->format($investigation);
         }
 
         if ($investigation->status === 'failed') {

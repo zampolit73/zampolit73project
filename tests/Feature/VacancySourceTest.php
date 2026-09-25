@@ -3,11 +3,17 @@
 namespace Tests\Feature;
 
 use App\Jobs\RunVacancyInvestigation;
+use App\Models\InvestigationCandidate;
+use App\Models\InvestigationSource;
 use App\Models\User;
 use App\Models\VacancyInvestigation;
 use App\Services\TelegramBotClient;
+use App\Services\VacancySignalExtractor;
+use App\Services\VacancyTelegramResultFormatter;
+use App\Services\VacancyWebResearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -146,30 +152,113 @@ class VacancySourceTest extends TestCase
         $this->assertSame('running', $running->fresh()->status);
     }
 
-    public function test_demo_job_runs_pipeline_to_completion(): void
+    public function test_real_web_research_job_persists_candidate_and_source(): void
     {
-        config()->set('vacancy_source.demo_stage_delay_ms', 0);
+        Http::fake([
+            'https://www.bing.com/search*' => Http::response(<<<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Bing</title>
+    <item>
+      <title>Вакансия Frontend JavaScript developer, работа в компании Acme Digital</title>
+      <link>https://hh.ru/vacancy/123456</link>
+      <description>Уверенное знание React и Redux. Опыт работы с Electron или желание разрабатывать desktop-приложения (важно). Уверенное знание HTTP протокола.</description>
+      <pubDate>Thu, 24 Sep 2026 12:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
+XML, 200, ['Content-Type' => 'application/rss+xml']),
+        ]);
 
         $user = $this->user();
 
         $investigation = VacancyInvestigation::query()->create([
             'user_id' => $user->id,
             'input_source' => 'web',
-            'input_text' => 'Java Kafka Camunda vacancy used to exercise the async skeleton.',
+            'input_text' => implode("\n", [
+                'Frontend JavaScript developer',
+                'Требования:',
+                '— Отличное знание JS (ES 6+)',
+                '— Уверенное знание React и Redux',
+                '— Опыт работы с Electron или желание разрабатывать desktop-приложения (важно)',
+                '— Уверенное знание HTTP протокола',
+            ]),
             'status' => 'queued',
             'progress_stage' => 'queued',
             'queued_at' => now(),
         ]);
 
-        (new RunVacancyInvestigation($investigation->id))->handle(app(TelegramBotClient::class));
+        (new RunVacancyInvestigation($investigation->id))->handle(
+            app(TelegramBotClient::class),
+            app(VacancyWebResearchService::class),
+            app(VacancySignalExtractor::class),
+            app(VacancyTelegramResultFormatter::class),
+        );
 
         $investigation->refresh();
+        $candidate = InvestigationCandidate::query()->firstOrFail();
+        $source = InvestigationSource::query()->firstOrFail();
 
         $this->assertSame('completed', $investigation->status);
         $this->assertSame('completed', $investigation->progress_stage);
         $this->assertSame('Готово', $investigation->progress_text);
         $this->assertNotNull($investigation->started_at);
         $this->assertNotNull($investigation->finished_at);
-        $this->assertStringContainsString('Технический каркас', $investigation->result_summary);
+        $this->assertNotNull($investigation->normalized_text);
+        $this->assertNotNull($investigation->fingerprint);
+        $this->assertStringContainsString('Acme Digital', $investigation->result_summary);
+
+        $this->assertSame('Acme Digital', $candidate->company_name);
+        $this->assertTrue($candidate->is_end_client);
+        $this->assertSame('direct', $candidate->candidate_type);
+        $this->assertGreaterThanOrEqual(60, $candidate->confidence);
+
+        $this->assertSame($investigation->id, $source->investigation_id);
+        $this->assertSame($candidate->id, $source->candidate_id);
+        $this->assertSame('bing_rss', $source->provider);
+        $this->assertSame('https://hh.ru/vacancy/123456', $source->url);
+        $this->assertGreaterThanOrEqual(60, $source->evidence_score);
+
+        $this->actingAs($user)
+            ->get('/projects/vacancy-source/investigations/'.$investigation->id.'/status')
+            ->assertOk()
+            ->assertJsonPath('candidates.0.company_name', 'Acme Digital')
+            ->assertJsonPath('sources.0.url', 'https://hh.ru/vacancy/123456');
+    }
+
+    public function test_web_research_does_not_invent_client_when_search_has_no_evidence(): void
+    {
+        Http::fake([
+            'https://www.bing.com/search*' => Http::response(
+                '<?xml version="1.0"?><rss version="2.0"><channel><title>Bing</title></channel></rss>',
+                200,
+                ['Content-Type' => 'application/rss+xml'],
+            ),
+        ]);
+
+        $user = $this->user();
+
+        $investigation = VacancyInvestigation::query()->create([
+            'user_id' => $user->id,
+            'input_source' => 'web',
+            'input_text' => 'Редкая JavaScript вакансия React Redux Electron с проектированием сложных систем.',
+            'status' => 'queued',
+            'progress_stage' => 'queued',
+            'queued_at' => now(),
+        ]);
+
+        (new RunVacancyInvestigation($investigation->id))->handle(
+            app(TelegramBotClient::class),
+            app(VacancyWebResearchService::class),
+            app(VacancySignalExtractor::class),
+            app(VacancyTelegramResultFormatter::class),
+        );
+
+        $investigation->refresh();
+
+        $this->assertSame('completed', $investigation->status);
+        $this->assertDatabaseCount('investigation_candidates', 0);
+        $this->assertStringContainsString('Надёжный конечный клиент не определён', $investigation->result_summary);
     }
 }

@@ -22,7 +22,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 - интерактивная страница «Сказки Пушкина» с анимированной книгой внутри авторизованной зоны проектов;
 - читательский дневник в виде книжной полки с локальными оценками и заметками внутри авторизованной зоны проектов;
 - «Рейтинг Коммерсанта» — общая SQLite-база рейтинга топ-менеджеров с редактируемыми LinkedIn-ссылками, вкладками направлений и ответственными за работу;
-- `Vacancy Source` — асинхронный MVP расследований вакансий с database queue, живым прогрессом и историей; Telegram Bot уже поддерживает привязку существующих пользователей и приём текста вакансии, а реальный Telegram Reader/web research подключаются следующими итерациями;
+- `Vacancy Source` — асинхронное расследование вакансий с Telegram Bot, database queue, реальным web-search v1 через Bing RSS, детерминированным scoring, источниками и историей; Telegram MTProto-корпус рабочих чатов — следующий слой;
 - авторизация по username/password с двумя ролями: `admin`, `user`;
 - атомарные release-директории с `current` symlink;
 - GitHub Actions: test → build → deploy → health checks → admin push.
@@ -39,7 +39,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 | `/projects/pushkin-fairytales` | авторизованный | интерактивная анимированная книга со сказками Пушкина |
 | `/projects/reading-diary` | авторизованный | личная книжная полка с оценками, датами и заметками; данные хранятся в браузере |
 | `/projects/kommersant-ranking` | авторизованный | общая рабочая база рейтинга топ-менеджеров «Коммерсанта»: вкладки, LinkedIn, ответственные и кандидаты на проверку |
-| `/projects/vacancy-source` | авторизованный | запуск асинхронного расследования вакансии, live-status и история; пока технический каркас без реального Telegram/web поиска |
+| `/projects/vacancy-source` | авторизованный | расследование вакансии: live-status, web-search v1, кандидаты конечного клиента, источники и история |
 | `/login` | гость | вход |
 | `/admin/users` | admin | список аккаунтов, создание пользователей и управление привязкой Telegram через одноразовые коды |
 | `/design-system` | admin | каталог UI-компонентов и дизайн-системы |
@@ -257,5 +257,5 @@ A VPS/provider route issue makes the DNS-selected Telegram address `149.154.166.
 
 The only manual production secret remains `TELEGRAM_BOT_TOKEN` in GitHub Actions Secrets. It is not stored in Git.
 
-The poller preserves pending updates when disabling any old webhook. `/start CODE`, vacancy intake, `/status`, progress and final demo messages all use the same Laravel Bot pipeline.
+The poller preserves pending updates when disabling any old webhook. `/start CODE`, vacancy intake, `/status`, progress and final source-backed research messages all use the same Laravel Bot pipeline.
 
