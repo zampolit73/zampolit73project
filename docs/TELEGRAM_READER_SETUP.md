@@ -1,0 +1,244 @@
+# Telegram Reader setup plan
+
+Обновлено: 2026-09-25.
+
+Этот документ фиксирует следующий этап Vacancy Source: подключение **рабочих Telegram-чатов пользователя как источника исследования вакансий**.
+
+Важно не путать два разных Telegram-контура:
+
+1. **Telegram Bot** уже работает и принимает от пользователя вакансию.
+2. **Telegram Reader** ещё не подключён. Именно он должен читать историю выбранной рабочей папки обычного Telegram-аккаунта через MTProto и индексировать её как исследовательский корпус.
+
+Bot API сам по себе не даёт боту доступ к истории личных/рабочих чатов пользователя.
+
+## Текущая точка старта
+
+В production уже есть:
+
+- Vacancy Source web UI;
+- Telegram Bot long polling;
+- привязка Telegram Bot user ↔ site user;
+- database queue;
+- web-search v1;
+- deterministic scoring;
+- кандидаты/источники/история.
+
+Пока **нет**:
+
+- Telegram MTProto user session;
+- чтения рабочей папки Telegram;
+- backfill последних 3 месяцев;
+- синхронизации чатов;
+- Telegram-корпуса в scoring.
+
+До завершения этого документа система должна считаться **web-only + Bot input**, а не полноценным Telegram+web расследованием.
+
+## Архитектурное решение
+
+Reader — отдельный лёгкий Python-процесс на том же VPS.
+
+Базовая схема:
+
+```text
+Telegram user account
+        |
+MTProto
+        |
+Python Telegram Reader
+        |
+selected Telegram folder
+        |
+SQLite Telegram corpus
+        |
+Laravel Vacancy Source
+        |
+Telegram evidence + web evidence
+```
+
+Для MVP использовать один общий Telegram user account.
+
+Предпочтительный Python client: **Telethon**.
+
+Не поднимать отдельный FastAPI/HTTP API без необходимости.
+
+## Постоянные ограничения безопасности
+
+- MTProto session file не хранить в Git.
+- MTProto session file не хранить в webroot.
+- Session file: mode 0600.
+- Reader запускать под отдельным system user/service.
+- Laravel/PHP не должен читать MTProto session file напрямую.
+- Session file не включать в backup.
+- Не скачивать Telegram media.
+- Индексировать только text/caption и минимальные message metadata.
+- Телефон, API hash, login code, 2FA password и session никогда не коммитить.
+- Не просить пользователя присылать API hash, login code или 2FA password в ChatGPT.
+
+## Пошаговая настройка
+
+### Шаг 1 — получить Telegram API credentials
+
+Пользователь самостоятельно открывает:
+
+`https://my.telegram.org`
+
+Далее:
+
+1. войти по своему рабочему/личному Telegram номеру;
+2. открыть **API development tools**;
+3. создать приложение;
+4. получить:
+   - `api_id`;
+   - `api_hash`.
+
+`api_hash` считается секретом.
+
+Пользователь **не присылает api_hash в чат**.
+
+### Шаг 2 — добавить credentials в GitHub Actions Secrets
+
+После получения credentials пользователь добавляет в:
+
+`GitHub → repository Settings → Secrets and variables → Actions → Repository secrets`
+
+секреты:
+
+```text
+TELEGRAM_READER_API_ID
+TELEGRAM_READER_API_HASH
+```
+
+`TELEGRAM_READER_API_ID` можно считать low-sensitivity, но для единого безопасного workflow всё равно хранить его как Actions Secret.
+
+После этого пользователь пишет в чат только: **«Reader secrets добавил»**.
+
+### Шаг 3 — реализовать Reader
+
+Следующая кодовая итерация должна добавить:
+
+- Python dependency/runtime для Telethon;
+- отдельный каталог Reader внутри репозитория;
+- production env wiring из GitHub Secrets;
+- отдельный systemd service;
+- persistent session directory outside release/webroot;
+- health/status diagnostics;
+- migrations/tables для Telegram corpus;
+- tests/docs.
+
+Не использовать Docker в production.
+
+### Шаг 4 — one-time MTProto authorization
+
+Пользователь не должен снова мучаться с noVNC/terminal.
+
+Нужно сделать **admin-only authorization flow** для Reader, чтобы одноразовый login выполнялся через сайт или другой контролируемый workflow.
+
+UX должен поддерживать:
+
+1. ввод Telegram phone;
+2. запрос login code;
+3. ввод login code;
+4. при включённом Telegram 2FA — ввод password;
+5. success state;
+6. session сохраняет только Python Reader в закрытой persistent directory.
+
+Laravel может инициировать authorization flow и показывать status, но не должен получать прямой доступ к MTProto session file.
+
+После успешной авторизации повторный login при обычных deploy не требуется.
+
+### Шаг 5 — выбрать рабочую Telegram folder
+
+После авторизации Reader должен получить список Telegram folders/dialog filters.
+
+Admin UI должен позволить выбрать одну рабочую folder, которая и является динамическим whitelist.
+
+Не хардкодить список ~30 chat IDs в конфиг.
+
+Правило:
+
+- чат добавили в выбранную folder → Reader делает backfill;
+- чат убрали из folder → Reader прекращает новые sync;
+- уже сохранённая история остаётся.
+
+### Шаг 6 — backfill и sync
+
+Для вновь добавленного чата:
+
+- backfill последних **3 месяцев**;
+- text + caption;
+- без media download;
+- сохранять chat ID/title, message ID, date, edit date, deletion state если доступно, message text и source link/reference;
+- chat title — display metadata, не scoring signal.
+
+После initial backfill:
+
+- sync примерно каждые **5 минут**;
+- edits обновляют текст;
+- удалённые сообщения не вычищать из истории без отдельного решения; по возможности маркировать deleted;
+- не склеивать автоматически соседние сообщения в одну вакансию.
+
+### Шаг 7 — vacancy-like filter
+
+На ingestion использовать мягкий high-recall filter.
+
+Цель — не тащить весь бытовой чат в индекс, но и не потерять вакансии.
+
+Сохранять:
+
+- likely vacancy message;
+- максимум 1–2 слабых соседних text messages как context, если это действительно нужно;
+- media не сохранять.
+
+### Шаг 8 — поиск по Telegram corpus
+
+MVP retrieval:
+
+- SQLite FTS5;
+- нормализованный текст;
+- technology aliases;
+- exact/rare phrase retrieval;
+- strict similarity/repost clustering;
+- дедуп не должен считать десять репостов независимыми доказательствами.
+
+Поиск Telegram и web идёт параллельно.
+
+### Шаг 9 — объединённый scoring
+
+Telegram и web evidence объединяются в существующую deterministic model.
+
+Правила уже зафиксированы:
+
+- geography = 0 scoring weight;
+- seniority ≈ 0;
+- common stack = weak;
+- rare wording/internal name/rare requirement = strong;
+- key stack contradiction = strong negative;
+- intermediary не занимает top-3 end-client slot;
+- Telegram-only strong candidate допустим, но надо явно написать, что подтверждение только Telegram;
+- confidence — heuristic, не calibrated probability;
+- default visible threshold ≈ 60%.
+
+### Шаг 10 — acceptance check
+
+Настройка Reader считается завершённой только если production проверяет:
+
+1. systemd Reader active;
+2. MTProto session authorized;
+3. selected folder обнаружена;
+4. chat count > 0;
+5. initial 3-month backfill completed;
+6. новые сообщения sync;
+7. Vacancy Source investigation видит Telegram hits;
+8. Telegram + web candidates/scoring отражаются в одном результате;
+9. Actions полностью зелёные;
+10. production HTTPS health-check зелёный.
+
+## Что должен сделать пользователь прямо сейчас
+
+Только **Шаг 1**:
+
+- открыть `my.telegram.org`;
+- получить `api_id` и `api_hash`;
+- не присылать секреты в ChatGPT.
+
+После этого переходим к Шагу 2 и заводим два GitHub Actions Secrets.

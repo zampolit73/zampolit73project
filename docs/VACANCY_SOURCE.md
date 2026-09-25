@@ -202,6 +202,11 @@ The probe uses a generic non-user vacancy query and prints only provider/result-
 
 ## Planned Telegram research corpus
 
+Canonical step-by-step setup: `docs/TELEGRAM_READER_SETUP.md`.
+
+The next active implementation task is the Python MTProto Reader. Do not treat the existing Bot as the research reader: Bot API accepts vacancy input but cannot provide the user's private/work chat history.
+
+
 The next major source is a separate Python MTProto Reader for the user's work-folder chats.
 
 Already-agreed behavior:

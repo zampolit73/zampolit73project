@@ -1029,6 +1029,32 @@ Implemented now:
 
 Current web-search v1 deliberately scores Bing result titles/snippets and does not pretend that full page content was verified when it was not fetched. Query generation uses rare requirement phrases, technology combinations, HH/Habr targeted searches, and RU/EN role variants. Scoring weights are explicit in `config/vacancy_source.php`; geography is zero-weight and seniority is effectively zero-weight.
 
+## Vacancy Source — next active task: Telegram Reader
+
+Current next task is **not** more web-only search tuning. It is connecting the user's selected work-chat folder as a Telegram research corpus through a separate Python MTProto Reader.
+
+Canonical setup/runbook: `docs/TELEGRAM_READER_SETUP.md`.
+
+Important handoff state:
+
+- Telegram Bot input is already production-working via long polling.
+- Real web research v1 is already production-working.
+- Work-chat history is **not connected yet** and must not be described as an active search source.
+- Reader must use a normal Telegram user MTProto session; Bot API is insufficient for reading the user's work-chat history.
+- Preferred Python client for the MVP: Telethon.
+- Reader runs as a separate lightweight systemd service on the existing VPS; no Docker and no FastAPI unless later justified.
+- One selected Telegram folder is the dynamic whitelist. Do not hardcode the ~30 chats.
+- New chat in the folder → 3-month backfill, then regular sync around every 5 minutes.
+- Removed chat → stop new sync but keep historical data.
+- text/caption only; no media download.
+- strict repost clustering is required before Telegram evidence can increase confidence.
+- MTProto session must stay outside webroot, mode 0600, under a separate service identity, never committed or backed up.
+- Laravel/PHP must not directly read the MTProto session file.
+- User explicitly wants a step-by-step setup and does not want to use the problematic noVNC terminal for MTProto login if avoidable.
+- Plan is to provide an admin-only one-time authorization flow (phone → code → optional 2FA) while the Python Reader alone owns the session file.
+
+**Immediate manual step remaining:** the user obtains `api_id` and `api_hash` from `my.telegram.org → API development tools`. The user must not paste `api_hash`, login code or Telegram 2FA password into ChatGPT. After obtaining them, add GitHub Actions repository secrets `TELEGRAM_READER_API_ID` and `TELEGRAM_READER_API_HASH`, then continue implementation.
+
 Still not implemented:
 
 - Python MTProto Telegram Reader / work-folder authorization;

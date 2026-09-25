@@ -259,3 +259,6 @@ The only manual production secret remains `TELEGRAM_BOT_TOKEN` in GitHub Actions
 
 The poller preserves pending updates when disabling any old webhook. `/start CODE`, vacancy intake, `/status`, progress and final source-backed research messages all use the same Laravel Bot pipeline.
 
+
+
+The Bot is only the user interface. Reading the user's work-chat history requires a separate MTProto Telegram Reader. The setup/handoff runbook is `docs/TELEGRAM_READER_SETUP.md`.
