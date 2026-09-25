@@ -263,7 +263,7 @@ The token is never committed to Git and the transient upload file is removed by 
 
 Production deploy runs two safe diagnostics when `TELEGRAM_BOT_TOKEN` is configured:
 
-- on the VPS: `php8.3 artisan telegram:bot:diagnose` reports whether token/webhook secret are configured, counts linked accounts and used/unused invites, and probes outbound Bot API connectivity without printing secrets;
+- on the VPS: `php8.3 artisan telegram:bot:diagnose` reports whether token/webhook secret are configured, counts linked accounts and used/unused invites, checks the default route and host firewall policy, resolves Telegram IPv4, probes TCP/TLS to Telegram plus control HTTPS targets, and probes the Bot API without printing secrets;
 - on the GitHub runner: `getWebhookInfo` reports pending updates / last delivery error, and a signed synthetic POST checks that Laravel accepts the configured webhook secret with HTTP 200.
 
 These diagnostics intentionally avoid printing the BotFather token, webhook secret, Telegram user IDs or chat IDs.
