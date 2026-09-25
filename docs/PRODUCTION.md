@@ -244,9 +244,11 @@ Settings → Secrets and variables → Actions
 TELEGRAM_BOT_TOKEN=<fresh BotFather token>
 ```
 
-`TELEGRAM_BOT_WEBHOOK_SECRET` is generated automatically on the VPS and stays in the persistent shared `.env`. `TELEGRAM_BOT_USERNAME` is optional; the bot works without it, but the admin UI can show a direct `t.me` link when it is configured.
+`TELEGRAM_BOT_WEBHOOK_SECRET` is derived deterministically from the BotFather token and stored in the persistent shared `.env`. This keeps Laravel's webhook validation and the GitHub runner on the same secret without exposing it in Git. `TELEGRAM_BOT_USERNAME` is optional; the bot works without it, but the admin UI can show a direct `t.me` link when it is configured.
 
-On every later main deployment, if the GitHub secret exists, the token is refreshed in the shared `.env` and `php8.3 artisan telegram:bot:set-webhook` is called automatically. Telegram webhook setup is deliberately non-fatal for the website deployment: a Telegram outage must not take the site down, and the Actions log will contain a warning instead.
+On every later main deployment, if the GitHub secret exists, the token and derived webhook secret are refreshed in the shared `.env`. The GitHub runner validates the token with Telegram `getMe` and configures `setWebhook` directly from Actions. This avoids relying on VPS→Telegram connectivity for webhook registration. Runtime Laravel Bot API calls use IPv4 explicitly because the VPS has shown unreliable direct Telegram connectivity when address-family selection is left automatic.
+
+Telegram webhook setup remains non-fatal for the website deployment: a Telegram outage or invalid bot token must not take the site down, and the Actions log prints a warning with Telegram's description.
 
 The webhook URL is:
 

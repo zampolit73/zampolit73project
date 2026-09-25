@@ -1025,7 +1025,7 @@ Implemented now:
 - Forward metadata ignored as evidence/input context;
 - Telegram progress/final notifications for bot-started demo investigations.
 
-Production Telegram Bot activation requires only a fresh `TELEGRAM_BOT_TOKEN` in GitHub Actions Secrets. On the next main deploy, the workflow copies the token to the persistent production `.env` through a short-lived protected temp file, generates `TELEGRAM_BOT_WEBHOOK_SECRET` on the VPS if missing, removes the temp file, and calls `telegram:bot:set-webhook` automatically. `TELEGRAM_BOT_USERNAME` is optional. Until the GitHub secret exists and a main deploy runs, the web/admin code is deployed but Telegram itself cannot deliver updates.
+Production Telegram Bot activation requires only a fresh `TELEGRAM_BOT_TOKEN` in GitHub Actions Secrets. The deploy workflow copies it to the persistent production `.env` through a short-lived protected temp file and derives a stable `TELEGRAM_BOT_WEBHOOK_SECRET` from that token. Telegram `getMe` / `setWebhook` are executed from the GitHub runner, because direct VPS→Telegram webhook setup timed out. Laravel runtime Bot API requests explicitly force IPv4. `TELEGRAM_BOT_USERNAME` remains optional.
 
 Not implemented yet:
 

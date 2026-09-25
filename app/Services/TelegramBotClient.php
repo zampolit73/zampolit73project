@@ -29,6 +29,7 @@ class TelegramBotClient
 
         try {
             $response = Http::asJson()
+                ->withOptions(['curl' => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4]])
                 ->connectTimeout(4)
                 ->timeout(8)
                 ->post($this->apiUrl('sendMessage'), [
@@ -62,6 +63,7 @@ class TelegramBotClient
 
         try {
             $response = Http::asJson()
+                ->withOptions(['curl' => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4]])
                 ->connectTimeout(5)
                 ->timeout(12)
                 ->post($this->apiUrl('setWebhook'), [

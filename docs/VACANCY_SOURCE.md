@@ -136,7 +136,7 @@ Later iterations should keep these already-agreed product rules:
 
 ## Telegram production configuration
 
-The repository contains no BotFather token. Preferred production activation is now one manual GitHub Actions secret: `TELEGRAM_BOT_TOKEN`. On a main deploy, Actions securely transfers that token to the VPS, the VPS generates `TELEGRAM_BOT_WEBHOOK_SECRET` if it does not already exist, writes both to the persistent shared `.env`, and runs `telegram:bot:set-webhook`. `TELEGRAM_BOT_USERNAME` is optional and only improves the admin deep-link UX. Until a fresh GitHub secret is added and a main deployment runs, Telegram cannot deliver `/start` or vacancy messages to Laravel.
+The repository contains no BotFather token. Preferred production activation is one manual GitHub Actions secret: `TELEGRAM_BOT_TOKEN`. On a main deploy, Actions securely transfers that token to the VPS, writes it to the persistent shared `.env`, derives a stable `TELEGRAM_BOT_WEBHOOK_SECRET` from the token, and then configures Telegram `setWebhook` from the GitHub runner. Laravel outbound Bot API calls force IPv4 to avoid the VPS connectivity issue observed with automatic address-family selection. `TELEGRAM_BOT_USERNAME` is optional and only improves the admin deep-link UX.
 
 ## Next implementation steps
 

@@ -360,19 +360,20 @@ jobs:
             $SUDO rm -f "$TELEGRAM_TOKEN_FILE"
 
             if [ -n "$TELEGRAM_BOT_TOKEN_VALUE" ]; then
+              TELEGRAM_WEBHOOK_SECRET="$(
+                printf '%s' "zampolit73-webhook-v1:$TELEGRAM_BOT_TOKEN_VALUE"                   | sha256sum                   | awk '{print $1}'
+              )"
+
               set_env TELEGRAM_BOT_TOKEN "$TELEGRAM_BOT_TOKEN_VALUE"
+              set_env TELEGRAM_BOT_WEBHOOK_SECRET "$TELEGRAM_WEBHOOK_SECRET"
               TELEGRAM_SETUP_REQUESTED=1
+
+              unset TELEGRAM_WEBHOOK_SECRET
             fi
 
             unset TELEGRAM_BOT_TOKEN_VALUE
           else
             $SUDO rm -f "$TELEGRAM_TOKEN_FILE"
-          fi
-
-          if [ "$TELEGRAM_SETUP_REQUESTED" -eq 1 ]             && ! $SUDO grep -q '^TELEGRAM_BOT_WEBHOOK_SECRET=.' "$ENV_FILE"; then
-            TELEGRAM_WEBHOOK_SECRET="$(php8.3 -r 'echo bin2hex(random_bytes(32));')"
-            set_env TELEGRAM_BOT_WEBHOOK_SECRET "$TELEGRAM_WEBHOOK_SECRET"
-            unset TELEGRAM_WEBHOOK_SECRET
           fi
 
           $SUDO touch "$SHARED_DIR/database/database.sqlite"
@@ -579,23 +580,50 @@ jobs:
           local_https_check "https://$APP_DOMAIN/site.webmanifest"
           local_https_check "https://$APP_DOMAIN/sw.js"
 
-          if [ "$TELEGRAM_SETUP_REQUESTED" -eq 1 ]; then
-            echo "Configuring Telegram Bot webhook from GitHub Actions secret..."
-            cd "$BASE_DIR/current"
-            $SUDO php8.3 artisan config:clear
-            $SUDO php8.3 artisan optimize
-
-            if $SUDO php8.3 artisan telegram:bot:set-webhook; then
-              echo "Telegram Bot webhook configured."
-            else
-              echo "::warning::Telegram Bot webhook setup failed. Website deployment remains healthy; retry after checking the bot token."
-            fi
-          fi
-
           echo "Local deployment checks passed."
 
           ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +4 | xargs -r $SUDO rm -rf
           REMOTE
+
+      - name: Configure Telegram webhook from GitHub runner
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+            echo "::notice::TELEGRAM_BOT_TOKEN is not configured; skipping Telegram webhook setup."
+            exit 0
+          fi
+
+          TELEGRAM_WEBHOOK_SECRET="$(
+            printf '%s' "zampolit73-webhook-v1:$TELEGRAM_BOT_TOKEN"               | sha256sum               | awk '{print $1}'
+          )"
+
+          get_me="$(
+            curl               --silent               --show-error               --connect-timeout 8               --max-time 20               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"               || true
+          )"
+
+          if ! printf '%s' "$get_me" | jq -e '.ok == true' >/dev/null 2>&1; then
+            description="$(printf '%s' "$get_me" | jq -r '.description // "Telegram API did not return JSON"' 2>/dev/null || printf 'Telegram API did not return a response')"
+            echo "::warning::Telegram Bot token validation failed: $description"
+            exit 0
+          fi
+
+          bot_username="$(printf '%s' "$get_me" | jq -r '.result.username // "unknown"')"
+          echo "Telegram Bot token validated for @${bot_username}."
+
+          webhook_response="$(
+            curl               --silent               --show-error               --connect-timeout 8               --max-time 20               --request POST               --data-urlencode "url=https://${APP_DOMAIN}/api/telegram/bot/webhook"               --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}"               --data-urlencode 'allowed_updates=["message"]'               --data-urlencode "max_connections=5"               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"               || true
+          )"
+
+          if ! printf '%s' "$webhook_response" | jq -e '.ok == true' >/dev/null 2>&1; then
+            description="$(printf '%s' "$webhook_response" | jq -r '.description // "Telegram API did not return JSON"' 2>/dev/null || printf 'Telegram API did not return a response')"
+            echo "::warning::Telegram webhook setup failed: $description"
+            exit 0
+          fi
+
+          echo "Telegram webhook configured from GitHub runner for @${bot_username}."
 
   health:
     name: Health Check

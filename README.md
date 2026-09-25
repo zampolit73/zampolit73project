@@ -140,7 +140,8 @@ GitHub repository secrets:
 
 - `VPS_HOST`;
 - `VPS_USER`;
-- `VPS_PWD`.
+- `VPS_PWD`;
+- `TELEGRAM_BOT_TOKEN` — production BotFather token для Vacancy Source.
 
 В Git нельзя коммитить:
 
@@ -251,7 +252,7 @@ tests/
 TELEGRAM_BOT_TOKEN=<fresh BotFather token>
 ```
 
-На следующем deploy в `main` workflow сам передаст token на VPS через временный защищённый файл, запишет его в shared production `.env`, сгенерирует `TELEGRAM_BOT_WEBHOOK_SECRET`, если его ещё нет, удалит временный файл и вызовет `php8.3 artisan telegram:bot:set-webhook`.
+На следующем deploy в `main` workflow сам передаст token на VPS через временный защищённый файл, запишет его в shared production `.env`, выведет из token стабильный `TELEGRAM_BOT_WEBHOOK_SECRET`, удалит временный файл и настроит Telegram webhook прямо с GitHub runner. Laravel runtime-вызовы Telegram Bot API используют IPv4.
 
 `TELEGRAM_BOT_USERNAME` необязателен: без него бот работает, просто в админке не будет прямой `t.me`-ссылки.
 
