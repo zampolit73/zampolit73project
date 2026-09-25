@@ -33,6 +33,7 @@ class ProjectsRoutesTest extends TestCase
             '/projects/reading-diary',
             '/projects/cio-presentations',
             '/projects/kommersant-ranking',
+            '/projects/vacancy-source',
         ] as $url) {
             $this->get($url)->assertRedirect('/login');
         }
@@ -49,6 +50,7 @@ class ProjectsRoutesTest extends TestCase
             '/projects/reading-diary',
             '/projects/cio-presentations',
             '/projects/kommersant-ranking',
+            '/projects/vacancy-source',
         ] as $url) {
             $this->get($url)->assertOk();
         }

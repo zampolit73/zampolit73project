@@ -22,6 +22,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 - интерактивная страница «Сказки Пушкина» с анимированной книгой внутри авторизованной зоны проектов;
 - читательский дневник в виде книжной полки с локальными оценками и заметками внутри авторизованной зоны проектов;
 - «Рейтинг Коммерсанта» — общая SQLite-база рейтинга топ-менеджеров с редактируемыми LinkedIn-ссылками, вкладками направлений и ответственными за работу;
+- `Vacancy Source` — технический MVP расследований вакансий с database queue, живым прогрессом и историей; Telegram/web research подключается следующими итерациями;
 - авторизация по username/password с двумя ролями: `admin`, `user`;
 - атомарные release-директории с `current` symlink;
 - GitHub Actions: test → build → deploy → health checks → admin push.
@@ -38,6 +39,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 | `/projects/pushkin-fairytales` | авторизованный | интерактивная анимированная книга со сказками Пушкина |
 | `/projects/reading-diary` | авторизованный | личная книжная полка с оценками, датами и заметками; данные хранятся в браузере |
 | `/projects/kommersant-ranking` | авторизованный | общая рабочая база рейтинга топ-менеджеров «Коммерсанта»: вкладки, LinkedIn, ответственные и кандидаты на проверку |
+| `/projects/vacancy-source` | авторизованный | запуск асинхронного расследования вакансии, live-status и история; пока технический каркас без реального Telegram/web поиска |
 | `/login` | гость | вход |
 | `/admin/users` | admin | список аккаунтов и создание пользователей с начальным паролем |
 | `/design-system` | admin | каталог UI-компонентов и дизайн-системы |
@@ -57,6 +59,7 @@ cp .env.example .env
 touch database/database.sqlite
 php artisan key:generate
 php artisan migrate
+php artisan queue:work database --queue=vacancy-source --sleep=1 --tries=1 --timeout=330
 npm run dev
 ```
 
@@ -92,6 +95,7 @@ Laravel 13
    +-- SQLite
    +-- Inertia / Vue
    +-- Web Push (VAPID)
+   +-- Database queue worker (Vacancy Source)
 ```
 
 Persistent state:
@@ -234,4 +238,5 @@ tests/
 - `docs/BMP_TO_MIP.md` — формат Quake MIP и поведение конвертера.
 - `docs/CIO_PRESENTATIONS.md` — устройство каталога презентаций, лёгкого сканера и ограничения по трафику/безопасности.
 - `docs/KOMMERSANT_RANKING.md` — импорт рейтинга «Коммерсанта», data model, LinkedIn-редактирование и assignment workflow.
+- `docs/VACANCY_SOURCE.md` — текущее состояние MVP Vacancy Source, очередь и границы первой итерации.
 - `AGENTS.md` — обязательные правила разработки для работы с репозиторием.

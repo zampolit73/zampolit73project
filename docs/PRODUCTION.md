@@ -16,7 +16,8 @@ Production runs directly on Ubuntu without Docker:
 - PHP 8.3-FPM;
 - Laravel;
 - SQLite;
-- Certbot.
+- Certbot;
+- one Laravel database queue worker managed by systemd for Vacancy Source.
 
 Nginx serves static files from Laravel `public/` and forwards `index.php` to PHP-FPM.
 
@@ -138,7 +139,8 @@ DB_CONNECTION=sqlite
 SESSION_DRIVER=file
 SESSION_SECURE_COOKIE=true
 CACHE_STORE=file
-QUEUE_CONNECTION=sync
+QUEUE_CONNECTION=database
+QUEUE_FAILED_DRIVER=null
 LOG_LEVEL=warning
 ```
 
@@ -153,6 +155,22 @@ Required repository secrets:
 - `VPS_PWD`.
 
 Do not put these values in docs or source.
+
+## Vacancy Source queue worker
+
+Production has one dedicated systemd unit:
+
+`zampolit73project-vacancy-source-worker.service`
+
+It runs:
+
+```bash
+php8.3 artisan queue:work database --queue=vacancy-source --sleep=1 --tries=1 --timeout=330
+```
+
+The deploy workflow writes/refreshes the unit, enables it, and restarts it after the atomic `current` symlink switch. The unit sends SIGTERM and allows up to 360 seconds for a graceful stop, matching the five-minute investigation ceiling plus shutdown margin.
+
+The queue connection uses the existing SQLite `jobs` table. Failed-job persistence is disabled for this first iteration; the job itself marks its investigation as `failed`.
 
 ## Database and migrations
 

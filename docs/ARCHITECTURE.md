@@ -64,6 +64,10 @@ Authenticated users:
 - `GET /projects/reading-diary` → `ReadingDiary.vue`;
 - `GET /projects/cio-presentations` → `CioPresentations.vue` with full project functionality for any authenticated user;
 - `GET /projects/kommersant-ranking` → `KommersantRanking.vue`, shared Kommersant manager-ranking workspace;
+- `GET /projects/vacancy-source` → `VacancySource.vue`, personal/team investigation history and launcher;
+- `POST /projects/vacancy-source/investigations` → enqueue a new web investigation;
+- `GET /projects/vacancy-source/investigations/{id}/status` → polling status endpoint;
+- `POST /projects/vacancy-source/investigations/{id}/cancel` → cancel a still-queued investigation;
 - `PATCH /projects/kommersant-ranking/managers/{manager}` → LinkedIn / assignment mutation;
 - `PATCH /projects/kommersant-ranking/candidates/{candidate}` → candidate LinkedIn / assignment mutation;
 - `GET /push/config`;
@@ -133,7 +137,11 @@ The initial 2026 dataset is imported exactly once by a migration from gzip/base6
 
 ### jobs
 
-A jobs table exists, but production currently uses `QUEUE_CONNECTION=sync`; there is no queue worker in the current deployment.
+The existing `jobs` table backs Laravel's database queue. Production uses `QUEUE_CONNECTION=database` and runs one dedicated systemd worker for the `vacancy-source` queue. The worker processes one investigation at a time.
+
+### vacancy_investigations / investigation_candidates / investigation_reviews
+
+The first Vacancy Source iteration stores the submitted vacancy, owner, queue/progress state and result summary in `vacancy_investigations`. Candidate and review tables establish the data boundary for later source matching and admin validation. The first job is intentionally a demo pipeline: it exercises queue/progress/history without claiming that Telegram or web research is already implemented.
 
 ## Frontend structure
 
@@ -151,6 +159,7 @@ Pages:
 - `PushkinFairytales.vue` — authenticated interactive living-book animation with local Vue/CSS artwork;
 - `ReadingDiary.vue` — authenticated browser-local reading diary rendered as an interactive bookshelf.
 - `KommersantRanking.vue` — authenticated shared ranking workspace with category tabs, filters, inline LinkedIn editing and assignment actions.
+- `VacancySource.vue` — authenticated vacancy-investigation launcher with live polling and role-aware history.
 
 Shared UI components live in `resources/js/components/ui/`.
 
@@ -285,3 +294,28 @@ The authenticated `/projects/reading-diary` page is project #04.
 - the Pushkin entry links to the existing `/projects/pushkin-fairytales` project;
 - the bookshelf/book-cover visuals are CSS-only and require no external assets;
 - responsive layouts include contained horizontal shelf scrolling on small screens.
+
+
+## Vacancy Source project
+
+`/projects/vacancy-source` is project #06.
+
+Current implemented flow:
+
+```text
+Vue textarea
+    |
+Laravel investigation row
+    |
+database queue: vacancy-source
+    |
+RunVacancyInvestigation
+    |
+progress/status updates
+    |
+Vue polling + history
+```
+
+The production worker is managed by systemd as `zampolit73project-vacancy-source-worker.service`. It runs a single `queue:work` process so investigations are serialized on the small VPS.
+
+This first iteration does **not** connect Telegram MTProto, Telegram Bot API, external web search or scoring. The queued job uses clearly labelled demo stages and never invents a client. See `docs/VACANCY_SOURCE.md`.

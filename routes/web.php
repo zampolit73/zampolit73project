@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\CioPresentationController;
 use App\Http\Controllers\KommersantRankingController;
 use App\Http\Controllers\PushSubscriptionController;
+use App\Http\Controllers\VacancySourceController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -26,6 +27,14 @@ Route::middleware('auth')->group(function () {
         ->name('projects.cio-presentations');
     Route::get('/projects/kommersant-ranking', [KommersantRankingController::class, 'index'])
         ->name('projects.kommersant-ranking');
+    Route::get('/projects/vacancy-source', [VacancySourceController::class, 'index'])
+        ->name('projects.vacancy-source');
+    Route::post('/projects/vacancy-source/investigations', [VacancySourceController::class, 'store'])
+        ->name('projects.vacancy-source.investigations.store');
+    Route::get('/projects/vacancy-source/investigations/{investigation}/status', [VacancySourceController::class, 'status'])
+        ->name('projects.vacancy-source.investigations.status');
+    Route::post('/projects/vacancy-source/investigations/{investigation}/cancel', [VacancySourceController::class, 'cancel'])
+        ->name('projects.vacancy-source.investigations.cancel');
     Route::patch('/projects/kommersant-ranking/managers/{manager}', [KommersantRankingController::class, 'updateManager'])
         ->name('projects.kommersant-ranking.managers.update');
     Route::patch('/projects/kommersant-ranking/candidates/{candidate}', [KommersantRankingController::class, 'updateCandidate'])

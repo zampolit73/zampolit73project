@@ -988,3 +988,31 @@ Admin-only page `/tests` используется для browser push tests.
 - `docs/TECHNICAL_DEBT.md` — известный technical debt.
 
 Этот handoff описывает **текущее намерение продукта**, но код и актуальный `main` всегда имеют приоритет при проверке фактического состояния.
+
+
+## Vacancy Source — first technical iteration
+
+Added project #06 at `/projects/vacancy-source`.
+
+Implemented now:
+
+- authenticated web launcher with one textarea;
+- per-user history; admin sees team history;
+- SQLite `vacancy_investigations`, `investigation_candidates` and `investigation_reviews` tables;
+- Laravel database queue on named queue `vacancy-source`;
+- one production systemd queue worker;
+- polling progress endpoint;
+- queued-only cancellation;
+- a deliberately labelled demo job that exercises the pipeline and never fabricates a client.
+
+Not implemented yet:
+
+- Telegram Bot user input/binding;
+- Python Telegram Reader / MTProto session;
+- Telegram folder backfill/sync;
+- FTS5/BM25 matching;
+- web search;
+- deterministic confidence scoring;
+- admin review UI.
+
+Canonical design decisions for those later stages live in `docs/VACANCY_SOURCE.md`.
