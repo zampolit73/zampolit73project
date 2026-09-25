@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -28,10 +29,7 @@ class TelegramBotClient
         }
 
         try {
-            $response = Http::asJson()
-                ->withOptions(['force_ip_resolve' => 'v4'])
-                ->connectTimeout(4)
-                ->timeout(8)
+            $response = $this->request(12)
                 ->post($this->apiUrl('sendMessage'), [
                     'chat_id' => $chatId,
                     'text' => Str::limit($text, 4000, '…'),
@@ -55,6 +53,67 @@ class TelegramBotClient
         return true;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>|null
+     */
+    public function getUpdates(?int $offset = null, int $timeout = 25): ?array
+    {
+        if (! $this->isConfigured()) {
+            return null;
+        }
+
+        $payload = [
+            'timeout' => max(0, min($timeout, 50)),
+            'allowed_updates' => ['message'],
+        ];
+
+        if ($offset !== null) {
+            $payload['offset'] = $offset;
+        }
+
+        try {
+            $response = $this->request(max(12, $payload['timeout'] + 8))
+                ->post($this->apiUrl('getUpdates'), $payload);
+        } catch (ConnectionException) {
+            Log::warning('Telegram Bot API connection failed while polling updates.');
+
+            return null;
+        }
+
+        if (! $response->successful() || $response->json('ok') !== true) {
+            Log::warning('Telegram Bot API rejected getUpdates.', [
+                'status' => $response->status(),
+                'description' => $response->json('description'),
+            ]);
+
+            return null;
+        }
+
+        $updates = $response->json('result');
+
+        return is_array($updates) ? $updates : [];
+    }
+
+    public function deleteWebhook(bool $dropPendingUpdates = false): bool
+    {
+        if (! $this->isConfigured()) {
+            return false;
+        }
+
+        try {
+            $response = $this->request(12)
+                ->post($this->apiUrl('deleteWebhook'), [
+                    'drop_pending_updates' => $dropPendingUpdates,
+                ]);
+        } catch (ConnectionException) {
+            Log::warning('Telegram Bot API connection failed while deleting webhook.');
+
+            return false;
+        }
+
+        return $response->successful() && $response->json('ok') === true;
+    }
+
     public function probe(): array
     {
         if (! $this->isConfigured()) {
@@ -66,9 +125,7 @@ class TelegramBotClient
         }
 
         try {
-            $response = Http::withOptions(['force_ip_resolve' => 'v4'])
-                ->connectTimeout(5)
-                ->timeout(12)
+            $response = $this->request(12)
                 ->get($this->apiUrl('getMe'));
         } catch (ConnectionException) {
             return [
@@ -92,10 +149,7 @@ class TelegramBotClient
         }
 
         try {
-            $response = Http::asJson()
-                ->withOptions(['force_ip_resolve' => 'v4'])
-                ->connectTimeout(5)
-                ->timeout(12)
+            $response = $this->request(12)
                 ->post($this->apiUrl('setWebhook'), [
                     'url' => $url,
                     'secret_token' => $secretToken,
@@ -108,6 +162,33 @@ class TelegramBotClient
         }
 
         return $response->successful() && $response->json('ok') === true;
+    }
+
+    private function request(int $timeout): PendingRequest
+    {
+        return Http::asJson()
+            ->withOptions($this->transportOptions())
+            ->connectTimeout(5)
+            ->timeout($timeout);
+    }
+
+    private function transportOptions(): array
+    {
+        $options = [
+            'force_ip_resolve' => 'v4',
+        ];
+
+        $apiIp = trim((string) config('services.telegram.api_ip'));
+
+        if (filter_var($apiIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $options['curl'] = [
+                CURLOPT_RESOLVE => [
+                    'api.telegram.org:443:'.$apiIp,
+                ],
+            ];
+        }
+
+        return $options;
     }
 
     private function apiUrl(string $method): string

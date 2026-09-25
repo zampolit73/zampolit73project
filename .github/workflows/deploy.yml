@@ -366,6 +366,8 @@ jobs:
 
               set_env TELEGRAM_BOT_TOKEN "$TELEGRAM_BOT_TOKEN_VALUE"
               set_env TELEGRAM_BOT_WEBHOOK_SECRET "$TELEGRAM_WEBHOOK_SECRET"
+              set_env TELEGRAM_BOT_API_IP "149.154.167.220"
+              set_env TELEGRAM_BOT_PUSH_ENABLED true
               TELEGRAM_SETUP_REQUESTED=1
 
               unset TELEGRAM_WEBHOOK_SECRET
@@ -445,6 +447,37 @@ jobs:
           $SUDO systemctl enable "$QUEUE_WORKER_SERVICE" >/dev/null
           $SUDO systemctl restart "$QUEUE_WORKER_SERVICE"
           $SUDO systemctl is-active --quiet "$QUEUE_WORKER_SERVICE"
+
+          TELEGRAM_BOT_SERVICE="$APP_NAME-telegram-bot"
+          if [ "$TELEGRAM_SETUP_REQUESTED" -eq 1 ]; then
+            $SUDO tee "/etc/systemd/system/$TELEGRAM_BOT_SERVICE.service" >/dev/null <<TELEGRAM_BOT
+          [Unit]
+          Description=Zampolit73 Vacancy Source Telegram Bot long poller
+          Wants=network-online.target
+          After=network-online.target php8.3-fpm.service
+
+          [Service]
+          Type=simple
+          User=www-data
+          Group=www-data
+          WorkingDirectory=/var/www/zampolit73project/current
+          ExecStart=/usr/bin/php8.3 /var/www/zampolit73project/current/artisan telegram:bot:poll
+          Restart=always
+          RestartSec=5
+          KillSignal=SIGTERM
+          TimeoutStopSec=30
+
+          [Install]
+          WantedBy=multi-user.target
+          TELEGRAM_BOT
+
+            $SUDO systemctl daemon-reload
+            $SUDO systemctl enable "$TELEGRAM_BOT_SERVICE" >/dev/null
+            $SUDO systemctl restart "$TELEGRAM_BOT_SERVICE"
+            sleep 2
+            $SUDO systemctl is-active --quiet "$TELEGRAM_BOT_SERVICE"
+            echo "Telegram Bot long-polling service is active."
+          fi
 
           if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
             echo "TLS certificate missing; bootstrapping HTTP for Certbot."
@@ -591,23 +624,25 @@ jobs:
           ls -1dt "$RELEASES_DIR"/* 2>/dev/null | tail -n +4 | xargs -r $SUDO rm -rf
           REMOTE
 
-      - name: Configure Telegram webhook from GitHub runner
+      - name: Confirm Telegram long-polling mode
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
           set -euo pipefail
 
           if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
-            echo "::notice::TELEGRAM_BOT_TOKEN is not configured; skipping Telegram webhook setup."
+            echo "::notice::TELEGRAM_BOT_TOKEN is not configured; skipping Telegram polling checks."
             exit 0
           fi
 
-          TELEGRAM_WEBHOOK_SECRET="$(
-            printf '%s' "zampolit73-webhook-v1:$TELEGRAM_BOT_TOKEN"               | sha256sum               | awk '{print $1}'
-          )"
-
           get_me="$(
-            curl               --silent               --show-error               --connect-timeout 8               --max-time 20               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe"               || true
+            curl \
+              --silent \
+              --show-error \
+              --connect-timeout 8 \
+              --max-time 20 \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" \
+              || true
           )"
 
           if ! printf '%s' "$get_me" | jq -e '.ok == true' >/dev/null 2>&1; then
@@ -619,51 +654,54 @@ jobs:
           bot_username="$(printf '%s' "$get_me" | jq -r '.result.username // "unknown"')"
           echo "Telegram Bot token validated for @${bot_username}."
 
-          WEBHOOK_IPV4="$(getent ahostsv4 "$APP_DOMAIN" | awk '{print $1}' | sort -u | head -n 1)"
-          if [ -n "$WEBHOOK_IPV4" ]; then
-            echo "Telegram webhook pinned to IPv4 $WEBHOOK_IPV4."
-          else
-            echo "::warning::Could not resolve IPv4 for $APP_DOMAIN; Telegram will resolve the webhook hostname."
-          fi
-
-          webhook_response="$(
-            curl               --silent               --show-error               --connect-timeout 8               --max-time 20               --request POST               --data-urlencode "url=https://${APP_DOMAIN}/api/telegram/bot/webhook"               --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}"               --data-urlencode 'allowed_updates=["message"]'               --data-urlencode "max_connections=5"               ${WEBHOOK_IPV4:+--data-urlencode "ip_address=${WEBHOOK_IPV4}"}               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"               || true
+          delete_response="$(
+            curl \
+              --silent \
+              --show-error \
+              --connect-timeout 8 \
+              --max-time 20 \
+              --request POST \
+              --data-urlencode "drop_pending_updates=false" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook" \
+              || true
           )"
 
-          if ! printf '%s' "$webhook_response" | jq -e '.ok == true' >/dev/null 2>&1; then
-            description="$(printf '%s' "$webhook_response" | jq -r '.description // "Telegram API did not return JSON"' 2>/dev/null || printf 'Telegram API did not return a response')"
-            echo "::warning::Telegram webhook setup failed: $description"
-            exit 0
+          if ! printf '%s' "$delete_response" | jq -e '.ok == true' >/dev/null 2>&1; then
+            description="$(printf '%s' "$delete_response" | jq -r '.description // "Telegram API did not return JSON"' 2>/dev/null || printf 'Telegram API did not return a response')"
+            echo "::warning::Could not disable Telegram webhook: $description"
+          else
+            echo "Telegram webhook disabled without dropping pending updates."
           fi
 
-          echo "Telegram webhook configured from GitHub runner for @${bot_username}."
-          sleep 3
-
           webhook_info="$(
-            curl               --silent               --show-error               --connect-timeout 8               --max-time 20               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"               || true
+            curl \
+              --silent \
+              --show-error \
+              --connect-timeout 8 \
+              --max-time 20 \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" \
+              || true
           )"
 
           if printf '%s' "$webhook_info" | jq -e '.ok == true' >/dev/null 2>&1; then
-            echo "Telegram webhook info:"
-            printf '%s' "$webhook_info"               | jq -r '
+            echo "Telegram transport info:"
+            printf '%s' "$webhook_info" \
+              | jq -r '
                   .result
                   | "url=" + (.url // ""),
                     "pending_update_count=" + ((.pending_update_count // 0) | tostring),
                     "last_error_date=" + ((.last_error_date // 0) | tostring),
                     "last_error_message=" + (.last_error_message // "none")
                 '
+
+            webhook_url="$(printf '%s' "$webhook_info" | jq -r '.result.url // ""')"
+            if [ -n "$webhook_url" ]; then
+              echo "::warning::Telegram webhook is still configured; the VPS poller will keep retrying deleteWebhook."
+            else
+              echo "Telegram is in long-polling mode."
+            fi
           else
             echo "::warning::Could not read Telegram getWebhookInfo."
-          fi
-
-          webhook_probe_status="$(
-            curl               --silent               --output /dev/null               --write-out '%{http_code}'               --connect-timeout 8               --max-time 20               --request POST               --header "Content-Type: application/json"               --header "X-Telegram-Bot-Api-Secret-Token: ${TELEGRAM_WEBHOOK_SECRET}"               --data '{"update_id":0}'               "https://${APP_DOMAIN}/api/telegram/bot/webhook"               || true
-          )"
-
-          if [ "$webhook_probe_status" = "200" ]; then
-            echo "Signed Telegram webhook endpoint probe: HTTP 200."
-          else
-            echo "::warning::Signed Telegram webhook endpoint probe returned HTTP ${webhook_probe_status:-no-response}."
           fi
 
   health:

@@ -134,38 +134,71 @@ Later iterations should keep these already-agreed product rules:
 - one investigation has a five-minute hard ceiling;
 - historical admin-confirmed results are hints, not immutable ground truth.
 
+## Telegram production transport
+
+Production uses **Bot API long polling**, not webhook delivery.
+
+Why:
+
+- the VPS DNS currently resolves `api.telegram.org` to `149.154.166.110`, and TCP/TLS to that address times out;
+- the same VPS can reach Telegram Bot API IPv4 `149.154.167.220` normally;
+- host firewall is not the cause: UFW is inactive and iptables INPUT/OUTPUT policies are ACCEPT;
+- GitHub/Cloudflare control HTTPS probes from the VPS succeed.
+
+The deploy therefore stores:
+
+```text
+TELEGRAM_BOT_API_IP=149.154.167.220
+TELEGRAM_BOT_PUSH_ENABLED=true
+```
+
+`TelegramBotClient` preserves the hostname `api.telegram.org` for TLS/SNI but pins the connection to `TELEGRAM_BOT_API_IP` with cURL resolve options.
+
+A dedicated systemd process runs:
+
+```bash
+php8.3 artisan telegram:bot:poll
+```
+
+The poller:
+
+- disables the Telegram webhook without dropping pending updates;
+- long-polls `getUpdates`;
+- persists the last processed update ID in Laravel's persistent cache;
+- routes each update through the same `TelegramUpdateHandler` used by the webhook fallback;
+- sends replies and progress/final messages through the Bot API on the working pinned IPv4.
+
+The stateless webhook route `POST /api/telegram/bot/webhook` remains in the application as a fallback/test transport, but production Telegram delivery is polling-based.
+
 ## Telegram production configuration
 
-The repository contains no BotFather token. Preferred production activation is one manual GitHub Actions secret: `TELEGRAM_BOT_TOKEN`. On a main deploy, Actions securely transfers that token to the VPS, writes it to the persistent shared `.env`, derives a stable `TELEGRAM_BOT_WEBHOOK_SECRET` from the token, and then configures Telegram `setWebhook` from the GitHub runner. Laravel outbound Bot API calls force IPv4 to avoid the VPS connectivity issue observed with automatic address-family selection. `TELEGRAM_BOT_USERNAME` is optional and only improves the admin deep-link UX.
+The repository contains no BotFather token. Production activation requires one GitHub Actions repository secret:
 
-## Next implementation steps
+```text
+TELEGRAM_BOT_TOKEN=<fresh BotFather token>
+```
 
-1. Add a fresh `TELEGRAM_BOT_TOKEN` GitHub Actions secret and run/trigger a main deployment; token/env/webhook setup is automatic after that.
-2. Python Telegram Reader with the user's MTProto session and Telegram folder sync.
-3. SQLite FTS5 + normalization + technology aliases.
-4. Web search provider abstraction and safe page fetching.
-5. Deterministic evidence/scoring and source clustering.
-6. Admin review UI and quality metrics.
+On a main deploy, Actions transfers the token to the VPS through a short-lived protected file and writes it to the persistent shared `.env`. The token is never committed. `TELEGRAM_BOT_USERNAME` is optional and only improves the admin deep-link UX.
 
+The deploy also asks Telegram to delete any existing webhook with `drop_pending_updates=false`, so pending messages are preserved for the long poller.
 
 ## Telegram diagnostics
 
-Operational troubleshooting is built into the deploy pipeline. `telegram:bot:diagnose` prints only safe aggregate state and an outbound `getMe` probe. GitHub Actions also reads Telegram `getWebhookInfo` and performs a signed synthetic webhook POST so inbound delivery, Laravel secret validation and outbound Bot API connectivity can be distinguished without exposing user/chat IDs or secrets.
+`php8.3 artisan telegram:bot:diagnose` prints safe aggregate state plus network diagnostics without exposing bot tokens, webhook secrets, Telegram user IDs or chat IDs.
 
+Current diagnostics include:
 
-Webhook registration pins Telegram to the current production IPv4 using the Bot API `ip_address` parameter. This is intentional: public GitHub probes can reach the HTTPS endpoint while Telegram previously reported webhook connection timeouts when resolving the hostname itself.
+- linked / used / unused binding counts;
+- default route and host firewall policy;
+- DNS A records for `api.telegram.org`;
+- TCP/TLS checks to the DNS-returned Telegram IP and the known working alternate Bot API IP;
+- control HTTPS checks to GitHub and Cloudflare;
+- a real Bot API `getMe` probe through the configured pinned API IP.
 
+## Next implementation steps
 
-## Telegram reply transport under current VPS networking
-
-The VPS can receive Telegram webhook traffic after the webhook is pinned to the production IPv4, but direct VPS → `api.telegram.org` requests are currently unavailable. To keep the bot usable without another paid service, immediate bot replies are returned directly in the webhook HTTP response using Telegram's supported `method=sendMessage` form.
-
-Current behavior:
-
-- `/start CODE` returns the binding result immediately in the same Telegram chat;
-- vacancy intake returns the queue acknowledgement immediately;
-- `/status` returns the current stage or latest completed result;
-- delayed/background Telegram push messages are disabled by default with `TELEGRAM_BOT_PUSH_ENABLED=false` so queue jobs do not block on unreachable Bot API calls;
-- web history remains the durable result store.
-
-If direct Bot API egress is restored later, `TELEGRAM_BOT_PUSH_ENABLED=true` can re-enable automatic progress/final pushes after verification.
+1. Python Telegram Reader with the user's MTProto session and Telegram folder sync.
+2. SQLite FTS5 + normalization + technology aliases.
+3. Web search provider abstraction and safe page fetching.
+4. Deterministic evidence/scoring and source clustering.
+5. Admin review UI and quality metrics.

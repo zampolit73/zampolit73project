@@ -9,6 +9,7 @@ return [
         'token' => env('TELEGRAM_BOT_TOKEN'),
         'username' => env('TELEGRAM_BOT_USERNAME'),
         'webhook_secret' => env('TELEGRAM_BOT_WEBHOOK_SECRET'),
+        'api_ip' => env('TELEGRAM_BOT_API_IP'),
         'push_enabled' => env('TELEGRAM_BOT_PUSH_ENABLED', false),
     ],
 ];

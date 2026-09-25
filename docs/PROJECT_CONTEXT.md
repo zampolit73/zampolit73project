@@ -38,7 +38,8 @@
 - PWA;
 - Web Push / VAPID;
 - GitHub Actions CI/CD;
-- Laravel database queue worker for Vacancy Source, managed by systemd.
+- Laravel database queue worker for Vacancy Source, managed by systemd;
+- Laravel Telegram Bot long poller for Vacancy Source, managed by systemd.
 
 Production layout:
 
@@ -1019,15 +1020,30 @@ Implemented now:
 - a deliberately labelled demo job that exercises the pipeline and never fabricates a client;
 - `user_telegram_accounts` and `telegram_invites` persistence;
 - Telegram binding controls on `/admin/users`;
-- one-time `/start CODE` binding through a Laravel Telegram Bot webhook;
+- one-time `/start CODE` binding;
 - bot input from private messages/Forward text into the same investigation queue;
 - group/supergroup bot messages ignored;
 - Forward metadata ignored as evidence/input context;
 - Telegram progress/final notifications for bot-started demo investigations.
 
-Production Telegram Bot activation requires only a fresh `TELEGRAM_BOT_TOKEN` in GitHub Actions Secrets. Deploy diagnostics include safe `telegram:bot:diagnose` output on the VPS plus GitHub-runner `getWebhookInfo` and a signed synthetic webhook probe, so inbound and outbound Telegram failures can be separated without exposing secrets or Telegram IDs. The VPS diagnostic also reports default-route/firewall state and direct Telegram IPv4 TCP/TLS connectivity, with GitHub/Cloudflare HTTPS probes as controls. Webhook registration also pins Telegram to the current production IPv4 via `setWebhook.ip_address`, because Telegram previously timed out reaching the hostname while GitHub HTTPS probes succeeded. Immediate Telegram replies are returned directly in the webhook response (`method=sendMessage`) because VPS → `api.telegram.org` egress currently fails. `/start CODE`, vacancy queue acknowledgement and `/status` therefore work without outbound Bot API access. Delayed/background pushes are disabled by default via `TELEGRAM_BOT_PUSH_ENABLED=false`.
+### Telegram Bot production transport
 
-Production Telegram Bot activation requires only a fresh `TELEGRAM_BOT_TOKEN` in GitHub Actions Secrets. The deploy workflow copies it to the persistent production `.env` through a short-lived protected temp file and derives a stable `TELEGRAM_BOT_WEBHOOK_SECRET` from that token. Telegram `getMe` / `setWebhook` are executed from the GitHub runner, because direct VPS→Telegram webhook setup timed out. Laravel runtime Bot API requests explicitly force IPv4. `TELEGRAM_BOT_USERNAME` remains optional.
+Production Bot transport is **long polling**, managed by systemd unit `zampolit73project-telegram-bot.service`.
+
+The reason is a verified provider/network route issue, not Laravel/firewall configuration:
+
+- the VPS DNS result `149.154.166.110` for `api.telegram.org` times out on TCP 443;
+- alternate Telegram Bot API IPv4 `149.154.167.220` succeeds on TCP/TLS;
+- UFW is inactive and iptables INPUT/OUTPUT policies are ACCEPT;
+- control HTTPS to GitHub/Cloudflare succeeds.
+
+Deploy writes `TELEGRAM_BOT_API_IP=149.154.167.220` and `TELEGRAM_BOT_PUSH_ENABLED=true`. `TelegramBotClient` pins `api.telegram.org` to that IP while retaining the hostname for TLS/SNI.
+
+The long poller disables webhook delivery with `drop_pending_updates=false`, consumes `getUpdates`, persists the last processed update ID in shared file cache, routes updates through `TelegramUpdateHandler`, and sends Bot API replies on the pinned IP.
+
+The existing stateless webhook route remains as a fallback/test path but is not the production receive transport while polling is active.
+
+Production still requires only `TELEGRAM_BOT_TOKEN` in GitHub Actions Secrets. The token is copied to shared production `.env` through a short-lived protected temp file and never committed.
 
 Not implemented yet:
 

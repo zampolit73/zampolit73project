@@ -48,7 +48,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 
 Push API находится под auth middleware: `/push/config`, `/push/subscriptions`, `/push/test`.
 
-Telegram Bot webhook: `POST /api/telegram/bot/webhook`. Он stateless и принимает только запросы с корректным `X-Telegram-Bot-Api-Secret-Token`.
+Production Telegram Bot получает сообщения через отдельный Laravel long-polling systemd-процесс. Webhook `POST /api/telegram/bot/webhook` сохранён как fallback/test transport и по-прежнему проверяет `X-Telegram-Bot-Api-Secret-Token`.
 
 ## Быстрый локальный запуск
 
@@ -98,6 +98,7 @@ Laravel 13
    +-- Inertia / Vue
    +-- Web Push (VAPID)
    +-- Database queue worker (Vacancy Source)
+   +-- Telegram Bot long poller (Vacancy Source)
 ```
 
 Persistent state:
@@ -246,14 +247,15 @@ tests/
 
 ## Telegram Bot for Vacancy Source
 
-Код интеграции бота не содержит production token. Для production предпочтителен один GitHub Actions secret:
+Production Bot transport uses long polling on the VPS. The deploy runs `zampolit73project-telegram-bot.service`, which executes:
 
-```text
-TELEGRAM_BOT_TOKEN=<fresh BotFather token>
+```bash
+php8.3 artisan telegram:bot:poll
 ```
 
-На следующем deploy в `main` workflow сам передаст token на VPS через временный защищённый файл, запишет его в shared production `.env`, выведет из token стабильный `TELEGRAM_BOT_WEBHOOK_SECRET`, удалит временный файл и настроит Telegram webhook прямо с GitHub runner. Laravel runtime-вызовы Telegram Bot API используют IPv4.
+A VPS/provider route issue makes the DNS-selected Telegram address `149.154.166.110` unreachable, while `149.154.167.220` is reachable over TCP/TLS. The deploy therefore sets `TELEGRAM_BOT_API_IP=149.154.167.220`; the HTTP client keeps `api.telegram.org` as the TLS hostname but connects to the working IP.
 
-`TELEGRAM_BOT_USERNAME` необязателен: без него бот работает, просто в админке не будет прямой `t.me`-ссылки.
+The only manual production secret remains `TELEGRAM_BOT_TOKEN` in GitHub Actions Secrets. It is not stored in Git.
 
-Администратор создаёт одноразовый код рядом с пользователем на `/admin/users`; plaintext кода показывается только в текущем ответе админки и не сохраняется в БД. Пользователь отправляет боту `/start CODE`. После привязки обычный текст или Forward создаёт то же `vacancy_investigations`, что и веб-форма; Forward metadata не используется как доказательство. Текущие мгновенные ответы бота (`/start`, постановка в очередь, `/status`) возвращаются прямо в webhook response; фоновые Telegram push-сообщения по умолчанию выключены, пока VPS не имеет стабильного исходящего доступа к Bot API.
+The poller preserves pending updates when disabling any old webhook. `/start CODE`, vacancy intake, `/status`, progress and final demo messages all use the same Laravel Bot pipeline.
+

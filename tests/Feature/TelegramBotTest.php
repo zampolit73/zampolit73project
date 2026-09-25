@@ -8,7 +8,9 @@ use App\Models\User;
 use App\Models\UserTelegramAccount;
 use App\Models\VacancyInvestigation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -23,6 +25,7 @@ class TelegramBotTest extends TestCase
         config()->set('services.telegram.token', '123456:test-token');
         config()->set('services.telegram.webhook_secret', 'test_webhook_secret');
         config()->set('services.telegram.username', 'vacancy_test_bot');
+        config()->set('services.telegram.api_ip', '149.154.167.220');
         config()->set('services.telegram.push_enabled', false);
     }
 
@@ -222,4 +225,64 @@ class TelegramBotTest extends TestCase
 
         $this->assertDatabaseCount('vacancy_investigations', 0);
     }
+
+    public function test_long_poller_processes_pending_start_update_and_replies(): void
+    {
+        Cache::forget('telegram_bot_poll:last_update_id');
+
+        $user = $this->user('polling-target');
+        $code = 'POLL-1234';
+
+        TelegramInvite::query()->create([
+            'user_id' => $user->id,
+            'created_by_user_id' => null,
+            'code_hash' => hash('sha256', $code),
+        ]);
+
+        Http::fakeSequence()
+            ->push(['ok' => true, 'result' => true], 200)
+            ->push([
+                'ok' => true,
+                'result' => [[
+                    'update_id' => 7001,
+                    'message' => [
+                        'message_id' => 21,
+                        'from' => [
+                            'id' => 99887766,
+                            'username' => 'polling_user',
+                        ],
+                        'chat' => [
+                            'id' => 99887766,
+                            'type' => 'private',
+                        ],
+                        'text' => '/start '.$code,
+                    ],
+                ]],
+            ], 200)
+            ->push([
+                'ok' => true,
+                'result' => [
+                    'message_id' => 22,
+                ],
+            ], 200);
+
+        $this->artisan('telegram:bot:poll --once')
+            ->expectsOutputToContain('Telegram Bot long polling started.')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('user_telegram_accounts', [
+            'user_id' => $user->id,
+            'telegram_user_id' => 99887766,
+            'telegram_chat_id' => 99887766,
+            'telegram_username' => 'polling_user',
+        ]);
+
+        $this->assertSame(7001, Cache::get('telegram_bot_poll:last_update_id'));
+
+        Http::assertSentCount(3);
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/deleteWebhook'));
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/getUpdates'));
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/sendMessage'));
+    }
+
 }
