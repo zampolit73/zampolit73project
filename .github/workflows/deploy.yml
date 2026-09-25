@@ -489,17 +489,27 @@ jobs:
               --quiet \
               -r "$RELEASE_DIR/telegram_reader/requirements.txt"
 
+            TELEGRAM_READER_PROXY_SECRET_VALUE="$(
+              $SUDO sed -n 's/^TELEGRAM_READER_PROXY_SECRET=//p' "$TELEGRAM_READER_ENV_FILE" 2>/dev/null | head -n 1 || true
+            )"
+            if [ -z "$TELEGRAM_READER_PROXY_SECRET_VALUE" ]; then
+              TELEGRAM_READER_PROXY_SECRET_VALUE="$(openssl rand -hex 16)"
+            fi
+
             {
               printf 'TELEGRAM_READER_API_ID=%s\n' "$TELEGRAM_READER_API_ID_VALUE"
               printf 'TELEGRAM_READER_API_HASH=%s\n' "$TELEGRAM_READER_API_HASH_VALUE"
               printf 'TELEGRAM_READER_STATE_DIR=%s\n' "$TELEGRAM_READER_STATE_DIR"
               printf 'TELEGRAM_READER_SOCKET=%s\n' "$TELEGRAM_READER_SOCKET"
               printf 'TELEGRAM_READER_SYNC_SECONDS=300\n'
+              printf 'TELEGRAM_READER_PROXY_HOST=127.0.0.1\n'
+              printf 'TELEGRAM_READER_PROXY_PORT=1443\n'
+              printf 'TELEGRAM_READER_PROXY_SECRET=%s\n' "$TELEGRAM_READER_PROXY_SECRET_VALUE"
             } | $SUDO tee "$TELEGRAM_READER_ENV_FILE" >/dev/null
             $SUDO chown root:root "$TELEGRAM_READER_ENV_FILE"
             $SUDO chmod 600 "$TELEGRAM_READER_ENV_FILE"
 
-            unset TELEGRAM_READER_API_ID_VALUE TELEGRAM_READER_API_HASH_VALUE
+            unset TELEGRAM_READER_API_ID_VALUE TELEGRAM_READER_API_HASH_VALUE TELEGRAM_READER_PROXY_SECRET_VALUE
           fi
 
           $SUDO ln -sfn "$RELEASE_DIR" "$BASE_DIR/current.new"
@@ -563,13 +573,39 @@ jobs:
             echo "Telegram Bot long-polling service is active."
           fi
 
+          TELEGRAM_READER_BRIDGE_SERVICE="$APP_NAME-telegram-ws-bridge"
           TELEGRAM_READER_SERVICE="$APP_NAME-telegram-reader"
           if [ "$TELEGRAM_READER_SETUP_REQUESTED" -eq 1 ]; then
+            $SUDO tee "/etc/systemd/system/$TELEGRAM_READER_BRIDGE_SERVICE.service" >/dev/null <<TELEGRAM_BRIDGE
+          [Unit]
+          Description=Zampolit73 Telegram MTProto local WSS bridge
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=simple
+          User=zampolit-reader
+          Group=www-data
+          EnvironmentFile=/etc/zampolit73-telegram-reader.env
+          ExecStart=/opt/zampolit73-telegram-reader-venv/bin/tg-ws-proxy --host 127.0.0.1 --port 1443 --secret ${TELEGRAM_READER_PROXY_SECRET} --pool-size 1 --no-cfproxy
+          Restart=always
+          RestartSec=5
+          KillSignal=SIGTERM
+          TimeoutStopSec=20
+          NoNewPrivileges=true
+          PrivateTmp=true
+          ProtectHome=true
+
+          [Install]
+          WantedBy=multi-user.target
+          TELEGRAM_BRIDGE
+
             $SUDO tee "/etc/systemd/system/$TELEGRAM_READER_SERVICE.service" >/dev/null <<TELEGRAM_READER
           [Unit]
           Description=Zampolit73 Vacancy Source Telegram MTProto Reader
+          Requires=$TELEGRAM_READER_BRIDGE_SERVICE.service
           Wants=network-online.target
-          After=network-online.target
+          After=network-online.target $TELEGRAM_READER_BRIDGE_SERVICE.service
 
           [Service]
           Type=simple
@@ -594,11 +630,24 @@ jobs:
           TELEGRAM_READER
 
             $SUDO systemctl daemon-reload
-            $SUDO systemctl enable "$TELEGRAM_READER_SERVICE" >/dev/null
+            $SUDO systemctl enable "$TELEGRAM_READER_BRIDGE_SERVICE" "$TELEGRAM_READER_SERVICE" >/dev/null
+            $SUDO systemctl restart "$TELEGRAM_READER_BRIDGE_SERVICE"
+            sleep 2
+            $SUDO systemctl is-active --quiet "$TELEGRAM_READER_BRIDGE_SERVICE"
+            echo "Telegram local WSS bridge service is active."
+
             $SUDO systemctl restart "$TELEGRAM_READER_SERVICE"
-            sleep 3
+            sleep 5
             $SUDO systemctl is-active --quiet "$TELEGRAM_READER_SERVICE"
             echo "Telegram Reader service is active."
+
+            WSS_STATUS="$(
+              curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+                --connect-timeout 5 --max-time 12 \
+                --resolve 'venus.web.telegram.org:443:149.154.167.220' \
+                'https://venus.web.telegram.org/apiws' || true
+            )"
+            echo "telegram_wss_edge_http_status=${WSS_STATUS:-no-response}"
 
             echo "Telegram MTProto TCP diagnostics:"
             for ip in 149.154.167.51 149.154.167.91 149.154.175.50 91.108.56.100; do

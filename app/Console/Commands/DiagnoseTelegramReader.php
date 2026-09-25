@@ -26,6 +26,7 @@ class DiagnoseTelegramReader extends Command
         $this->line('connected='.(($status['connected'] ?? false) ? 'yes' : 'no'));
         $this->line('authorized='.(($status['authorized'] ?? false) ? 'yes' : 'no'));
         $this->line('auth_state='.(string) ($status['auth_state'] ?? 'unknown'));
+        $this->line('transport='.(string) ($status['transport'] ?? 'unknown'));
         $this->line('selected_folder='.(
             is_array($status['selected_folder'] ?? null)
                 ? (string) ($status['selected_folder']['title'] ?? 'selected')

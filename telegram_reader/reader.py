@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from telethon import TelegramClient, events, utils
+from telethon import TelegramClient, connection, events, utils
 from telethon.errors import (
     PhoneCodeExpiredError,
     PhoneCodeInvalidError,
@@ -28,6 +28,9 @@ API_ID = int(os.environ["TELEGRAM_READER_API_ID"])
 API_HASH = os.environ["TELEGRAM_READER_API_HASH"]
 SESSION_PATH = STATE_DIR / "reader"
 CORPUS_PATH = STATE_DIR / "corpus.sqlite3"
+PROXY_HOST = os.environ.get("TELEGRAM_READER_PROXY_HOST", "").strip()
+PROXY_PORT = int(os.environ.get("TELEGRAM_READER_PROXY_PORT", "1443"))
+PROXY_SECRET = os.environ.get("TELEGRAM_READER_PROXY_SECRET", "").strip()
 
 VACANCY_MARKERS = (
     "вакан",
@@ -431,7 +434,18 @@ class ReaderDaemon:
         os.chmod(STATE_DIR, 0o700)
 
         self.store = CorpusStore(CORPUS_PATH)
-        self.client = TelegramClient(str(SESSION_PATH), API_ID, API_HASH)
+
+        client_options: dict[str, Any] = {}
+        if PROXY_HOST and PROXY_SECRET:
+            client_options["connection"] = connection.ConnectionTcpMTProxyRandomizedIntermediate
+            client_options["proxy"] = (PROXY_HOST, PROXY_PORT, PROXY_SECRET)
+
+        self.client = TelegramClient(
+            str(SESSION_PATH),
+            API_ID,
+            API_HASH,
+            **client_options,
+        )
         self.pending_phone: str | None = None
         self.pending_phone_code_hash: str | None = None
         self.auth_state = "unknown"
@@ -533,6 +547,7 @@ class ReaderDaemon:
             "connected": connected,
             "authorized": authorized,
             "auth_state": self.auth_state,
+            "transport": "local_wss_bridge" if PROXY_HOST and PROXY_SECRET else "direct_mtproto",
             "account": account,
             "selected_folder": (
                 {

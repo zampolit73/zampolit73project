@@ -236,7 +236,7 @@ Telegram и web evidence объединяются в существующую de
 
 ## Текущий production blocker
 
-Reader foundation задеплоен, systemd service и local Unix socket работают, но прямой MTProto путь с VPS к Telegram сейчас заблокирован/blackholed upstream.
+Reader foundation задеплоен, systemd service и local Unix socket работают. Прямой MTProto TCP путь с VPS к Telegram заблокирован/blackholed upstream, поэтому добавлен локальный WSS bridge: Telethon подключается к `127.0.0.1:1443`, а bridge переносит зашифрованный MTProto через Telegram-owned WSS endpoints.
 
 Проверено на production:
 
@@ -256,6 +256,24 @@ TCP:443 timeout получен для нескольких стандартны�
 - `91.108.56.100`.
 
 Это не Laravel/UI/session bug: локальный Reader RPC уже отвечает. Следующая задача — дать Telethon рабочий transport через текущую сеть VPS. Предпочтение: локальный/self-hosted bridge к Telegram-owned WSS transport либо исправление маршрута у VPS provider. Внешний Vercel relay не нужен.
+
+
+
+### Local Telegram WSS bridge
+
+Чтобы не использовать Vercel/внешний relay, production Reader использует локальный bridge:
+
+- package: `Flowseal/tg-ws-proxy`;
+- pinned commit: `caa949bee0873d2b95dfb4fbeb1b7868b0ee3843`;
+- license: MIT;
+- listen: `127.0.0.1:1443` only;
+- systemd: `zampolit73project-telegram-ws-bridge.service`;
+- service user: `zampolit-reader`;
+- Cloudflare fallback disabled with `--no-cfproxy`;
+- upstream transport: Telegram-owned HTTPS/WebSocket endpoints;
+- local MTProxy secret is generated on the VPS, kept in `/etc/zampolit73-telegram-reader.env`, never committed/logged.
+
+Telethon uses `ConnectionTcpMTProxyRandomizedIntermediate` against this local bridge. The bridge does not replace Telegram authentication/session storage and is not exposed to the internet.
 
 ## Что должен сделать пользователь прямо сейчас
 

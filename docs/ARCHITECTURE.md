@@ -348,7 +348,13 @@ Unix socket /run/zampolit73-telegram-reader/reader.sock
     |
 Python Telethon Reader (zampolit-reader)
     |
-MTProto + selected Telegram folder
+local MTProto listener 127.0.0.1:1443
+    |
+local WSS bridge (tg-ws-proxy, no CF fallback)
+    |
+Telegram-owned WSS transport
+    |
+selected Telegram folder
     |
 private SQLite corpus / FTS5
 ```

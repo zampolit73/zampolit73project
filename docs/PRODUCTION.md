@@ -387,3 +387,18 @@ last_error=MTProto connection failed: TimeoutError
 Direct TCP:443 probes to several standard Telegram MTProto data-center addresses time out from this VPS, while the rest of the site remains healthy. Do not treat `systemctl is-active` alone as Reader readiness.
 
 Before one-time account authorization, production must first reach a Telegram MTProto transport and `telegram-reader:diagnose` must report `connected=yes`. The preferred next fix is a local/self-hosted transport bridge to Telegram-owned WSS endpoints or a provider routing fix; do not move application data to Vercel merely to work around this path.
+
+
+### Telegram Reader local WSS bridge
+
+Direct TCP to standard Telegram MTProto DC addresses is blackholed from the current VPS network. Production therefore runs a local bridge:
+
+`zampolit73project-telegram-ws-bridge.service`
+
+It binds only to `127.0.0.1:1443` and runs the MIT-licensed `Flowseal/tg-ws-proxy` code pinned at commit `caa949bee0873d2b95dfb4fbeb1b7868b0ee3843`. Deployment installs it from that immutable GitHub archive into the existing Reader virtualenv.
+
+The service is launched with `--no-cfproxy`, so Cloudflare proxy fallback is disabled. Its upstream is Telegram-owned WSS transport; no Vercel or public relay is part of the path.
+
+A random local MTProxy secret is generated once on the VPS and persisted only in `/etc/zampolit73-telegram-reader.env` (mode 0600). The secret is not a Telegram credential and is never printed in Actions.
+
+The Reader systemd unit requires/starts after the bridge and Telethon uses `ConnectionTcpMTProxyRandomizedIntermediate` to connect to the local listener.

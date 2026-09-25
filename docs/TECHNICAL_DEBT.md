@@ -121,3 +121,10 @@ Current mitigation:
 - scoring uses result title/snippet only and does not claim full-page verification.
 
 Future work should add at least one independent search provider and safe page-level corroboration before treating web coverage as robust.
+
+
+## Telegram Reader WSS bridge dependency
+
+The current VPS route blackholes direct Telegram MTProto DC TCP. Reader connectivity therefore depends on a local WSS bridge using `Flowseal/tg-ws-proxy`, pinned to commit `caa949bee0873d2b95dfb4fbeb1b7868b0ee3843` and started with Cloudflare fallback disabled.
+
+This is an operational compatibility dependency, not application business logic. Re-test direct MTProto periodically; if provider routing is fixed, prefer removing the bridge and returning Telethon to direct MTProto. Any bridge upgrade must be reviewed/pinned explicitly rather than following upstream HEAD automatically.
