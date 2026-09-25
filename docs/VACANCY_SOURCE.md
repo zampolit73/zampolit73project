@@ -154,3 +154,18 @@ Operational troubleshooting is built into the deploy pipeline. `telegram:bot:dia
 
 
 Webhook registration pins Telegram to the current production IPv4 using the Bot API `ip_address` parameter. This is intentional: public GitHub probes can reach the HTTPS endpoint while Telegram previously reported webhook connection timeouts when resolving the hostname itself.
+
+
+## Telegram reply transport under current VPS networking
+
+The VPS can receive Telegram webhook traffic after the webhook is pinned to the production IPv4, but direct VPS → `api.telegram.org` requests are currently unavailable. To keep the bot usable without another paid service, immediate bot replies are returned directly in the webhook HTTP response using Telegram's supported `method=sendMessage` form.
+
+Current behavior:
+
+- `/start CODE` returns the binding result immediately in the same Telegram chat;
+- vacancy intake returns the queue acknowledgement immediately;
+- `/status` returns the current stage or latest completed result;
+- delayed/background Telegram push messages are disabled by default with `TELEGRAM_BOT_PUSH_ENABLED=false` so queue jobs do not block on unreachable Bot API calls;
+- web history remains the durable result store.
+
+If direct Bot API egress is restored later, `TELEGRAM_BOT_PUSH_ENABLED=true` can re-enable automatic progress/final pushes after verification.

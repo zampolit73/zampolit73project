@@ -272,3 +272,14 @@ These diagnostics intentionally avoid printing the BotFather token, webhook secr
 ### Telegram webhook IPv4 pinning
 
 When Actions registers the Telegram webhook, it resolves the production hostname to the current public IPv4 address and passes that address to Telegram's `setWebhook` as `ip_address`. This keeps Telegram delivery on the verified IPv4 path even if hostname resolution/address-family selection is unreliable. `getWebhookInfo` remains part of deploy diagnostics and reports pending updates and the last delivery error.
+
+
+### Telegram immediate webhook replies
+
+Current VPS egress cannot reach `api.telegram.org`, so background Bot API calls are disabled by default:
+
+```text
+TELEGRAM_BOT_PUSH_ENABLED=false
+```
+
+The webhook itself uses Telegram's supported "request in webhook response" mechanism for immediate `sendMessage` replies. This covers binding, intake acknowledgement and the `/status` command without requiring VPS → Telegram connectivity. Do not enable delayed/background pushes until `telegram:bot:diagnose` reports `outbound_api=ok`.

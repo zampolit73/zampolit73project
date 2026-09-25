@@ -7,15 +7,15 @@ use App\Jobs\RunVacancyInvestigation;
 use App\Models\TelegramInvite;
 use App\Models\UserTelegramAccount;
 use App\Models\VacancyInvestigation;
-use App\Services\TelegramBotClient;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class TelegramBotWebhookController extends Controller
 {
-    public function __invoke(Request $request, TelegramBotClient $bot): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
         if (! $this->hasValidSecret($request)) {
             abort(403);
@@ -42,15 +42,15 @@ class TelegramBotWebhookController extends Controller
         if (preg_match('/^\/start(?:@\w+)?(?:\s+([A-Za-z0-9_-]+))?/u', $text, $matches)) {
             $code = isset($matches[1]) ? strtoupper(trim($matches[1])) : null;
 
-            $this->handleStart(
-                $bot,
-                $telegramUserId,
+            return $this->reply(
                 $chatId,
-                is_string($telegramUsername) ? $telegramUsername : null,
-                $code,
+                $this->handleStart(
+                    $telegramUserId,
+                    $chatId,
+                    is_string($telegramUsername) ? $telegramUsername : null,
+                    $code,
+                ),
             );
-
-            return $this->ack();
         }
 
         $binding = UserTelegramAccount::query()
@@ -59,30 +59,31 @@ class TelegramBotWebhookController extends Controller
             ->first();
 
         if (! $binding) {
-            $bot->sendMessage(
+            return $this->reply(
                 $chatId,
                 'Telegram пока не привязан к аккаунту сайта. Получи код у администратора и отправь сюда /start КОД.',
             );
+        }
 
-            return $this->ack();
+        if (preg_match('/^\/status(?:@\w+)?$/u', $text)) {
+            return $this->reply(
+                $chatId,
+                $this->latestStatusMessage($binding->user_id),
+            );
         }
 
         if ($text === '' || str_starts_with($text, '/')) {
-            $bot->sendMessage(
+            return $this->reply(
                 $chatId,
-                'Отправь сюда текст вакансии обычным сообщением или Forward. Для анализа используется только текст сообщения.',
+                'Отправь сюда текст вакансии обычным сообщением или Forward. Для анализа используется только текст сообщения. Статус последней проверки: /status',
             );
-
-            return $this->ack();
         }
 
         if (mb_strlen($text) < 20) {
-            $bot->sendMessage(
+            return $this->reply(
                 $chatId,
                 'Данных пока слишком мало. Пришли более полный текст вакансии — хотя бы роль, стек и несколько требований.',
             );
-
-            return $this->ack();
         }
 
         $investigation = VacancyInvestigation::query()->create([
@@ -97,69 +98,78 @@ class TelegramBotWebhookController extends Controller
 
         RunVacancyInvestigation::dispatch($investigation->id);
 
-        $bot->sendMessage(
+        return $this->reply(
             $chatId,
-            'Проверка #'.$investigation->id.' поставлена в очередь. Напишу сюда по этапам и когда результат будет готов.',
+            'Проверка #'.$investigation->id.' поставлена в очередь. Из-за сетевого ограничения VPS автоматические push-ответы временно отключены; пришли /status, чтобы получить текущий этап или готовый результат.',
         );
-
-        return $this->ack();
     }
 
     private function handleStart(
-        TelegramBotClient $bot,
         int $telegramUserId,
         int $chatId,
         ?string $telegramUsername,
         ?string $code,
-    ): void {
+    ): string {
         $existing = UserTelegramAccount::query()
             ->with('user:id,username')
             ->where('telegram_user_id', $telegramUserId)
             ->first();
 
         if ($code === null) {
-            $message = $existing
-                ? 'Telegram уже привязан к аккаунту «'.$existing->user->username.'». Можешь присылать сюда вакансии.'
+            return $existing
+                ? 'Telegram уже привязан к аккаунту «'.$existing->user->username.'». Можешь присылать сюда вакансии. Статус последней проверки: /status'
                 : 'Чтобы подключить Telegram, получи одноразовый код у администратора и отправь /start КОД.';
-
-            $bot->sendMessage($chatId, $message);
-
-            return;
         }
 
         if ($existing) {
-            $bot->sendMessage(
-                $chatId,
-                'Этот Telegram уже привязан к аккаунту «'.$existing->user->username.'». Если нужно сменить пользователя, администратор сначала должен отвязать текущую привязку.',
-            );
-
-            return;
+            return 'Этот Telegram уже привязан к аккаунту «'.$existing->user->username.'». Если нужно сменить пользователя, администратор сначала должен отвязать текущую привязку.';
         }
 
         $result = $this->bindInvite($code, $telegramUserId, $chatId, $telegramUsername);
 
         if ($result['status'] === 'invalid') {
-            $bot->sendMessage($chatId, 'Код не найден или уже использован. Попроси администратора создать новый Telegram-код.');
-
-            return;
+            return 'Код не найден или уже использован. Попроси администратора создать новый Telegram-код.';
         }
 
         if ($result['status'] === 'target_bound') {
-            $bot->sendMessage($chatId, 'Этот аккаунт сайта уже привязан к другому Telegram. Попроси администратора сначала отвязать его.');
-
-            return;
+            return 'Этот аккаунт сайта уже привязан к другому Telegram. Попроси администратора сначала отвязать его.';
         }
 
         if ($result['status'] !== 'ok') {
-            $bot->sendMessage($chatId, 'Не удалось завершить привязку. Попроси администратора создать новый Telegram-код.');
-
-            return;
+            return 'Не удалось завершить привязку. Попроси администратора создать новый Telegram-код.';
         }
 
-        $bot->sendMessage(
-            $chatId,
-            'Готово. Telegram привязан к аккаунту «'.$result['username'].'». Теперь можешь отправлять сюда текст вакансии обычным сообщением или Forward.',
-        );
+        return 'Готово. Telegram привязан к аккаунту «'.$result['username'].'». Теперь можешь отправлять сюда текст вакансии обычным сообщением или Forward. Статус последней проверки: /status';
+    }
+
+    private function latestStatusMessage(int $userId): string
+    {
+        $investigation = VacancyInvestigation::query()
+            ->where('user_id', $userId)
+            ->latest('id')
+            ->first();
+
+        if (! $investigation) {
+            return 'У тебя пока нет расследований. Пришли текст вакансии обычным сообщением или Forward.';
+        }
+
+        if ($investigation->status === 'completed') {
+            return Str::limit(
+                'Проверка #'.$investigation->id." готова.\n\n".($investigation->result_summary ?: 'Результат сохранён в веб-истории.'),
+                4000,
+                '…',
+            );
+        }
+
+        if ($investigation->status === 'failed') {
+            return 'Проверка #'.$investigation->id.' завершилась с ошибкой. Открой веб-историю или запусти новую проверку позже.';
+        }
+
+        if ($investigation->status === 'cancelled') {
+            return 'Проверка #'.$investigation->id.' отменена.';
+        }
+
+        return 'Проверка #'.$investigation->id.' — '.($investigation->progress_text ?: 'в работе').'.';
     }
 
     private function bindInvite(
@@ -226,6 +236,16 @@ class TelegramBotWebhookController extends Controller
         return $configuredSecret !== ''
             && $providedSecret !== ''
             && hash_equals($configuredSecret, $providedSecret);
+    }
+
+    private function reply(int $chatId, string $text): JsonResponse
+    {
+        return response()->json([
+            'method' => 'sendMessage',
+            'chat_id' => $chatId,
+            'text' => Str::limit($text, 4000, '…'),
+            'disable_web_page_preview' => true,
+        ]);
     }
 
     private function ack(): JsonResponse

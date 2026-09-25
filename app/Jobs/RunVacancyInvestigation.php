@@ -113,7 +113,8 @@ class RunVacancyInvestigation implements ShouldQueue
             ->find($this->investigationId);
 
         if (
-            $investigation?->input_source === 'telegram'
+            config('services.telegram.push_enabled')
+            && $investigation?->input_source === 'telegram'
             && $investigation->user?->telegramAccount?->telegram_chat_id
         ) {
             app(TelegramBotClient::class)->sendMessage(
@@ -135,6 +136,10 @@ class RunVacancyInvestigation implements ShouldQueue
 
     private function notifyTelegram(TelegramBotClient $bot, int|string|null $chatId, string $message): void
     {
+        if (! config('services.telegram.push_enabled')) {
+            return;
+        }
+
         if ($chatId !== null) {
             $bot->sendMessage($chatId, $message);
         }

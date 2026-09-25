@@ -9,7 +9,6 @@ use App\Models\UserTelegramAccount;
 use App\Models\VacancyInvestigation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -24,13 +23,7 @@ class TelegramBotTest extends TestCase
         config()->set('services.telegram.token', '123456:test-token');
         config()->set('services.telegram.webhook_secret', 'test_webhook_secret');
         config()->set('services.telegram.username', 'vacancy_test_bot');
-
-        Http::fake([
-            'https://api.telegram.org/*' => Http::response([
-                'ok' => true,
-                'result' => [],
-            ], 200),
-        ]);
+        config()->set('services.telegram.push_enabled', false);
     }
 
     private function user(string $username = 'telegram-target'): User
@@ -62,11 +55,9 @@ class TelegramBotTest extends TestCase
                 'text' => '/start',
             ],
         ], 'wrong-secret')->assertForbidden();
-
-        Http::assertNothingSent();
     }
 
-    public function test_start_code_binds_telegram_to_existing_site_user_once(): void
+    public function test_start_code_binds_telegram_and_replies_via_webhook_response(): void
     {
         $user = $this->user();
         $code = 'ABCD-EFGH';
@@ -77,7 +68,7 @@ class TelegramBotTest extends TestCase
             'code_hash' => hash('sha256', $code),
         ]);
 
-        $this->webhook([
+        $response = $this->webhook([
             'update_id' => 2,
             'message' => [
                 'message_id' => 11,
@@ -91,7 +82,13 @@ class TelegramBotTest extends TestCase
                 ],
                 'text' => '/start '.$code,
             ],
-        ])->assertOk()->assertJson(['ok' => true]);
+        ])->assertOk();
+
+        $response
+            ->assertJsonPath('method', 'sendMessage')
+            ->assertJsonPath('chat_id', 987654321);
+
+        $this->assertStringContainsString('Telegram привязан', (string) $response->json('text'));
 
         $this->assertDatabaseHas('user_telegram_accounts', [
             'user_id' => $user->id,
@@ -103,9 +100,6 @@ class TelegramBotTest extends TestCase
         $invite = TelegramInvite::query()->firstOrFail();
         $this->assertNotNull($invite->used_at);
         $this->assertSame(987654321, $invite->used_by_telegram_user_id);
-
-        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/sendMessage')
-            && str_contains((string) $request['text'], 'Telegram привязан'));
     }
 
     public function test_bound_user_can_send_forward_text_into_same_investigation_queue(): void
@@ -124,7 +118,7 @@ class TelegramBotTest extends TestCase
 
         $text = 'Senior Java developer: Kafka, Camunda, PostgreSQL, highload и микросервисы.';
 
-        $this->webhook([
+        $response = $this->webhook([
             'update_id' => 3,
             'message' => [
                 'message_id' => 12,
@@ -153,16 +147,56 @@ class TelegramBotTest extends TestCase
 
         Queue::assertPushedOn('vacancy-source', RunVacancyInvestigation::class);
 
-        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/sendMessage')
-            && str_contains((string) $request['text'], 'поставлена в очередь'));
+        $response->assertJsonPath('method', 'sendMessage');
+        $this->assertStringContainsString('поставлена в очередь', (string) $response->json('text'));
+        $this->assertStringContainsString('/status', (string) $response->json('text'));
+    }
+
+    public function test_status_returns_latest_completed_result_through_webhook_response(): void
+    {
+        $user = $this->user();
+
+        UserTelegramAccount::query()->create([
+            'user_id' => $user->id,
+            'telegram_user_id' => 555002,
+            'telegram_chat_id' => 555002,
+            'telegram_username' => 'status_user',
+            'linked_at' => now(),
+        ]);
+
+        VacancyInvestigation::query()->create([
+            'user_id' => $user->id,
+            'input_source' => 'telegram',
+            'input_text' => 'A sufficiently long vacancy text for the completed investigation.',
+            'status' => 'completed',
+            'progress_stage' => 'completed',
+            'progress_text' => 'Готово',
+            'result_summary' => 'Тестовый результат расследования.',
+            'queued_at' => now()->subMinute(),
+            'started_at' => now()->subSeconds(30),
+            'finished_at' => now(),
+        ]);
+
+        $response = $this->webhook([
+            'update_id' => 4,
+            'message' => [
+                'message_id' => 13,
+                'from' => ['id' => 555002, 'username' => 'status_user'],
+                'chat' => ['id' => 555002, 'type' => 'private'],
+                'text' => '/status',
+            ],
+        ])->assertOk();
+
+        $response->assertJsonPath('method', 'sendMessage');
+        $this->assertStringContainsString('Тестовый результат расследования.', (string) $response->json('text'));
     }
 
     public function test_unbound_private_user_is_told_to_request_admin_code(): void
     {
-        $this->webhook([
-            'update_id' => 4,
+        $response = $this->webhook([
+            'update_id' => 5,
             'message' => [
-                'message_id' => 13,
+                'message_id' => 14,
                 'from' => ['id' => 701],
                 'chat' => ['id' => 701, 'type' => 'private'],
                 'text' => 'Java developer vacancy with Kafka and PostgreSQL requirements.',
@@ -170,23 +204,22 @@ class TelegramBotTest extends TestCase
         ])->assertOk();
 
         $this->assertDatabaseCount('vacancy_investigations', 0);
-
-        Http::assertSent(fn ($request) => str_contains((string) $request['text'], 'не привязан'));
+        $response->assertJsonPath('method', 'sendMessage');
+        $this->assertStringContainsString('не привязан', (string) $response->json('text'));
     }
 
     public function test_group_messages_are_ignored(): void
     {
         $this->webhook([
-            'update_id' => 5,
+            'update_id' => 6,
             'message' => [
-                'message_id' => 14,
+                'message_id' => 15,
                 'from' => ['id' => 702],
                 'chat' => ['id' => -100123, 'type' => 'supergroup'],
                 'text' => 'A long vacancy message that must not become an investigation.',
             ],
-        ])->assertOk();
+        ])->assertOk()->assertJson(['ok' => true]);
 
         $this->assertDatabaseCount('vacancy_investigations', 0);
-        Http::assertNothingSent();
     }
 }
