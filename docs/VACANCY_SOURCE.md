@@ -151,3 +151,6 @@ The repository contains no BotFather token. Preferred production activation is o
 ## Telegram diagnostics
 
 Operational troubleshooting is built into the deploy pipeline. `telegram:bot:diagnose` prints only safe aggregate state and an outbound `getMe` probe. GitHub Actions also reads Telegram `getWebhookInfo` and performs a signed synthetic webhook POST so inbound delivery, Laravel secret validation and outbound Bot API connectivity can be distinguished without exposing user/chat IDs or secrets.
+
+
+Webhook registration pins Telegram to the current production IPv4 using the Bot API `ip_address` parameter. This is intentional: public GitHub probes can reach the HTTPS endpoint while Telegram previously reported webhook connection timeouts when resolving the hostname itself.

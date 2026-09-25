@@ -66,7 +66,7 @@ class TelegramBotClient
         }
 
         try {
-            $response = Http::withOptions(['curl' => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4]])
+            $response = Http::withOptions(['force_ip_resolve' => 'v4'])
                 ->connectTimeout(5)
                 ->timeout(12)
                 ->get($this->apiUrl('getMe'));

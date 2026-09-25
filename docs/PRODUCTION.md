@@ -267,3 +267,8 @@ Production deploy runs two safe diagnostics when `TELEGRAM_BOT_TOKEN` is configu
 - on the GitHub runner: `getWebhookInfo` reports pending updates / last delivery error, and a signed synthetic POST checks that Laravel accepts the configured webhook secret with HTTP 200.
 
 These diagnostics intentionally avoid printing the BotFather token, webhook secret, Telegram user IDs or chat IDs.
+
+
+### Telegram webhook IPv4 pinning
+
+When Actions registers the Telegram webhook, it resolves the production hostname to the current public IPv4 address and passes that address to Telegram's `setWebhook` as `ip_address`. This keeps Telegram delivery on the verified IPv4 path even if hostname resolution/address-family selection is unreliable. `getWebhookInfo` remains part of deploy diagnostics and reports pending updates and the last delivery error.

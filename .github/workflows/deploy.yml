@@ -619,8 +619,15 @@ jobs:
           bot_username="$(printf '%s' "$get_me" | jq -r '.result.username // "unknown"')"
           echo "Telegram Bot token validated for @${bot_username}."
 
+          WEBHOOK_IPV4="$(getent ahostsv4 "$APP_DOMAIN" | awk '{print $1}' | sort -u | head -n 1)"
+          if [ -n "$WEBHOOK_IPV4" ]; then
+            echo "Telegram webhook pinned to IPv4 $WEBHOOK_IPV4."
+          else
+            echo "::warning::Could not resolve IPv4 for $APP_DOMAIN; Telegram will resolve the webhook hostname."
+          fi
+
           webhook_response="$(
-            curl               --silent               --show-error               --connect-timeout 8               --max-time 20               --request POST               --data-urlencode "url=https://${APP_DOMAIN}/api/telegram/bot/webhook"               --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}"               --data-urlencode 'allowed_updates=["message"]'               --data-urlencode "max_connections=5"               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"               || true
+            curl               --silent               --show-error               --connect-timeout 8               --max-time 20               --request POST               --data-urlencode "url=https://${APP_DOMAIN}/api/telegram/bot/webhook"               --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}"               --data-urlencode 'allowed_updates=["message"]'               --data-urlencode "max_connections=5"               ${WEBHOOK_IPV4:+--data-urlencode "ip_address=${WEBHOOK_IPV4}"}               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"               || true
           )"
 
           if ! printf '%s' "$webhook_response" | jq -e '.ok == true' >/dev/null 2>&1; then
@@ -630,6 +637,7 @@ jobs:
           fi
 
           echo "Telegram webhook configured from GitHub runner for @${bot_username}."
+          sleep 3
 
           webhook_info="$(
             curl               --silent               --show-error               --connect-timeout 8               --max-time 20               "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"               || true
