@@ -232,3 +232,32 @@ The first run after a dependency or server-package change can still be slower th
 ### Public health-check DNS behavior
 
 The public health job resolves the production hostname once with `getent ahostsv4`, records the public IPv4 address, then uses curl `--resolve` for HTTPS and redirect probes. This still validates DNS availability at the start of the job while avoiding repeated resolver lookups that can intermittently time out on hosted runners.
+
+## Telegram Bot production setup
+
+Telegram Bot credentials are production secrets and must be written directly to the shared production `.env`; they are not GitHub source values and the deploy workflow must not overwrite them:
+
+```text
+TELEGRAM_BOT_TOKEN=<BotFather token>
+TELEGRAM_BOT_USERNAME=<bot username without @ is preferred>
+TELEGRAM_BOT_WEBHOOK_SECRET=<random A-Z/a-z/0-9/_/- secret>
+```
+
+After adding or changing them:
+
+```bash
+cd /var/www/zampolit73project/current
+php8.3 artisan config:clear
+php8.3 artisan optimize
+php8.3 artisan telegram:bot:set-webhook
+```
+
+For the initial setup only, `telegram:bot:set-webhook --drop-pending` may be used to discard stale updates.
+
+The webhook URL is:
+
+`https://zampolit73.duckdns.org/api/telegram/bot/webhook`
+
+Laravel checks Telegram's `X-Telegram-Bot-Api-Secret-Token` header before processing an update. Bot tokens and webhook secrets must never be committed or pasted into docs.
+
+Deploy does not automatically call `setWebhook`: an external Telegram outage must not make the website deployment fail, and production secrets are intentionally managed outside Git.

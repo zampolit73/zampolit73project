@@ -22,7 +22,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 - интерактивная страница «Сказки Пушкина» с анимированной книгой внутри авторизованной зоны проектов;
 - читательский дневник в виде книжной полки с локальными оценками и заметками внутри авторизованной зоны проектов;
 - «Рейтинг Коммерсанта» — общая SQLite-база рейтинга топ-менеджеров с редактируемыми LinkedIn-ссылками, вкладками направлений и ответственными за работу;
-- `Vacancy Source` — технический MVP расследований вакансий с database queue, живым прогрессом и историей; Telegram/web research подключается следующими итерациями;
+- `Vacancy Source` — асинхронный MVP расследований вакансий с database queue, живым прогрессом и историей; Telegram Bot уже поддерживает привязку существующих пользователей и приём текста вакансии, а реальный Telegram Reader/web research подключаются следующими итерациями;
 - авторизация по username/password с двумя ролями: `admin`, `user`;
 - атомарные release-директории с `current` symlink;
 - GitHub Actions: test → build → deploy → health checks → admin push.
@@ -41,12 +41,14 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 | `/projects/kommersant-ranking` | авторизованный | общая рабочая база рейтинга топ-менеджеров «Коммерсанта»: вкладки, LinkedIn, ответственные и кандидаты на проверку |
 | `/projects/vacancy-source` | авторизованный | запуск асинхронного расследования вакансии, live-status и история; пока технический каркас без реального Telegram/web поиска |
 | `/login` | гость | вход |
-| `/admin/users` | admin | список аккаунтов и создание пользователей с начальным паролем |
+| `/admin/users` | admin | список аккаунтов, создание пользователей и управление привязкой Telegram через одноразовые коды |
 | `/design-system` | admin | каталог UI-компонентов и дизайн-системы |
 | `/tests` | admin | служебные проверки, сейчас Web Push |
 | `/up` | публичный | Laravel health endpoint |
 
 Push API находится под auth middleware: `/push/config`, `/push/subscriptions`, `/push/test`.
+
+Telegram Bot webhook: `POST /api/telegram/bot/webhook`. Он stateless и принимает только запросы с корректным `X-Telegram-Bot-Api-Secret-Token`.
 
 ## Быстрый локальный запуск
 
@@ -238,5 +240,25 @@ tests/
 - `docs/BMP_TO_MIP.md` — формат Quake MIP и поведение конвертера.
 - `docs/CIO_PRESENTATIONS.md` — устройство каталога презентаций, лёгкого сканера и ограничения по трафику/безопасности.
 - `docs/KOMMERSANT_RANKING.md` — импорт рейтинга «Коммерсанта», data model, LinkedIn-редактирование и assignment workflow.
-- `docs/VACANCY_SOURCE.md` — текущее состояние MVP Vacancy Source, очередь и границы первой итерации.
+- `docs/VACANCY_SOURCE.md` — текущее состояние Vacancy Source, Telegram Bot binding, очередь и границы следующих итераций.
 - `AGENTS.md` — обязательные правила разработки для работы с репозиторием.
+
+## Telegram Bot for Vacancy Source
+
+Код интеграции бота не содержит production token. На сервере вручную задаются:
+
+```text
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_BOT_USERNAME=...
+TELEGRAM_BOT_WEBHOOK_SECRET=...
+```
+
+После этого webhook настраивается из текущего release:
+
+```bash
+php8.3 artisan telegram:bot:set-webhook
+```
+
+Для очистки уже ожидающих Telegram updates при первом подключении можно один раз использовать `--drop-pending`.
+
+Администратор создаёт одноразовый код рядом с пользователем на `/admin/users`; plaintext кода показывается только в текущем ответе админки и не сохраняется в БД. Пользователь отправляет боту `/start CODE`. После привязки обычный текст или Forward создаёт то же `vacancy_investigations`, что и веб-форма; Forward metadata не используется как доказательство.

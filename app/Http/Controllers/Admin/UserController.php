@@ -13,14 +13,37 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $telegramBotConfigured = filled(config('services.telegram.token'))
+            && filled(config('services.telegram.webhook_secret'));
+
         return Inertia::render('AdminUsers', [
             'users' => User::query()
                 ->select(['id', 'username', 'role', 'created_at'])
+                ->with('telegramAccount')
                 ->orderByRaw("case when role = 'admin' then 0 else 1 end")
                 ->orderBy('username')
-                ->get(),
+                ->get()
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'role' => $user->role,
+                    'created_at' => $user->created_at,
+                    'telegram' => $user->telegramAccount ? [
+                        'telegram_user_id' => $user->telegramAccount->telegram_user_id,
+                        'telegram_username' => $user->telegramAccount->telegram_username,
+                        'linked_at' => $user->telegramAccount->linked_at?->toIso8601String(),
+                    ] : null,
+                ])
+                ->values(),
+            'telegramInvite' => $request->session()->get('telegram_invite'),
+            'telegramBot' => [
+                'configured' => $telegramBotConfigured,
+                'username' => filled(config('services.telegram.username'))
+                    ? ltrim((string) config('services.telegram.username'), '@')
+                    : null,
+            ],
         ]);
     }
 

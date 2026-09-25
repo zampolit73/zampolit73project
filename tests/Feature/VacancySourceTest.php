@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\RunVacancyInvestigation;
 use App\Models\User;
 use App\Models\VacancyInvestigation;
+use App\Services\TelegramBotClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
@@ -160,7 +161,7 @@ class VacancySourceTest extends TestCase
             'queued_at' => now(),
         ]);
 
-        (new RunVacancyInvestigation($investigation->id))->handle();
+        (new RunVacancyInvestigation($investigation->id))->handle(app(TelegramBotClient::class));
 
         $investigation->refresh();
 

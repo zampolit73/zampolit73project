@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
@@ -16,6 +17,16 @@ class User extends Authenticatable
     public function vacancyInvestigations(): HasMany
     {
         return $this->hasMany(VacancyInvestigation::class);
+    }
+
+    public function telegramAccount(): HasOne
+    {
+        return $this->hasOne(UserTelegramAccount::class);
+    }
+
+    public function telegramInvites(): HasMany
+    {
+        return $this->hasMany(TelegramInvite::class);
     }
 
     public function roleLabel(): string

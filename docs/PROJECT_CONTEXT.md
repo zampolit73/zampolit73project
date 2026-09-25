@@ -1,6 +1,6 @@
 # Полный контекст проекта / handoff
 
-Обновлено: 2026-09-24
+Обновлено: 2026-09-25
 
 Этот файл — канонический handoff по репозиторию `zampolit73/zampolit73project`.
 Он нужен для продолжения работы в новой сессии без потери решений, истории и ограничений.
@@ -37,7 +37,8 @@
 - Let's Encrypt / Certbot;
 - PWA;
 - Web Push / VAPID;
-- GitHub Actions CI/CD.
+- GitHub Actions CI/CD;
+- Laravel database queue worker for Vacancy Source, managed by systemd.
 
 Production layout:
 
@@ -78,6 +79,7 @@ Persistent state всегда должен оставаться вне release-�
 3. `/projects/pushkin-fairytales`
 4. `/projects/reading-diary`
 5. `/projects/kommersant-ranking`
+6. `/projects/vacancy-source`
 
 Раздел `/projects` — общий селектор проектов.
 
@@ -290,7 +292,10 @@ Admin page:
 - создать нового пользователя;
 - задать username;
 - задать начальный пароль;
-- повторить пароль для подтверждения.
+- повторить пароль для подтверждения;
+- видеть Telegram-привязку пользователя;
+- создать одноразовый Telegram-код без автоматического срока действия;
+- отвязать текущий Telegram-аккаунт пользователя.
 
 Правила:
 
@@ -302,6 +307,8 @@ Admin page:
 - plaintext пароль не хранится;
 - plaintext пароль не возвращается в список пользователей;
 - после создания администратор должен передать начальный пароль пользователю самостоятельно безопасным способом.
+
+Telegram-коды хранятся только как SHA-256 hash; plaintext показывается админу только в ответе после создания. Новый неиспользованный код инвалидирует предыдущий неиспользованный код этого пользователя. Один site user может быть привязан только к одному Telegram user, и один Telegram user — только к одному site user.
 
 На данный момент в админке **нет** функций удаления пользователя, блокировки или сброса пароля.
 Не добавлять их как будто они уже существуют.
@@ -328,6 +335,8 @@ Authenticated:
 - `GET /projects/pushkin-fairytales`
 - `GET /projects/reading-diary`
 - `GET /projects/kommersant-ranking`
+- `GET /projects/vacancy-source`
+- Vacancy Source investigation create/status/cancel routes
 - Kommersant ranking manager/candidate mutation routes
 - CIO mutation routes
 - push API
@@ -337,11 +346,15 @@ Admin-only:
 
 - `GET /admin/users`
 - `POST /admin/users`
+- `POST /admin/users/{user}/telegram-invite`
+- `DELETE /admin/users/{user}/telegram-binding`
 - `GET /stas`
 - `GET /design-system`
 - `GET /tests`
 
 Push API остаётся под auth.
+
+Отдельно есть stateless webhook `POST /api/telegram/bot/webhook`. Он не использует session auth и принимает update только при совпадении `X-Telegram-Bot-Api-Secret-Token` с production secret.
 
 ---
 
@@ -990,9 +1003,9 @@ Admin-only page `/tests` используется для browser push tests.
 Этот handoff описывает **текущее намерение продукта**, но код и актуальный `main` всегда имеют приоритет при проверке фактического состояния.
 
 
-## Vacancy Source — first technical iteration
+## Vacancy Source — current technical state
 
-Added project #06 at `/projects/vacancy-source`.
+Project #06: `/projects/vacancy-source`.
 
 Implemented now:
 
@@ -1003,11 +1016,26 @@ Implemented now:
 - one production systemd queue worker;
 - polling progress endpoint;
 - queued-only cancellation;
-- a deliberately labelled demo job that exercises the pipeline and never fabricates a client.
+- a deliberately labelled demo job that exercises the pipeline and never fabricates a client;
+- `user_telegram_accounts` and `telegram_invites` persistence;
+- Telegram binding controls on `/admin/users`;
+- one-time `/start CODE` binding through a Laravel Telegram Bot webhook;
+- bot input from private messages/Forward text into the same investigation queue;
+- group/supergroup bot messages ignored;
+- Forward metadata ignored as evidence/input context;
+- Telegram progress/final notifications for bot-started demo investigations.
+
+Production Telegram Bot activation still requires secrets outside Git:
+
+- `TELEGRAM_BOT_TOKEN`;
+- `TELEGRAM_BOT_USERNAME`;
+- `TELEGRAM_BOT_WEBHOOK_SECRET`;
+- then `php8.3 artisan telegram:bot:set-webhook` on the VPS.
+
+Until those production values are configured, the web/admin code is deployed but Telegram itself cannot deliver updates.
 
 Not implemented yet:
 
-- Telegram Bot user input/binding;
 - Python Telegram Reader / MTProto session;
 - Telegram folder backfill/sync;
 - FTS5/BM25 matching;
@@ -1015,4 +1043,4 @@ Not implemented yet:
 - deterministic confidence scoring;
 - admin review UI.
 
-Canonical design decisions for those later stages live in `docs/VACANCY_SOURCE.md`.
+Canonical product and implementation decisions live in `docs/VACANCY_SOURCE.md`.

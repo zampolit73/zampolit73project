@@ -4,9 +4,9 @@
 
 Vacancy Source is project #06 inside `zampolit73project`. Its product goal is to take an IT vacancy and identify likely end clients from Telegram history and public web sources, while preferring an explicit "not enough data" result over a confident false match.
 
-## First implemented iteration
+## Current implementation
 
-The current code is intentionally only the asynchronous product skeleton:
+The first web iteration remains the asynchronous product skeleton:
 
 ```text
 Web textarea
@@ -22,7 +22,7 @@ progress stages
 Vue polling + history
 ```
 
-The demo job does not search Telegram or the web. It labels every stage as technical/demo and completes with a summary saying that real research is not connected yet. This is deliberate: the first deployment validates queueing, ownership, live progress, cancellation and history before external integrations are introduced.
+The queued investigation job still does not perform real Telegram-source or web research. Its stages remain explicitly technical/demo so the product never invents a client. On top of that skeleton, Laravel now implements the Telegram Bot user transport and site-account binding.
 
 ## Access model
 
@@ -32,12 +32,29 @@ The demo job does not search Telegram or the web. It labels every stage as techn
 
 Admin review data has a table in the initial schema, but the review UI/actions are a later iteration.
 
+### Telegram binding and Bot input
+
+- `/admin/users` shows Telegram binding state for every site user;
+- an admin can generate a one-time code with no automatic expiry;
+- issuing a new unused code invalidates the previous unused code for that user;
+- only the SHA-256 hash is persisted; plaintext is shown only in the redirect response that created it;
+- the user sends `/start CODE` to the bot in a private chat;
+- one site user can have one Telegram account and one Telegram identity can be linked to one site user;
+- an admin can unlink the binding and later generate a new code;
+- group/supergroup bot messages are ignored;
+- after binding, ordinary private text or a Forward creates the same `vacancy_investigations` record/queue job as the web form;
+- Forward metadata is deliberately ignored; only message text/caption becomes investigation input;
+- the current demo worker sends Telegram progress/final messages but still labels them as technical demo output.
+
 ## Routes
 
 - `GET /projects/vacancy-source`;
 - `POST /projects/vacancy-source/investigations`;
 - `GET /projects/vacancy-source/investigations/{id}/status`;
-- `POST /projects/vacancy-source/investigations/{id}/cancel`.
+- `POST /projects/vacancy-source/investigations/{id}/cancel`;
+- admin: `POST /admin/users/{user}/telegram-invite`;
+- admin: `DELETE /admin/users/{user}/telegram-binding`;
+- public stateless webhook: `POST /api/telegram/bot/webhook`.
 
 Only a `queued` investigation can be cancelled. Once a worker atomically moves it to `running`, cancellation is rejected.
 
@@ -117,9 +134,13 @@ Later iterations should keep these already-agreed product rules:
 - one investigation has a five-minute hard ceiling;
 - historical admin-confirmed results are hints, not immutable ground truth.
 
+## Telegram production configuration
+
+The repository contains no BotFather token. Production becomes live only after `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and `TELEGRAM_BOT_WEBHOOK_SECRET` are written to the shared server `.env` and `php8.3 artisan telegram:bot:set-webhook` succeeds. Until then, the admin UI may generate codes but Telegram cannot deliver `/start` or vacancy messages to Laravel.
+
 ## Next implementation steps
 
-1. Telegram invite/binding and Bot webhook.
+1. Configure the real production bot credentials/webhook outside Git.
 2. Python Telegram Reader with the user's MTProto session and Telegram folder sync.
 3. SQLite FTS5 + normalization + technology aliases.
 4. Web search provider abstraction and safe page fetching.

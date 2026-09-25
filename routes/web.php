@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\Admin\TelegramBindingController as AdminTelegramBindingController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\CioPresentationController;
 use App\Http\Controllers\KommersantRankingController;
@@ -54,6 +55,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/tests', fn () => Inertia::render('Tests'))->name('tests');
         Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users');
         Route::post('/admin/users', [AdminUserController::class, 'store'])->name('admin.users.store');
+        Route::post('/admin/users/{user}/telegram-invite', [AdminTelegramBindingController::class, 'store'])
+            ->name('admin.users.telegram-invite.store');
+        Route::delete('/admin/users/{user}/telegram-binding', [AdminTelegramBindingController::class, 'destroy'])
+            ->name('admin.users.telegram-binding.destroy');
 
     });
 

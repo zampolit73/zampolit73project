@@ -68,6 +68,7 @@ Authenticated users:
 - `POST /projects/vacancy-source/investigations` → enqueue a new web investigation;
 - `GET /projects/vacancy-source/investigations/{id}/status` → polling status endpoint;
 - `POST /projects/vacancy-source/investigations/{id}/cancel` → cancel a still-queued investigation;
+- `POST /api/telegram/bot/webhook` → stateless Telegram Bot webhook protected by Telegram's secret-token header;
 - `PATCH /projects/kommersant-ranking/managers/{manager}` → LinkedIn / assignment mutation;
 - `PATCH /projects/kommersant-ranking/candidates/{candidate}` → candidate LinkedIn / assignment mutation;
 - `GET /push/config`;
@@ -78,8 +79,10 @@ Authenticated users:
 
 Admin only:
 
-- `GET /admin/users` — account list / create form;
+- `GET /admin/users` — account list / create form / Telegram binding state;
 - `POST /admin/users` — create a `user` account with an initial password;
+- `POST /admin/users/{user}/telegram-invite` — create a one-time, no-expiry Telegram binding code;
+- `DELETE /admin/users/{user}/telegram-binding` — unlink the current Telegram account;
 - `GET /stas`;
 - `GET /design-system`;
 - `GET /tests`;
@@ -138,6 +141,10 @@ The initial 2026 dataset is imported exactly once by a migration from gzip/base6
 ### jobs
 
 The existing `jobs` table backs Laravel's database queue. Production uses `QUEUE_CONNECTION=database` and runs one dedicated systemd worker for the `vacancy-source` queue. The worker processes one investigation at a time.
+
+### user_telegram_accounts / telegram_invites
+
+`user_telegram_accounts` links exactly one site user to one private Telegram identity/chat. `telegram_invites` stores only SHA-256 hashes of one-time binding codes; plaintext codes are returned to the admin only once and are never persisted. Unused codes do not expire automatically; issuing a new code invalidates the previous unused code for that user.
 
 ### vacancy_investigations / investigation_candidates / investigation_reviews
 
@@ -319,3 +326,27 @@ Vue polling + history
 The production worker is managed by systemd as `zampolit73project-vacancy-source-worker.service`. It runs a single `queue:work` process so investigations are serialized on the small VPS.
 
 This first iteration does **not** connect Telegram MTProto, Telegram Bot API, external web search or scoring. The queued job uses clearly labelled demo stages and never invents a client. See `docs/VACANCY_SOURCE.md`.
+
+## Telegram Bot transport for Vacancy Source
+
+Telegram Bot API is handled by Laravel, not by the future Python Telegram Reader.
+
+```text
+private Telegram chat
+        |
+Telegram Bot API
+        |
+POST /api/telegram/bot/webhook
+        |
+secret-token header validation
+        |
+site user binding lookup
+        |
+vacancy_investigations + database queue
+```
+
+The webhook ignores group/supergroup messages. Forward metadata is ignored; only the message text/caption becomes investigation input. Bound users can submit a vacancy through the bot and receive queue/progress/final technical-pipeline messages.
+
+`app/Services/TelegramBotClient.php` owns outbound Bot API calls. `telegram:bot:set-webhook` configures the HTTPS webhook after production secrets are placed in shared `.env`.
+
+The future Python MTProto Reader remains a separate concern: it will index the work-folder chats used as research sources and will not replace the Bot API user interface.
