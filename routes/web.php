@@ -63,6 +63,8 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/admin/telegram-reader', [AdminTelegramReaderController::class, 'index'])
             ->name('admin.telegram-reader');
+        Route::post('/admin/telegram-reader/request-qr', [AdminTelegramReaderController::class, 'requestQrLogin'])
+            ->name('admin.telegram-reader.request-qr');
         Route::post('/admin/telegram-reader/request-code', [AdminTelegramReaderController::class, 'requestCode'])
             ->name('admin.telegram-reader.request-code');
         Route::post('/admin/telegram-reader/submit-code', [AdminTelegramReaderController::class, 'submitCode'])

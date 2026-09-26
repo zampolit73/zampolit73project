@@ -1,2 +1,3 @@
-Telethon>=1.40,<2
+Telethon==1.45.0
+qrcode==8.2
 tg-ws-proxy @ https://github.com/Flowseal/tg-ws-proxy/archive/caa949bee0873d2b95dfb4fbeb1b7868b0ee3843.tar.gz

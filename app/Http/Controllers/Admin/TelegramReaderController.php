@@ -25,6 +25,8 @@ class TelegramReaderController extends Controller
             'authorized' => false,
             'auth_state' => 'unavailable',
             'account' => null,
+            'qr_image' => null,
+            'qr_expires_at' => null,
             'selected_folder' => null,
             'sync_running' => false,
             'last_error' => null,
@@ -51,6 +53,14 @@ class TelegramReaderController extends Controller
             'folders' => $folders,
             'serviceError' => $serviceError,
         ]);
+    }
+
+    public function requestQrLogin(): RedirectResponse
+    {
+        return $this->readerAction(
+            fn () => $this->reader->requestQrLogin(),
+            'QR-код готов. Открой Telegram → Настройки → Устройства → Подключить устройство и отсканируй его.',
+        );
     }
 
     public function requestCode(Request $request): RedirectResponse

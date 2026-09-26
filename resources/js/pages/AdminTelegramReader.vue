@@ -15,31 +15,48 @@ const codeForm = useForm({ code: '' });
 const passwordForm = useForm({ password: '' });
 const folderForm = useForm({ folder_id: props.reader.selected_folder?.id ?? '' });
 const actionBusy = ref(false);
+const qrBusy = ref(false);
 let pollTimer = null;
 
 const authorized = computed(() => Boolean(props.reader.authorized));
+const qrPending = computed(() => props.reader.auth_state === 'qr_pending');
+const qrExpired = computed(() => props.reader.auth_state === 'qr_expired');
 const codeSent = computed(() => props.reader.auth_state === 'code_sent');
 const passwordRequired = computed(() => props.reader.auth_state === 'password_required');
 const selectedFolderId = computed(() => props.reader.selected_folder?.id ?? null);
 
+function requestQr() {
+    qrBusy.value = true;
+    router.post('/admin/telegram-reader/request-qr', {}, {
+        preserveScroll: true,
+        onFinish: () => { qrBusy.value = false; },
+    });
+}
+
 function requestCode() {
     phoneForm.post('/admin/telegram-reader/request-code', {
         preserveScroll: true,
-        onSuccess: () => phoneForm.reset(),
+        onSuccess: (responsePage) => {
+            if (!responsePage.props.flash?.readerError) phoneForm.reset();
+        },
     });
 }
 
 function submitCode() {
     codeForm.post('/admin/telegram-reader/submit-code', {
         preserveScroll: true,
-        onSuccess: () => codeForm.reset(),
+        onSuccess: (responsePage) => {
+            if (!responsePage.props.flash?.readerError) codeForm.reset();
+        },
     });
 }
 
 function submitPassword() {
     passwordForm.post('/admin/telegram-reader/submit-password', {
         preserveScroll: true,
-        onSuccess: () => passwordForm.reset(),
+        onSuccess: (responsePage) => {
+            if (!responsePage.props.flash?.readerError) passwordForm.reset();
+        },
     });
 }
 
@@ -68,14 +85,17 @@ function formatDate(value) {
 
 onMounted(() => {
     pollTimer = window.setInterval(() => {
-        if (authorized.value && (props.reader.sync_running || selectedFolderId.value)) {
+        const waitingForLogin = qrPending.value || passwordRequired.value;
+        const syncing = authorized.value && (props.reader.sync_running || selectedFolderId.value);
+
+        if (waitingForLogin || syncing) {
             router.reload({
                 only: ['reader', 'folders', 'serviceError'],
                 preserveScroll: true,
                 preserveState: true,
             });
         }
-    }, 6000);
+    }, 2500);
 });
 
 onBeforeUnmount(() => {
@@ -152,6 +172,39 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div class="reader-panel__body">
+                        <div class="reader-qr-login">
+                            <div class="reader-qr-copy">
+                                <strong>QR — основной способ</strong>
+                                <p>
+                                    Нажми кнопку, затем на телефоне открой Telegram → Настройки →
+                                    Устройства → Подключить устройство и отсканируй QR.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="reader-qr-button"
+                                :disabled="qrBusy"
+                                @click="requestQr"
+                            >
+                                {{ qrBusy ? 'ГОТОВЛЮ QR…' : (qrPending ? 'ОБНОВИТЬ QR →' : 'ВОЙТИ ПО QR →') }}
+                            </button>
+
+                            <div v-if="qrPending && reader.qr_image" class="reader-qr-code">
+                                <img :src="reader.qr_image" alt="QR-код для входа Telegram">
+                                <small>
+                                    QR одноразовый и хранится только в памяти Reader.
+                                    Действителен до {{ formatDate(reader.qr_expires_at) }}.
+                                </small>
+                            </div>
+
+                            <p v-if="qrExpired" class="reader-qr-expired">
+                                QR истёк. Нажми «Войти по QR», чтобы получить новый.
+                            </p>
+                        </div>
+
+                        <div class="reader-auth-divider"><span>ЗАПАСНОЙ ВАРИАНТ — КОД</span></div>
+
                         <form class="reader-form" @submit.prevent="requestCode">
                             <label>
                                 <span>Номер Telegram</span>
@@ -221,8 +274,8 @@ onBeforeUnmount(() => {
 
                     <div class="reader-panel__body reader-copy">
                         <p>
-                            Код входа и 2FA-пароль используются только для одноразовой авторизации и
-                            не записываются в Laravel БД.
+                            QR login-token живёт только в памяти Reader до входа или истечения срока.
+                            Код входа и 2FA-пароль также не записываются в Laravel БД.
                         </p>
                         <p>
                             MTProto session хранит отдельный Python-процесс вне webroot.
@@ -506,6 +559,88 @@ onBeforeUnmount(() => {
     gap: 14px;
 }
 
+.reader-qr-login {
+    display: grid;
+    gap: 12px;
+}
+
+.reader-qr-copy strong {
+    display: block;
+    font-size: 15px;
+}
+
+.reader-qr-copy p {
+    margin: 5px 0 0;
+    font-size: 11px;
+    font-weight: 750;
+    line-height: 1.5;
+}
+
+.reader-qr-button {
+    min-height: 46px;
+    padding: 10px 14px;
+    border: 3px solid var(--ds-color-black);
+    border-radius: 0;
+    background: var(--ds-color-red);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: .05em;
+    cursor: pointer;
+}
+
+.reader-qr-button:disabled {
+    cursor: wait;
+    opacity: .55;
+}
+
+.reader-qr-code {
+    display: grid;
+    grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+    gap: 16px;
+    align-items: center;
+    padding: 14px;
+    border: 3px solid var(--ds-color-black);
+    background: #fff;
+}
+
+.reader-qr-code img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+}
+
+.reader-qr-code small,
+.reader-qr-expired {
+    font-size: 10px;
+    font-weight: 850;
+    line-height: 1.45;
+}
+
+.reader-qr-expired {
+    margin: 0;
+    padding: 10px;
+    border-left: 4px solid var(--ds-color-red);
+    background: #f0c9bd;
+}
+
+.reader-auth-divider {
+    position: relative;
+    margin: 20px 0 16px;
+    border-top: 3px solid var(--ds-color-black);
+    text-align: center;
+}
+
+.reader-auth-divider span {
+    position: relative;
+    top: -9px;
+    padding: 0 8px;
+    background: var(--ds-color-surface);
+    font-size: 8px;
+    font-weight: 950;
+    letter-spacing: .08em;
+}
+
 .reader-form--sub {
     margin-top: 20px;
     padding-top: 18px;
@@ -710,6 +845,10 @@ onBeforeUnmount(() => {
 
     .reader-panel__body {
         padding: 14px;
+    }
+
+    .reader-qr-code {
+        grid-template-columns: 1fr;
     }
 }
 </style>

@@ -1,6 +1,6 @@
 # Полный контекст проекта / handoff
 
-Обновлено: 2026-09-25
+Обновлено: 2026-09-26
 
 Этот файл — канонический handoff по репозиторию `zampolit73/zampolit73project`.
 Он нужен для продолжения работы в новой сессии без потери решений, истории и ограничений.
@@ -1052,7 +1052,7 @@ Implemented in the current Reader iteration:
 - state directory mode 0700; Laravel/PHP cannot read the MTProto session directly;
 - local Unix socket `/run/zampolit73-telegram-reader/reader.sock` is the Laravel↔Reader control boundary;
 - admin-only page `/admin/telegram-reader`;
-- one-time login flow: phone → Telegram code → optional 2FA password;
+- one-time login flow is QR-first: QR scan → optional 2FA password; phone/code remains fallback;
 - Reader can enumerate Telegram folders/dialog filters and select one explicit work folder;
 - selected folder is the dynamic whitelist;
 - 90-day backfill on selection/newly indexed chats;
@@ -1081,7 +1081,7 @@ indexed_message_count=0
 fts_enabled=yes
 ```
 
-The transport blocker is cleared. **Next manual step:** the user opens `/admin/telegram-reader` and completes the one-time MTProto login there: phone → Telegram code → optional 2FA password. Phone/code/2FA are entered only on the admin page and must not be pasted into ChatGPT.
+The transport blocker is cleared. The authorization UI is QR-first because Telegram may refuse phone login-code delivery for third-party MTProto clients even when transport is healthy. The admin page creates an in-memory one-time QR token, Reader waits for the scan asynchronously, and status polling preserves `qr_pending` / `password_required` states. Phone/code remains a fallback. Login codes and 2FA are entered only on the admin page and must not be pasted into ChatGPT.
 
 Still not integrated into investigation scoring:
 

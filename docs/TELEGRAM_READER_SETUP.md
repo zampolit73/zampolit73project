@@ -1,6 +1,6 @@
 # Telegram Reader setup plan
 
-Обновлено: 2026-09-25.
+Обновлено: 2026-09-26.
 
 Этот документ фиксирует следующий этап Vacancy Source: подключение **рабочих Telegram-чатов пользователя как источника исследования вакансий**.
 
@@ -134,14 +134,17 @@ No Docker and no FastAPI.
 
 Нужно сделать **admin-only authorization flow** для Reader, чтобы одноразовый login выполнялся через сайт или другой контролируемый workflow.
 
-UX должен поддерживать:
+UX поддерживает два пути:
 
-1. ввод Telegram phone;
-2. запрос login code;
-3. ввод login code;
-4. при включённом Telegram 2FA — ввод password;
-5. success state;
-6. session сохраняет только Python Reader в закрытой persistent directory.
+1. **основной — QR login**: Reader создаёт одноразовый login-token, admin page показывает QR, пользователь сканирует его в Telegram → Настройки → Устройства → Подключить устройство;
+2. Reader ждёт импорт QR-token асинхронно, а admin page опрашивает status; долгий HTTP-запрос на время сканирования не держится;
+3. при включённом Telegram 2FA после QR Telegram может запросить password;
+4. **fallback — phone/code** остаётся для случаев, когда Telegram реально выдаёт login-код стороннему MTProto-клиенту;
+5. `SendCodeUnavailableError` и flood-wait не должны вываливаться сырым Telethon exception в UI;
+6. transient auth states (`qr_pending`, `code_sent`, `password_required`) не должны затираться status polling;
+7. session сохраняет только Python Reader в закрытой persistent directory.
+
+Причина перехода на QR-first: production transport уже работает, но Telegram может отказать в выдаче phone login-code через сторонний MTProto client. QR login — штатный Telethon/Telegram MTProto flow и не зависит от доставки такого кода.
 
 Laravel может инициировать authorization flow и показывать status, но не должен получать прямой доступ к MTProto session file.
 
@@ -286,14 +289,16 @@ Telethon uses `ConnectionTcpMTProxyRandomizedIntermediate` against this local br
 
 `api_id` / `api_hash` уже находятся в GitHub Secrets, а production diagnostics подтверждает `connected=yes`.
 
-Теперь пользователь:
+После deploy QR-first auth пользователь:
 
 1. открывает `/admin/telegram-reader`;
-2. вводит номер Telegram в международном формате, например `+49...` / `+7...`;
-3. нажимает запрос кода;
-4. вводит код, который пришлёт Telegram, **только на этой admin page**;
-5. если включена Telegram 2FA — вводит пароль там же;
+2. нажимает **«Войти по QR»**;
+3. на уже авторизованном телефоне открывает Telegram → Настройки → Устройства → Подключить устройство;
+4. сканирует QR с admin page;
+5. если Telegram запросит 2FA — вводит пароль **только на admin page**;
 6. после `authorized=yes` выбирает нужную рабочую Telegram folder;
 7. запускает/ждёт 90-day backfill и проверяет counters.
+
+Phone/code остаётся запасным вариантом, а не основным путём.
 
 Телефон, login code и 2FA password не присылать в ChatGPT.

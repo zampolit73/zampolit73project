@@ -11,6 +11,11 @@ class TelegramReaderClient
         return $this->call('status');
     }
 
+    public function requestQrLogin(): array
+    {
+        return $this->call('request_qr_login');
+    }
+
     public function requestCode(string $phone): array
     {
         return $this->call('request_code', ['phone' => $phone]);

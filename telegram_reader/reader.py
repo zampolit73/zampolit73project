@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import io
 import json
 import os
 import re
@@ -11,11 +13,15 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import qrcode
+from qrcode.image.svg import SvgPathImage
 from telethon import TelegramClient, connection, events, utils
 from telethon.errors import (
+    FloodWaitError,
     PhoneCodeExpiredError,
     PhoneCodeInvalidError,
     PhoneNumberInvalidError,
+    SendCodeUnavailableError,
     SessionPasswordNeededError,
 )
 from telethon.tl.functions.messages import GetDialogFiltersRequest
@@ -448,6 +454,10 @@ class ReaderDaemon:
         )
         self.pending_phone: str | None = None
         self.pending_phone_code_hash: str | None = None
+        self.qr_login: Any | None = None
+        self.qr_wait_task: asyncio.Task[Any] | None = None
+        self.qr_image: str | None = None
+        self.qr_expires_at: str | None = None
         self.auth_state = "unknown"
         self.last_error: str | None = None
         self.sync_running = False
@@ -526,7 +536,18 @@ class ReaderDaemon:
                     self.client.is_user_authorized(),
                     timeout=5,
                 )
-                self.auth_state = "authorized" if authorized else "not_authorized"
+                if authorized:
+                    self.auth_state = "authorized"
+                    self._clear_pending_auth()
+                    self._clear_qr_state(cancel_wait=True)
+                elif self.auth_state not in {
+                    "code_sent",
+                    "password_required",
+                    "qr_pending",
+                    "qr_expired",
+                    "qr_error",
+                }:
+                    self.auth_state = "not_authorized"
             except Exception as exc:  # noqa: BLE001
                 self.last_error = f"Authorization status failed: {type(exc).__name__}"
 
@@ -549,6 +570,8 @@ class ReaderDaemon:
             "auth_state": self.auth_state,
             "transport": "local_wss_bridge" if PROXY_HOST and PROXY_SECRET else "direct_mtproto",
             "account": account,
+            "qr_image": self.qr_image if self.auth_state == "qr_pending" else None,
+            "qr_expires_at": self.qr_expires_at if self.auth_state == "qr_pending" else None,
             "selected_folder": (
                 {
                     "id": int(selected_folder_id),
@@ -562,6 +585,91 @@ class ReaderDaemon:
             **self.store.stats(),
         }
 
+    @staticmethod
+    def _qr_data_uri(url: str) -> str:
+        code = qrcode.QRCode(box_size=8, border=2)
+        code.add_data(url)
+        code.make(fit=True)
+        image = code.make_image(image_factory=SvgPathImage)
+        buffer = io.BytesIO()
+        image.save(buffer)
+        payload = base64.b64encode(buffer.getvalue()).decode("ascii")
+        return f"data:image/svg+xml;base64,{payload}"
+
+    async def request_qr_login(self) -> dict[str, Any]:
+        await self._require_connection()
+
+        if await self.client.is_user_authorized():
+            self.auth_state = "authorized"
+            self._clear_pending_auth()
+            self._clear_qr_state(cancel_wait=True)
+            return {"authorized": True, "auth_state": self.auth_state}
+
+        self._clear_pending_auth()
+        self._clear_qr_state(cancel_wait=True)
+
+        qr_login = await self.client.qr_login()
+        expires = qr_login.expires
+        expires_at = (
+            expires.astimezone(timezone.utc).isoformat()
+            if getattr(expires, "tzinfo", None) is not None
+            else expires.replace(tzinfo=timezone.utc).isoformat()
+        )
+
+        self.qr_login = qr_login
+        self.qr_image = self._qr_data_uri(qr_login.url)
+        self.qr_expires_at = expires_at
+        self.auth_state = "qr_pending"
+        self.last_error = None
+        self.qr_wait_task = asyncio.create_task(self._wait_for_qr_login(qr_login))
+
+        return {
+            "authorized": False,
+            "auth_state": self.auth_state,
+            "qr_image": self.qr_image,
+            "qr_expires_at": self.qr_expires_at,
+        }
+
+    async def _wait_for_qr_login(self, qr_login: Any) -> None:
+        try:
+            await qr_login.wait()
+        except SessionPasswordNeededError:
+            self.auth_state = "password_required"
+            self.last_error = None
+            self._clear_qr_state()
+        except asyncio.TimeoutError:
+            self.auth_state = "qr_expired"
+            self.last_error = None
+            self._clear_qr_state()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            self.auth_state = "qr_error"
+            self.last_error = f"QR login failed: {type(exc).__name__}"
+            self._clear_qr_state()
+        else:
+            self.auth_state = "authorized"
+            self.last_error = None
+            self._clear_pending_auth()
+            self._clear_qr_state()
+        finally:
+            if self.qr_wait_task is asyncio.current_task():
+                self.qr_wait_task = None
+
+    def _clear_qr_state(self, *, cancel_wait: bool = False) -> None:
+        task = self.qr_wait_task
+        current = asyncio.current_task()
+
+        if cancel_wait and task is not None and task is not current and not task.done():
+            task.cancel()
+
+        self.qr_login = None
+        self.qr_image = None
+        self.qr_expires_at = None
+
+        if task is not current:
+            self.qr_wait_task = None
+
     async def request_code(self, phone: str) -> dict[str, Any]:
         phone = re.sub(r"[^+0-9]", "", phone.strip())
 
@@ -574,10 +682,23 @@ class ReaderDaemon:
             self.auth_state = "authorized"
             return {"authorized": True, "auth_state": self.auth_state}
 
+        self._clear_qr_state(cancel_wait=True)
+
         try:
             sent = await self.client.send_code_request(phone)
         except PhoneNumberInvalidError as exc:
             raise ValueError("Telegram не принял этот номер телефона.") from exc
+        except SendCodeUnavailableError as exc:
+            raise ValueError(
+                "Telegram сейчас не может выдать код для этого номера через сторонний MTProto-клиент. "
+                "Используй QR-вход выше — он не зависит от доставки login-кода."
+            ) from exc
+        except FloodWaitError as exc:
+            seconds = max(1, int(getattr(exc, "seconds", 0) or 0))
+            raise ValueError(
+                f"Telegram временно ограничил новые запросы кода. Подожди примерно {seconds} сек. "
+                "Или используй QR-вход выше."
+            ) from exc
 
         self.pending_phone = phone
         self.pending_phone_code_hash = sent.phone_code_hash
@@ -923,6 +1044,8 @@ class ReaderDaemon:
 
             if method == "status":
                 result = await self.status()
+            elif method == "request_qr_login":
+                result = await self.request_qr_login()
             elif method == "request_code":
                 result = await self.request_code(str(params.get("phone", "")))
             elif method == "submit_code":

@@ -83,6 +83,26 @@ class TelegramReaderAdminTest extends TestCase
             );
     }
 
+    public function test_admin_can_start_qr_login(): void
+    {
+        $reader = Mockery::mock(TelegramReaderClient::class);
+        $reader->shouldReceive('requestQrLogin')
+            ->once()
+            ->andReturn([
+                'authorized' => false,
+                'auth_state' => 'qr_pending',
+                'qr_image' => 'data:image/svg+xml;base64,PHN2Zy8+',
+                'qr_expires_at' => now()->addMinute()->toIso8601String(),
+            ]);
+
+        $this->app->instance(TelegramReaderClient::class, $reader);
+
+        $this->actingAs($this->admin())
+            ->post('/admin/telegram-reader/request-qr')
+            ->assertRedirect()
+            ->assertSessionHas('reader_message');
+    }
+
     public function test_admin_can_request_login_code_without_persisting_phone_in_session(): void
     {
         $reader = Mockery::mock(TelegramReaderClient::class);
