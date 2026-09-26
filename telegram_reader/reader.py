@@ -536,6 +536,10 @@ class ReaderDaemon:
                     self.client.is_user_authorized(),
                     timeout=5,
                 )
+                if self.last_error and self.last_error.startswith(
+                    ("MTProto connection failed:", "Authorization status failed:")
+                ):
+                    self.last_error = None
                 if authorized:
                     self.auth_state = "authorized"
                     self._clear_pending_auth()
