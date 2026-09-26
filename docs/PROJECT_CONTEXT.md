@@ -1065,7 +1065,23 @@ Implemented in the current Reader iteration:
 
 GitHub Reader secrets have already been added by the user. Do not ask for `api_hash`, login code or 2FA password in ChatGPT.
 
-**MTProto transport workaround being deployed:** direct Telegram DC TCP is blackholed by the VPS route, so the Reader now uses a **local-only MTProto→Telegram WSS bridge** on `127.0.0.1:1443`. The bridge is `Flowseal/tg-ws-proxy` pinned to commit `caa949bee0873d2b95dfb4fbeb1b7868b0ee3843` (MIT), runs as `zampolit-reader`, is never exposed publicly, and is started as `zampolit73project-telegram-ws-bridge.service`. Cloudflare proxy fallback is explicitly disabled (`--no-cfproxy`): the bridge targets Telegram-owned WSS endpoints, so this does not introduce Vercel or another hosted relay. Telethon connects to the local bridge with `ConnectionTcpMTProxyRandomizedIntermediate`. Production readiness still requires `telegram-reader:diagnose` to report `connected=yes`; do not ask the user for phone/code before that check passes.
+**MTProto transport is now working in production.** Direct Telegram DC TCP is blackholed by the VPS route, so the Reader uses a **local-only MTProto→Telegram WSS bridge** on `127.0.0.1:1443`. The bridge is `Flowseal/tg-ws-proxy` pinned to commit `caa949bee0873d2b95dfb4fbeb1b7868b0ee3843` (MIT), runs as `zampolit-reader`, is never exposed publicly, and is started as `zampolit73project-telegram-ws-bridge.service`. Cloudflare proxy fallback is explicitly disabled (`--no-cfproxy`): the bridge targets Telegram-owned WSS endpoints, so this does not introduce Vercel or another hosted relay. Telethon connects to the local bridge with `ConnectionTcpMTProxyRandomizedIntermediate`.
+
+Verified in production deploy diagnostics:
+
+```text
+telegram_reader=ok
+connected=yes
+authorized=no
+auth_state=not_authorized
+transport=local_wss_bridge
+selected_folder=none
+chat_count=0
+indexed_message_count=0
+fts_enabled=yes
+```
+
+The transport blocker is cleared. **Next manual step:** the user opens `/admin/telegram-reader` and completes the one-time MTProto login there: phone → Telegram code → optional 2FA password. Phone/code/2FA are entered only on the admin page and must not be pasted into ChatGPT.
 
 Still not integrated into investigation scoring:
 

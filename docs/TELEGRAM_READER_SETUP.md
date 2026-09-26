@@ -234,29 +234,36 @@ Telegram и web evidence объединяются в существующую de
 9. Actions полностью зелёные;
 10. production HTTPS health-check зелёный.
 
-## Текущий production blocker
+## Текущий production status
 
-Reader foundation задеплоен, systemd service и local Unix socket работают. Прямой MTProto TCP путь с VPS к Telegram заблокирован/blackholed upstream, поэтому добавлен локальный WSS bridge: Telethon подключается к `127.0.0.1:1443`, а bridge переносит зашифрованный MTProto через Telegram-owned WSS endpoints.
+Reader foundation и transport уже работают в production.
 
-Проверено на production:
+Проверено последним зелёным deploy diagnostics:
 
 ```text
 telegram_reader=ok
-connected=no
+connected=yes
 authorized=no
-auth_state=connection_error
-last_error=MTProto connection failed: TimeoutError
+auth_state=not_authorized
+transport=local_wss_bridge
+selected_folder=none
+chat_count=0
+indexed_message_count=0
+fts_enabled=yes
 ```
 
-TCP:443 timeout получен для нескольких стандартных Telegram MTProto DC addresses:
+То есть:
 
-- `149.154.167.51`;
-- `149.154.167.91`;
-- `149.154.175.50`;
-- `91.108.56.100`.
+- Laravel↔Reader Unix socket работает;
+- Reader systemd service работает;
+- local WSS bridge работает;
+- Telethon уже устанавливает MTProto connection через bridge;
+- `api_id` / `api_hash` уже поданы через GitHub Secrets;
+- Telegram user session ещё **не авторизована**;
+- folder ещё не выбрана;
+- backfill ещё не запускался.
 
-Это не Laravel/UI/session bug: локальный Reader RPC уже отвечает. Следующая задача — дать Telethon рабочий transport через текущую сеть VPS. Предпочтение: локальный/self-hosted bridge к Telegram-owned WSS transport либо исправление маршрута у VPS provider. Внешний Vercel relay не нужен.
-
+Следующий шаг теперь пользовательский, а не сетевой: one-time authorization через `/admin/telegram-reader`.
 
 
 ### Local Telegram WSS bridge
@@ -277,15 +284,16 @@ Telethon uses `ConnectionTcpMTProxyRandomizedIntermediate` against this local br
 
 ## Что должен сделать пользователь прямо сейчас
 
-Пока ничего вводить в `/admin/telegram-reader` не нужно. `api_id` / `api_hash` уже находятся в GitHub Secrets.
+`api_id` / `api_hash` уже находятся в GitHub Secrets, а production diagnostics подтверждает `connected=yes`.
 
-Сначала технически добиваем MTProto transport до состояния `connected=yes`. После этого пользователь:
+Теперь пользователь:
 
 1. открывает `/admin/telegram-reader`;
-2. вводит номер Telegram в международном формате;
-3. вводит код, который пришлёт Telegram;
-4. при 2FA вводит пароль прямо на admin page;
-5. выбирает рабочую Telegram folder;
-6. ждёт 90-day backfill и проверяет counters.
+2. вводит номер Telegram в международном формате, например `+49...` / `+7...`;
+3. нажимает запрос кода;
+4. вводит код, который пришлёт Telegram, **только на этой admin page**;
+5. если включена Telegram 2FA — вводит пароль там же;
+6. после `authorized=yes` выбирает нужную рабочую Telegram folder;
+7. запускает/ждёт 90-day backfill и проверяет counters.
 
 Телефон, login code и 2FA password не присылать в ChatGPT.
