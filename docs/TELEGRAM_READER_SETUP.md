@@ -142,7 +142,8 @@ UX поддерживает два пути:
 4. **fallback — phone/code** остаётся для случаев, когда Telegram реально выдаёт login-код стороннему MTProto-клиенту;
 5. `SendCodeUnavailableError` и flood-wait не должны вываливаться сырым Telethon exception в UI;
 6. transient auth states (`qr_pending`, `code_sent`, `password_required`) не должны затираться status polling;
-7. session сохраняет только Python Reader в закрытой persistent directory.
+7. после запуска QR-flow поле 2FA остаётся доступным до успешной авторизации, чтобы Telegram cloud password можно было ввести даже если `password_required` не успел отразиться в polling state;
+8. session сохраняет только Python Reader в закрытой persistent directory.
 
 Причина перехода на QR-first: production transport уже работает, но Telegram может отказать в выдаче phone login-code через сторонний MTProto client. QR login — штатный Telethon/Telegram MTProto flow и не зависит от доставки такого кода.
 

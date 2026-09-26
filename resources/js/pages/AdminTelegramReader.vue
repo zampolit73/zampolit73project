@@ -23,6 +23,7 @@ const qrPending = computed(() => props.reader.auth_state === 'qr_pending');
 const qrExpired = computed(() => props.reader.auth_state === 'qr_expired');
 const codeSent = computed(() => props.reader.auth_state === 'code_sent');
 const passwordRequired = computed(() => props.reader.auth_state === 'password_required');
+const showQrPassword = computed(() => passwordRequired.value || Boolean(props.reader.qr_auth_started));
 const selectedFolderId = computed(() => props.reader.selected_folder?.id ?? null);
 
 function requestQr() {
@@ -85,7 +86,7 @@ function formatDate(value) {
 
 onMounted(() => {
     pollTimer = window.setInterval(() => {
-        const waitingForLogin = qrPending.value || passwordRequired.value;
+        const waitingForLogin = qrPending.value || showQrPassword.value;
         const syncing = authorized.value && (props.reader.sync_running || selectedFolderId.value);
 
         if (waitingForLogin || syncing) {
@@ -243,7 +244,11 @@ onBeforeUnmount(() => {
                             </button>
                         </form>
 
-                        <form v-if="passwordRequired" class="reader-form reader-form--sub" @submit.prevent="submitPassword">
+                        <form v-if="showQrPassword" class="reader-form reader-form--sub" @submit.prevent="submitPassword">
+                            <p class="reader-2fa-hint">
+                                Если после сканирования QR Telegram пишет, что нужен облачный пароль,
+                                введи его здесь. Поле остаётся доступным до успешного входа.
+                            </p>
                             <label>
                                 <span>Пароль Telegram 2FA</span>
                                 <input
@@ -639,6 +644,16 @@ onBeforeUnmount(() => {
     font-size: 8px;
     font-weight: 950;
     letter-spacing: .08em;
+}
+
+.reader-2fa-hint {
+    margin: 0;
+    padding: 10px;
+    border-left: 4px solid var(--ds-color-red);
+    background: #f0c9bd;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.45;
 }
 
 .reader-form--sub {

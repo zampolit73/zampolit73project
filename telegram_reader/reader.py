@@ -458,6 +458,7 @@ class ReaderDaemon:
         self.qr_wait_task: asyncio.Task[Any] | None = None
         self.qr_image: str | None = None
         self.qr_expires_at: str | None = None
+        self.qr_auth_started = False
         self.auth_state = "unknown"
         self.last_error: str | None = None
         self.sync_running = False
@@ -576,6 +577,7 @@ class ReaderDaemon:
             "account": account,
             "qr_image": self.qr_image if self.auth_state == "qr_pending" else None,
             "qr_expires_at": self.qr_expires_at if self.auth_state == "qr_pending" else None,
+            "qr_auth_started": self.qr_auth_started,
             "selected_folder": (
                 {
                     "id": int(selected_folder_id),
@@ -623,6 +625,7 @@ class ReaderDaemon:
         self.qr_login = qr_login
         self.qr_image = self._qr_data_uri(qr_login.url)
         self.qr_expires_at = expires_at
+        self.qr_auth_started = True
         self.auth_state = "qr_pending"
         self.last_error = None
         self.qr_wait_task = asyncio.create_task(self._wait_for_qr_login(qr_login))
@@ -653,6 +656,7 @@ class ReaderDaemon:
             self._clear_qr_state()
         else:
             self.auth_state = "authorized"
+            self.qr_auth_started = False
             self.last_error = None
             self._clear_pending_auth()
             self._clear_qr_state()
@@ -684,8 +688,10 @@ class ReaderDaemon:
 
         if await self.client.is_user_authorized():
             self.auth_state = "authorized"
+            self.qr_auth_started = False
             return {"authorized": True, "auth_state": self.auth_state}
 
+        self.qr_auth_started = False
         self._clear_qr_state(cancel_wait=True)
 
         try:
@@ -748,14 +754,16 @@ class ReaderDaemon:
     async def submit_password(self, password: str) -> dict[str, Any]:
         await self._require_connection()
 
-        if self.auth_state != "password_required":
-            raise ValueError("Telegram сейчас не ожидает пароль 2FA.")
+        if self.auth_state != "password_required" and not self.qr_auth_started:
+            raise ValueError("Сначала запусти QR-вход и отсканируй QR в Telegram.")
 
         if not password:
             raise ValueError("Введите пароль Telegram 2FA.")
 
         await self.client.sign_in(password=password)
         self._clear_pending_auth()
+        self.qr_auth_started = False
+        self._clear_qr_state(cancel_wait=True)
         self.auth_state = "authorized"
         self.last_error = None
 

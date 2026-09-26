@@ -1081,7 +1081,7 @@ indexed_message_count=0
 fts_enabled=yes
 ```
 
-The transport blocker is cleared. The authorization UI is QR-first because Telegram may refuse phone login-code delivery for third-party MTProto clients even when transport is healthy. The admin page creates an in-memory one-time QR token, Reader waits for the scan asynchronously, and status polling preserves `qr_pending` / `password_required` states. Phone/code remains a fallback. Login codes and 2FA are entered only on the admin page and must not be pasted into ChatGPT.
+The transport blocker is cleared. The authorization UI is QR-first because Telegram may refuse phone login-code delivery for third-party MTProto clients even when transport is healthy. The admin page creates an in-memory one-time QR token, Reader waits for the scan asynchronously, and the 2FA password form stays available for the lifetime of the QR auth attempt even if Telegram/Telethon does not expose `password_required` to the next UI poll. Phone/code remains a fallback. Login codes and 2FA are entered only on the admin page and must not be pasted into ChatGPT.
 
 Still not integrated into investigation scoring:
 
