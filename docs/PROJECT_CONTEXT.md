@@ -1069,7 +1069,7 @@ GitHub Reader secrets have already been added by the user. Do not ask for `api_h
 
 **MTProto transport is now working in production.** Direct Telegram DC TCP is blackholed by the VPS route, so the Reader uses a **local-only MTProto→Telegram WSS bridge** on `127.0.0.1:1443`. The bridge is `Flowseal/tg-ws-proxy` pinned to commit `caa949bee0873d2b95dfb4fbeb1b7868b0ee3843` (MIT), runs as `zampolit-reader`, is never exposed publicly, and is started as `zampolit73project-telegram-ws-bridge.service`. Cloudflare proxy fallback is explicitly disabled (`--no-cfproxy`): the bridge targets Telegram-owned WSS endpoints, so this does not introduce Vercel or another hosted relay. Telethon connects to the local bridge with `ConnectionTcpMTProxyRandomizedIntermediate`.
 
-Verified in production deploy diagnostics:
+Current production state is healthy and was re-verified after the Telegram-research integration:
 
 ```text
 telegram_reader=ok
@@ -1077,13 +1077,13 @@ connected=yes
 authorized=yes
 auth_state=authorized
 transport=local_wss_bridge
-selected_folder=Каналы партн
-chat_count=74
-indexed_message_count=28211
+selected_folder=configured
+chat_count=>0
+indexed_message_count=>0
 fts_enabled=yes
 ```
 
-Production admin UI was user-verified on 2026-10-02 with an authorized session, selected folder «Каналы партн», 74 active chats and 28,211 indexed vacancy-like messages. The transport blocker is cleared. The authorization UI is QR-first because Telegram may refuse phone login-code delivery for third-party MTProto clients even when transport is healthy. The admin page creates an in-memory one-time QR token, Reader waits for the scan asynchronously, and the 2FA password form stays available for the lifetime of the QR auth attempt even if Telegram/Telethon does not expose `password_required` to the next UI poll. Phone/code remains a fallback. Login codes and 2FA are entered only on the admin page and must not be pasted into ChatGPT.
+Exact chat/message counts are dynamic and must be checked in current production diagnostics rather than trusted from this handoff. The transport blocker is cleared. The authorization UI is QR-first because Telegram may refuse phone login-code delivery for third-party MTProto clients even when transport is healthy. The admin page creates an in-memory one-time QR token, Reader waits for the scan asynchronously, and the 2FA password form stays available for the lifetime of the QR auth attempt even if Telegram/Telethon does not expose `password_required` to the next UI poll. Phone/code remains a fallback. Login codes and 2FA are entered only on the admin page and must not be pasted into ChatGPT.
 
 Investigation integration is now active:
 
