@@ -8,7 +8,7 @@ use App\Models\VacancyInvestigation;
 use App\Services\TelegramBotClient;
 use App\Services\VacancySignalExtractor;
 use App\Services\VacancyTelegramResultFormatter;
-use App\Services\VacancyWebResearchService;
+use App\Services\VacancyCombinedResearchService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -32,7 +32,7 @@ class RunVacancyInvestigation implements ShouldQueue
 
     public function handle(
         TelegramBotClient $telegramBot,
-        VacancyWebResearchService $research,
+        VacancyCombinedResearchService $research,
         VacancySignalExtractor $extractor,
         VacancyTelegramResultFormatter $formatter,
     ): void {
@@ -66,15 +66,15 @@ class RunVacancyInvestigation implements ShouldQueue
 
         $this->advance(
             'telegram_search',
-            'Telegram-корпус вакансий ещё не подключён — этот источник пока пропускаю',
+            'Ищу совпадения в рабочем Telegram-корпусе и кластеризую репосты',
         );
-
-        $this->advance('web_search', 'Ищу совпадения в открытом вебе по редким фразам и стеку');
         $this->notifyTelegram(
             $telegramBot,
             $telegramChatId,
-            'Проверка #'.$investigation->id.': ищу совпадения в открытом вебе.',
+            'Проверка #'.$investigation->id.': проверяю рабочий Telegram-корпус и открытый web.',
         );
+
+        $this->advance('web_search', 'Проверяю открытый web по редким фразам и стеку');
 
         $result = $research->research($investigation->input_text);
 

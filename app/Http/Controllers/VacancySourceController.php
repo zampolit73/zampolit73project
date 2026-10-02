@@ -195,6 +195,8 @@ class VacancySourceController extends Controller
                         'id' => $source->id,
                         'candidate_id' => $source->candidate_id,
                         'provider' => $source->provider,
+                        'provider_label' => $source->provider === 'telegram_reader' ? 'Telegram' : 'Web',
+                        'is_clickable' => str_starts_with($source->url, 'http://') || str_starts_with($source->url, 'https://'),
                         'title' => $source->title,
                         'url' => $source->url,
                         'snippet' => $source->snippet,

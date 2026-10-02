@@ -8,14 +8,16 @@ use App\Models\InvestigationSource;
 use App\Models\User;
 use App\Models\VacancyInvestigation;
 use App\Services\TelegramBotClient;
+use App\Services\TelegramReaderClient;
+use App\Services\VacancyCombinedResearchService;
 use App\Services\VacancySignalExtractor;
 use App\Services\VacancyTelegramResultFormatter;
-use App\Services\VacancyWebResearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
+use Mockery;
 use Tests\TestCase;
 
 class VacancySourceTest extends TestCase
@@ -191,7 +193,7 @@ XML, 200, ['Content-Type' => 'application/rss+xml']),
 
         (new RunVacancyInvestigation($investigation->id))->handle(
             app(TelegramBotClient::class),
-            app(VacancyWebResearchService::class),
+            app(VacancyCombinedResearchService::class),
             app(VacancySignalExtractor::class),
             app(VacancyTelegramResultFormatter::class),
         );
@@ -227,6 +229,82 @@ XML, 200, ['Content-Type' => 'application/rss+xml']),
             ->assertJsonPath('sources.0.url', 'https://hh.ru/vacancy/123456');
     }
 
+    public function test_telegram_corpus_hit_is_deduplicated_and_persisted_as_evidence(): void
+    {
+        Http::fake([
+            'https://www.bing.com/search*' => Http::response(
+                '<?xml version="1.0"?><rss version="2.0"><channel><title>Bing</title></channel></rss>',
+                200,
+                ['Content-Type' => 'application/rss+xml'],
+            ),
+        ]);
+
+        $vacancy = implode("\n", [
+            'Backend Java developer',
+            'Заказчик: Acme Bank',
+            'Требования: Java, Kafka, Camunda, PostgreSQL, микросервисы.',
+            'Нужен опыт интеграций и проектирования распределённых систем.',
+        ]);
+
+        $reader = Mockery::mock(TelegramReaderClient::class);
+        $reader->shouldReceive('search')
+            ->once()
+            ->andReturn([
+                [
+                    'peer_id' => -1001234567890,
+                    'message_id' => 501,
+                    'message_date' => '2026-10-01T10:00:00+00:00',
+                    'text' => $vacancy,
+                    'source_link' => 'https://t.me/acme_jobs/501',
+                    'chat_title' => 'Партнёрский канал',
+                    'rank' => -8.1,
+                ],
+                [
+                    'peer_id' => -1009876543210,
+                    'message_id' => 902,
+                    'message_date' => '2026-10-01T10:05:00+00:00',
+                    'text' => $vacancy,
+                    'source_link' => null,
+                    'chat_title' => 'Репост вакансий',
+                    'rank' => -7.9,
+                ],
+            ]);
+
+        $this->app->instance(TelegramReaderClient::class, $reader);
+
+        $user = $this->user('telegram-research-user');
+        $investigation = VacancyInvestigation::query()->create([
+            'user_id' => $user->id,
+            'input_source' => 'web',
+            'input_text' => $vacancy,
+            'status' => 'queued',
+            'progress_stage' => 'queued',
+            'queued_at' => now(),
+        ]);
+
+        (new RunVacancyInvestigation($investigation->id))->handle(
+            app(TelegramBotClient::class),
+            app(VacancyCombinedResearchService::class),
+            app(VacancySignalExtractor::class),
+            app(VacancyTelegramResultFormatter::class),
+        );
+
+        $investigation->refresh();
+
+        $this->assertSame('completed', $investigation->status);
+        $this->assertStringContainsString('Acme Bank', (string) $investigation->result_summary);
+        $this->assertStringContainsString('только в Telegram', (string) $investigation->result_summary);
+
+        $candidate = InvestigationCandidate::query()->firstOrFail();
+        $this->assertSame('Acme Bank', $candidate->company_name);
+        $this->assertGreaterThanOrEqual(60, $candidate->confidence);
+
+        $sources = InvestigationSource::query()->get();
+        $this->assertCount(1, $sources);
+        $this->assertSame('telegram_reader', $sources->first()->provider);
+        $this->assertSame('https://t.me/acme_jobs/501', $sources->first()->url);
+    }
+
     public function test_web_research_does_not_invent_client_when_search_has_no_evidence(): void
     {
         Http::fake([
@@ -250,7 +328,7 @@ XML, 200, ['Content-Type' => 'application/rss+xml']),
 
         (new RunVacancyInvestigation($investigation->id))->handle(
             app(TelegramBotClient::class),
-            app(VacancyWebResearchService::class),
+            app(VacancyCombinedResearchService::class),
             app(VacancySignalExtractor::class),
             app(VacancyTelegramResultFormatter::class),
         );

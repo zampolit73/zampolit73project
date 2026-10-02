@@ -3,10 +3,18 @@
 return [
     'minimum_confidence' => 60,
 
+    'max_saved_sources' => 28,
+
     'web' => [
         'max_queries' => 6,
         'max_results_per_query' => 8,
         'max_saved_sources' => 18,
+    ],
+
+    'telegram' => [
+        'max_hits' => 40,
+        'max_saved_sources' => 18,
+        'minimum_source_score' => 28,
     ],
 
     'scoring' => [
@@ -22,5 +30,6 @@ return [
         'corroborating_domain_each' => 7,
         'corroboration_cap' => 14,
         'explicit_company_candidate' => 8,
+        'cross_provider_corroboration' => 10,
     ],
 ];

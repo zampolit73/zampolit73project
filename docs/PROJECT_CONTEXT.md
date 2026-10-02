@@ -1027,7 +1027,9 @@ Implemented now:
 - queued-only cancellation;
 - normalized vacancy text + fingerprint;
 - **real public-web search** through Bing RSS SERP, with no paid search key;
-- deterministic signal extraction and scoring;
+- **real Telegram Reader FTS research** against the selected work-folder corpus;
+- strict exact-normalized Telegram repost clustering before evidence scoring;
+- combined Telegram + web deterministic candidate scoring;
 - up to three end-client candidates above the 60% threshold;
 - direct vs indirect hypothesis label;
 - intermediaries separated with `is_end_client=false`;
@@ -1072,22 +1074,26 @@ Verified in production deploy diagnostics:
 ```text
 telegram_reader=ok
 connected=yes
-authorized=no
-auth_state=not_authorized
+authorized=yes
+auth_state=authorized
 transport=local_wss_bridge
-selected_folder=none
-chat_count=0
-indexed_message_count=0
+selected_folder=Каналы партн
+chat_count=74
+indexed_message_count=28211
 fts_enabled=yes
 ```
 
-The transport blocker is cleared. The authorization UI is QR-first because Telegram may refuse phone login-code delivery for third-party MTProto clients even when transport is healthy. The admin page creates an in-memory one-time QR token, Reader waits for the scan asynchronously, and the 2FA password form stays available for the lifetime of the QR auth attempt even if Telegram/Telethon does not expose `password_required` to the next UI poll. Phone/code remains a fallback. Login codes and 2FA are entered only on the admin page and must not be pasted into ChatGPT.
+Production admin UI was user-verified on 2026-10-02 with an authorized session, selected folder «Каналы партн», 74 active chats and 28,211 indexed vacancy-like messages. The transport blocker is cleared. The authorization UI is QR-first because Telegram may refuse phone login-code delivery for third-party MTProto clients even when transport is healthy. The admin page creates an in-memory one-time QR token, Reader waits for the scan asynchronously, and the 2FA password form stays available for the lifetime of the QR auth attempt even if Telegram/Telethon does not expose `password_required` to the next UI poll. Phone/code remains a fallback. Login codes and 2FA are entered only on the admin page and must not be pasted into ChatGPT.
 
-Still not integrated into investigation scoring:
+Investigation integration is now active:
 
-- Reader FTS search results are not yet merged into `VacancyWebResearchService`;
-- strict repost/source clustering for Telegram evidence is still pending;
-- Telegram + web combined confidence/scoring is still pending;
+- `VacancyTelegramResearchService` queries Reader FTS and scores full Telegram message text;
+- exact normalized reposts are clustered before scoring;
+- `VacancyCombinedResearchService` merges Telegram + web evidence by normalized company name;
+- cross-provider corroboration can add +10 confidence only when both Telegram and web independently support the same candidate;
+- Telegram-only candidates are explicitly labelled as lacking independent web confirmation;
+- chat title remains display-only metadata and never contributes to candidate score;
+- public Telegram source links are clickable; private evidence uses an internal non-public reference and renders non-clickable;
 - admin review UI and quality metrics remain pending.
 ### Vacancy Source Telegram Bot networking
 

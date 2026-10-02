@@ -17,16 +17,16 @@ Laravel database queue: vacancy-source
         |
 signal extraction
         |
-public web research (Bing RSS SERP)
+Telegram Reader FTS + public web research (Bing RSS SERP)
         |
-deterministic evidence scoring
+strict Telegram repost dedup + deterministic evidence scoring
         |
 candidates + sources
         |
 web live status/history + Telegram result
 ```
 
-The web part is now real, not a demo. Telegram work-chat history is still the next data source and is not counted as evidence yet.
+Both research sources are active: public web and the locally indexed Telegram work-chat corpus. Telegram evidence is text-only and comes only from the selected Reader folder.
 
 ## Access model
 
@@ -232,15 +232,16 @@ Runtime isolation:
 
 After selecting a folder, Reader starts a 90-day text-only backfill and then syncs about every 5 minutes. Adding chats to the selected folder makes them eligible for backfill/sync; removing chats stops new sync while historical corpus rows remain.
 
-The Reader already exposes local search primitives, but Telegram hits are **not yet merged into investigation scoring**. Until that integration lands, user-facing investigation evidence remains web-only.
+Telegram hits are now merged into every Vacancy Source investigation:
 
-Next integration step:
-
-1. query Reader FTS in parallel with web search;
-2. normalize/cluster Telegram reposts so duplicates do not inflate evidence;
-3. persist Telegram source metadata into investigation sources;
-4. combine Telegram + web evidence in the existing deterministic scoring model;
-5. clearly label Telegram-only confirmation when no independent web corroboration exists.
+1. Reader FTS retrieves up to 40 candidate messages from the active folder;
+2. exact normalized reposts are clustered before scoring, so duplicate reposts do not inflate confidence;
+3. Telegram messages use the same rare-phrase / stack / role / token-overlap scoring family as web evidence;
+4. candidate names are inferred conservatively only from explicit text labels such as «заказчик», «клиент», «работодатель» or «компания»; chat titles are display metadata only and never a scoring signal;
+5. Telegram and web candidates are merged by normalized company key;
+6. a +10 confidence corroboration bonus is allowed only when the same candidate has independent evidence from both web and Telegram;
+7. Telegram-only candidates are allowed above the normal threshold, but the result explicitly says that independent web confirmation is absent;
+8. public Telegram message URLs remain clickable; private Telegram evidence is shown as a non-clickable source card rather than inventing a public URL.
 ## Telegram production transport
 
 Production uses **Bot API long polling**, not webhook delivery.

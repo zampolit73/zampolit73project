@@ -293,23 +293,28 @@ onBeforeUnmount(() => {
                             </div>
 
                             <div v-if="active.sources?.length" class="vacancy-result__section">
-                                <h3>Сильнейшие веб-источники</h3>
+                                <h3>Сильнейшие источники: Web + Telegram</h3>
 
-                                <a
+                                <component
+                                    :is="source.is_clickable ? 'a' : 'div'"
                                     v-for="source in active.sources"
                                     :key="source.id"
                                     class="vacancy-source-link"
-                                    :href="source.url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    :href="source.is_clickable ? source.url : undefined"
+                                    :target="source.is_clickable ? '_blank' : undefined"
+                                    :rel="source.is_clickable ? 'noopener noreferrer' : undefined"
                                 >
                                     <span>{{ source.evidence_score }}/100</span>
                                     <div>
                                         <strong>{{ source.title || sourceHost(source.url) }}</strong>
-                                        <small>{{ sourceHost(source.url) }}</small>
+                                        <small>
+                                            {{ source.provider_label }}
+                                            <template v-if="source.is_clickable"> · {{ sourceHost(source.url) }}</template>
+                                            <template v-else> · приватный Telegram-источник</template>
+                                        </small>
                                         <p v-if="source.snippet">{{ source.snippet }}</p>
                                     </div>
-                                </a>
+                                </component>
                             </div>
                         </div>
 
