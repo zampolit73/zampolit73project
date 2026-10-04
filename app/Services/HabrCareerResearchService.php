@@ -575,7 +575,7 @@ class HabrCareerResearchService
             $best = $sources[0];
             $confidence = min(95, (int) $best['evidence_score']);
 
-            if ($confidence < (int) config('vacancy_source.minimum_confidence', 60)) {
+            if ($confidence < (int) config('vacancy_source.hypothesis_confidence', 40)) {
                 continue;
             }
 

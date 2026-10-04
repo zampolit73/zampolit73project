@@ -373,6 +373,67 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
         $this->assertSame('https://t.me/acme_jobs/501', $sources->first()->url);
     }
 
+    public function test_weak_habr_match_is_kept_as_hypothesis_below_strong_threshold(): void
+    {
+        $input = 'Backend Java developer. Java, Kafka, PostgreSQL, микросервисы.';
+
+        $search = Mockery::mock(BingRssSearchProvider::class);
+        $search->shouldReceive('search')->andReturn([]);
+
+        Http::fake([
+            'https://career.habr.com/vacancies/skills/*' => Http::response(
+                '<html><body><a href="/vacancies/1000888888">Java developer</a></body></html>',
+                200,
+                ['Content-Type' => 'text/html; charset=UTF-8'],
+            ),
+            'https://career.habr.com/vacancies/1000888888' => Http::response(<<<'HTML'
+<html><head><title>Вакансия «Java developer» в компании «Example Bank» — Хабр Карьера</title></head>
+<body>
+<h1>Java developer</h1>
+<a href="/companies/example-bank">Example Bank</a>
+<h2>Описание вакансии</h2>
+<div>Java, PostgreSQL, микросервисная архитектура.</div>
+</body></html>
+HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
+        ]);
+
+        $service = new HabrCareerResearchService(app(VacancySignalExtractor::class), $search);
+        $result = $service->research($input);
+
+        $this->assertNotEmpty($result['sources']);
+        $this->assertNotEmpty($result['candidates']);
+        $this->assertSame('Example Bank', $result['candidates'][0]['company_name']);
+        $this->assertGreaterThanOrEqual(40, $result['candidates'][0]['confidence']);
+    }
+
+    public function test_telegram_display_collapses_multiple_matches_from_same_chat(): void
+    {
+        $reader = Mockery::mock(TelegramReaderClient::class);
+        $reader->shouldReceive('search')->once()->andReturn([
+            [
+                'peer_id' => -100111,
+                'message_id' => 1,
+                'text' => 'Заказчик: Acme Bank. Backend Java Kafka PostgreSQL микросервисы.',
+                'source_link' => 'https://t.me/acme/1',
+                'chat_title' => 'T-Bank IT Partnership',
+            ],
+            [
+                'peer_id' => -100111,
+                'message_id' => 2,
+                'text' => 'Заказчик: Acme Bank. Backend Java Kafka PostgreSQL микросервисы. Срочно.',
+                'source_link' => 'https://t.me/acme/2',
+                'chat_title' => 'T-Bank IT Partnership',
+            ],
+        ]);
+        $this->app->instance(TelegramReaderClient::class, $reader);
+
+        $service = app(\App\Services\VacancyTelegramResearchService::class);
+        $result = $service->research('Backend Java Kafka PostgreSQL микросервисы');
+
+        $this->assertCount(1, $result['sources']);
+        $this->assertStringContainsString('2 совпадений', $result['sources'][0]['title']);
+    }
+
     public function test_web_research_does_not_invent_client_when_search_has_no_evidence(): void
     {
         Http::fake([

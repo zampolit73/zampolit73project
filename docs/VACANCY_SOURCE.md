@@ -332,3 +332,15 @@ Current diagnostics include:
 3. Combine Telegram and web evidence in one scoring pass.
 4. Add safe page-level corroboration for selected web sources beyond SERP snippets.
 5. Admin review UI and quality metrics.
+
+
+## Result quality policy
+
+Telegram raw hit count is not treated as independent evidence. For user-facing evidence, multiple matching messages from the same Telegram chat collapse into one representative source card with a match count. Candidate inference may still use the underlying distinct messages.
+
+The bot result is answer-first:
+- 60%+ end-client candidates are shown as **probable clients**;
+- 40–59% end-client candidates are shown as **hypotheses**;
+- intermediaries are shown separately;
+- source cards are provider-diversified so one Telegram chat cannot occupy the entire evidence section;
+- if there is no 60% candidate but a 40%+ hypothesis exists, the summary names the best hypothesis and says what additional confirmation is missing.

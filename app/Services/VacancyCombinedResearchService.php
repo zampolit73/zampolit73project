@@ -112,7 +112,7 @@ class VacancyCombinedResearchService
 
             $confidence = min(95, $confidence);
 
-            if ($confidence < (int) config('vacancy_source.minimum_confidence', 60)) {
+            if ($confidence < (int) config('vacancy_source.hypothesis_confidence', 40)) {
                 continue;
             }
 
@@ -196,8 +196,12 @@ class VacancyCombinedResearchService
         if ($endClients !== []) {
             $best = $endClients[0];
             $providers = $best['providers'] ?? [];
+            $isStrong = $best['confidence'] >= (int) config('vacancy_source.minimum_confidence', 60);
 
-            $summary = 'Вероятный конечный клиент: '.$best['company_name'].' — '.$best['confidence'].'%.';
+            $summary = $isStrong
+                ? 'Вероятный конечный клиент: '.$best['company_name'].' — '.$best['confidence'].'%.'
+                : 'Надёжный конечный клиент пока не подтверждён. Лучшая гипотеза: '
+                    .$best['company_name'].' — '.$best['confidence'].'%.';
 
             $labels = [];
             if (in_array('bing_rss', $providers, true)) {
@@ -211,26 +215,25 @@ class VacancyCombinedResearchService
             }
 
             if (count($labels) > 1) {
-                $summary .= ' Кандидат подтверждается независимо: '.implode(' + ', $labels).'.';
-            } elseif ($labels === ['Habr Career']) {
-                $summary .= ' Подтверждение найдено на Habr Career; других независимых подтверждений нет.';
-            } elseif ($labels === ['Telegram']) {
-                $summary .= ' Подтверждение найдено только в Telegram-корпусе; независимого web/Habr подтверждения нет.';
-            } else {
-                $summary .= ' Подтверждение найдено в открытом web; Habr Career и Telegram независимого подтверждения не дали.';
+                $summary .= ' Подтверждается независимо: '.implode(' + ', $labels).'.';
+            } elseif ($labels !== []) {
+                $summary .= ' Пока подтверждается только источником: '.$labels[0].'.';
             }
 
-            return $summary.' Сильных источников: web '.$webCount.', Habr '.$habrCount.', Telegram '.$telegramCount.'.';
+            if (! $isStrong) {
+                $summary .= ' Нужен ещё хотя бы один независимый сигнал, чтобы поднять её выше порога '
+                    .config('vacancy_source.minimum_confidence', 60).'%.';
+            }
+
+            return $summary;
         }
 
         if (($web['partial'] ?? true) && ($habr['partial'] ?? true) && ($telegram['partial'] ?? true)) {
             return 'Все исследовательские источники сейчас недоступны. Клиент не определён без проверяемых доказательств.';
         }
 
-        return 'Надёжный конечный клиент не определён. После дедупликации проверено сильных источников: web '
-            .$webCount.', Habr '.$habrCount.', Telegram '.$telegramCount
-            .'. Ни один кандидат не набрал порог '
-            .config('vacancy_source.minimum_confidence', 60).'%.';
+        return 'Надёжный конечный клиент не определён: ни один источник не позволил даже сформировать проверяемую гипотезу выше '
+            .config('vacancy_source.hypothesis_confidence', 40).'%.';
     }
 
     private function companyKey(string $company): string

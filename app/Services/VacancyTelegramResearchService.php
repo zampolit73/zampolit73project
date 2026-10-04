@@ -85,19 +85,21 @@ class VacancyTelegramResearchService
             }
         }
 
-        $sources = array_values($clusters);
-        usort($sources, fn (array $a, array $b) => $b['evidence_score'] <=> $a['evidence_score']);
+        $candidateSources = array_values($clusters);
+        usort($candidateSources, fn (array $a, array $b) => $b['evidence_score'] <=> $a['evidence_score']);
+
+        $sources = $this->collapseSourcesForDisplay($candidateSources);
         $sources = array_slice(
             $sources,
             0,
-            (int) config('vacancy_source.telegram.max_saved_sources', 18),
+            (int) config('vacancy_source.telegram.max_saved_sources', 8),
         );
 
         return [
             'signals' => $signals,
             'query' => $query,
             'sources' => $sources,
-            'candidates' => $this->buildCandidates($sources),
+            'candidates' => $this->buildCandidates($candidateSources),
             'provider_successes' => 1,
             'provider_failures' => [],
             'partial' => false,
@@ -227,7 +229,7 @@ class VacancyTelegramResearchService
             $best = $candidateSources[0];
             $confidence = min(95, (int) $best['evidence_score']);
 
-            if ($confidence < (int) config('vacancy_source.minimum_confidence', 60)) {
+            if ($confidence < (int) config('vacancy_source.hypothesis_confidence', 40)) {
                 continue;
             }
 
@@ -250,6 +252,44 @@ class VacancyTelegramResearchService
         usort($candidates, fn (array $a, array $b) => $b['confidence'] <=> $a['confidence']);
 
         return $candidates;
+    }
+
+    private function collapseSourcesForDisplay(array $sources): array
+    {
+        $byChat = [];
+
+        foreach ($sources as $source) {
+            $chatKey = (string) ($source['telegram_peer_id'] ?? $source['title']);
+
+            if (! isset($byChat[$chatKey])) {
+                $source['telegram_match_count'] = 1;
+                $byChat[$chatKey] = $source;
+                continue;
+            }
+
+            $byChat[$chatKey]['telegram_match_count']++;
+
+            if ($source['evidence_score'] > $byChat[$chatKey]['evidence_score']) {
+                $count = $byChat[$chatKey]['telegram_match_count'];
+                $source['telegram_match_count'] = $count;
+                $byChat[$chatKey] = $source;
+            }
+        }
+
+        $result = array_values($byChat);
+
+        foreach ($result as &$source) {
+            $count = (int) ($source['telegram_match_count'] ?? 1);
+
+            if ($count > 1) {
+                $source['title'] .= ' · '.$count.' совпадений';
+            }
+        }
+        unset($source);
+
+        usort($result, fn (array $a, array $b) => $b['evidence_score'] <=> $a['evidence_score']);
+
+        return $result;
     }
 
     private function inferCompany(array $signals, string $text): ?string

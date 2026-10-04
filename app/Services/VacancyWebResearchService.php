@@ -332,7 +332,7 @@ class VacancyWebResearchService
                 ? 'direct'
                 : 'indirect';
 
-            if ($confidence < (int) config('vacancy_source.minimum_confidence', 60)) {
+            if ($confidence < (int) config('vacancy_source.hypothesis_confidence', 40)) {
                 continue;
             }
 

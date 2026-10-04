@@ -1031,6 +1031,9 @@ Implemented now:
 - **dedicated Habr Career research**: direct live skill-catalog discovery plus supplementary Habr-specific Bing discovery, followed by direct fetch/scoring of concrete vacancy pages and structured employer extraction;
 - strict exact-normalized Telegram repost clustering before evidence scoring;
 - combined Telegram + Habr Career + web deterministic candidate scoring;
+- result quality policy: 60%+ = probable client, 40–59% = visible hypothesis, <40% = suppressed noise;
+- user-facing Telegram evidence collapses multiple matches from the same chat into one representative card, so repost-heavy chats cannot dominate the answer;
+- Telegram bot result is answer-first and provider-diversified instead of printing three near-identical Telegram sources;
 - provider-level Telegram progress (Telegram → Habr → Web → analysis) instead of one silent research stage;
 - Habr provider is bounded to a ~50-second budget (3 skill catalogs, 1 rare-phrase discovery query, 3 vacancy pages; 3s connect / 6s request);
 - Telegram `/status` marks a `running` investigation older than 8 minutes as failed so orphaned worker state does not stay “in progress” forever;

@@ -33,16 +33,31 @@ class VacancyTelegramResultFormatter
             ->values();
 
         if ($endClients->isNotEmpty()) {
-            $lines[] = '';
-            $lines[] = 'Кандидаты:';
+            $strong = $endClients
+                ->filter(fn ($candidate) => $candidate->confidence >= (int) config('vacancy_source.minimum_confidence', 60))
+                ->values();
+            $hypotheses = $endClients
+                ->filter(fn ($candidate) => $candidate->confidence < (int) config('vacancy_source.minimum_confidence', 60))
+                ->values();
 
-            foreach ($endClients as $index => $candidate) {
-                $type = $candidate->candidate_type === 'direct'
-                    ? 'Прямое совпадение'
-                    : 'Косвенная гипотеза';
+            if ($strong->isNotEmpty()) {
+                $lines[] = '';
+                $lines[] = 'Вероятные заказчики:';
 
-                $lines[] = ($index + 1).'. '.$candidate->company_name.' — '.$candidate->confidence.'% · '.$type;
-                $lines[] = Str::limit((string) $candidate->explanation, 420, '…');
+                foreach ($strong as $index => $candidate) {
+                    $lines[] = ($index + 1).'. '.$candidate->company_name.' — '.$candidate->confidence.'%';
+                    $lines[] = Str::limit((string) $candidate->explanation, 360, '…');
+                }
+            }
+
+            if ($hypotheses->isNotEmpty()) {
+                $lines[] = '';
+                $lines[] = 'Гипотезы — пока недостаточно подтверждений:';
+
+                foreach ($hypotheses as $index => $candidate) {
+                    $lines[] = ($index + 1).'. '.$candidate->company_name.' — '.$candidate->confidence.'%';
+                    $lines[] = Str::limit((string) $candidate->explanation, 320, '…');
+                }
             }
         }
 
@@ -63,12 +78,15 @@ class VacancyTelegramResultFormatter
 
         $topSources = $investigation->sources
             ->sortByDesc('evidence_score')
-            ->take(3)
+            ->groupBy('provider')
+            ->flatMap(fn ($group) => $group->take($group->first()->provider === 'telegram_reader' ? 1 : 2))
+            ->sortByDesc('evidence_score')
+            ->take(5)
             ->values();
 
         if ($topSources->isNotEmpty()) {
             $lines[] = '';
-            $lines[] = 'Сильнейшие источники:';
+            $lines[] = 'Что подтверждает результат:';
 
             foreach ($topSources as $source) {
                 $title = $source->title

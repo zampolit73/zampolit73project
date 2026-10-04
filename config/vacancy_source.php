@@ -2,6 +2,7 @@
 
 return [
     'minimum_confidence' => 60,
+    'hypothesis_confidence' => 40,
 
     'max_saved_sources' => 28,
 
