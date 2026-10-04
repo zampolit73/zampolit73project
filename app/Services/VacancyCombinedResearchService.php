@@ -6,6 +6,7 @@ class VacancyCombinedResearchService
 {
     public function __construct(
         private readonly VacancyWebResearchService $web,
+        private readonly HabrCareerResearchService $habr,
         private readonly VacancyTelegramResearchService $telegram,
         private readonly VacancySignalExtractor $extractor,
     ) {
@@ -14,9 +15,10 @@ class VacancyCombinedResearchService
     public function research(string $text): array
     {
         $telegram = $this->telegram->research($text);
+        $habr = $this->habr->research($text);
         $web = $this->web->research($text);
 
-        $sources = [...$web['sources'], ...$telegram['sources']];
+        $sources = [...$web['sources'], ...$habr['sources'], ...$telegram['sources']];
         usort($sources, fn (array $a, array $b) => $b['evidence_score'] <=> $a['evidence_score']);
         $sources = array_slice(
             $sources,
@@ -26,6 +28,7 @@ class VacancyCombinedResearchService
 
         $candidates = $this->mergeCandidates(
             $web['candidates'],
+            $habr['candidates'],
             $telegram['candidates'],
             $sources,
         );
@@ -34,25 +37,39 @@ class VacancyCombinedResearchService
             'signals' => $web['signals'] ?? $telegram['signals'],
             'queries' => $web['queries'] ?? [],
             'telegram_query' => $telegram['query'] ?? null,
+            'habr_queries' => $habr['queries'] ?? [],
             'sources' => $sources,
             'candidates' => $candidates,
-            'summary' => $this->buildSummary($candidates, $sources, $web, $telegram),
+            'summary' => $this->buildSummary($candidates, $sources, $web, $habr, $telegram),
             'provider_successes' => (int) ($web['provider_successes'] ?? 0)
+                + (int) ($habr['provider_successes'] ?? 0)
                 + (int) ($telegram['provider_successes'] ?? 0),
             'provider_failures' => [
                 ...($web['provider_failures'] ?? []),
+                ...($habr['provider_failures'] ?? []),
                 ...($telegram['provider_failures'] ?? []),
             ],
-            'partial' => (bool) ($web['partial'] ?? true) && (bool) ($telegram['partial'] ?? true),
+            'partial' => (bool) ($web['partial'] ?? true)
+                && (bool) ($habr['partial'] ?? true)
+                && (bool) ($telegram['partial'] ?? true),
         ];
     }
 
-    private function mergeCandidates(array $webCandidates, array $telegramCandidates, array $sources): array
+    private function mergeCandidates(
+        array $webCandidates,
+        array $habrCandidates,
+        array $telegramCandidates,
+        array $sources,
+    ): array
     {
         $groups = [];
 
         foreach ($webCandidates as $candidate) {
             $this->pushCandidate($groups, $candidate, 'bing_rss');
+        }
+
+        foreach ($habrCandidates as $candidate) {
+            $this->pushCandidate($groups, $candidate, 'habr_career');
         }
 
         foreach ($telegramCandidates as $candidate) {
@@ -93,17 +110,22 @@ class VacancyCombinedResearchService
             if (in_array('bing_rss', $providerSet, true)) {
                 $providersLabel[] = 'web';
             }
+            if (in_array('habr_career', $providerSet, true)) {
+                $providersLabel[] = 'Habr Career';
+            }
             if (in_array('telegram_reader', $providerSet, true)) {
                 $providersLabel[] = 'Telegram';
             }
 
             $explanation = $best['explanation'];
             if (count($providerSet) > 1) {
-                $explanation .= ' Независимое подтверждение: web + Telegram.';
+                $explanation .= ' Независимое подтверждение: '.implode(' + ', $providersLabel).'.';
             } elseif ($providerSet === ['telegram_reader']) {
-                $explanation .= ' Подтверждение только Telegram; независимого веб-подтверждения нет.';
+                $explanation .= ' Подтверждение только Telegram; независимого web/Habr подтверждения нет.';
+            } elseif ($providerSet === ['habr_career']) {
+                $explanation .= ' Подтверждение найдено на Habr Career; других независимых источников пока нет.';
             } elseif ($providerSet === ['bing_rss']) {
-                $explanation .= ' Telegram-корпус не дал независимого подтверждения этому кандидату.';
+                $explanation .= ' Habr Career и Telegram не дали независимого подтверждения этому кандидату.';
             }
 
             $result[] = [
@@ -142,10 +164,17 @@ class VacancyCombinedResearchService
         $groups[$key]['providers'][] = $provider;
     }
 
-    private function buildSummary(array $candidates, array $sources, array $web, array $telegram): string
+    private function buildSummary(
+        array $candidates,
+        array $sources,
+        array $web,
+        array $habr,
+        array $telegram,
+    ): string
     {
         $endClients = array_values(array_filter($candidates, fn (array $candidate) => $candidate['is_end_client']));
         $webCount = count(array_filter($sources, fn (array $source) => $source['provider'] === 'bing_rss'));
+        $habrCount = count(array_filter($sources, fn (array $source) => $source['provider'] === 'habr_career'));
         $telegramCount = count(array_filter($sources, fn (array $source) => $source['provider'] === 'telegram_reader'));
 
         if ($endClients !== []) {
@@ -154,23 +183,36 @@ class VacancyCombinedResearchService
 
             $summary = 'Вероятный конечный клиент: '.$best['company_name'].' — '.$best['confidence'].'%.';
 
-            if (in_array('telegram_reader', $providers, true) && in_array('bing_rss', $providers, true)) {
-                $summary .= ' Кандидат подтверждается независимо web и Telegram.';
-            } elseif (in_array('telegram_reader', $providers, true)) {
-                $summary .= ' Подтверждение найдено только в Telegram-корпусе; независимого web-подтверждения нет.';
-            } else {
-                $summary .= ' Подтверждение найдено в открытом web; Telegram независимого подтверждения не дал.';
+            $labels = [];
+            if (in_array('bing_rss', $providers, true)) {
+                $labels[] = 'web';
+            }
+            if (in_array('habr_career', $providers, true)) {
+                $labels[] = 'Habr Career';
+            }
+            if (in_array('telegram_reader', $providers, true)) {
+                $labels[] = 'Telegram';
             }
 
-            return $summary.' Сильных источников: web '.$webCount.', Telegram '.$telegramCount.'.';
+            if (count($labels) > 1) {
+                $summary .= ' Кандидат подтверждается независимо: '.implode(' + ', $labels).'.';
+            } elseif ($labels === ['Habr Career']) {
+                $summary .= ' Подтверждение найдено на Habr Career; других независимых подтверждений нет.';
+            } elseif ($labels === ['Telegram']) {
+                $summary .= ' Подтверждение найдено только в Telegram-корпусе; независимого web/Habr подтверждения нет.';
+            } else {
+                $summary .= ' Подтверждение найдено в открытом web; Habr Career и Telegram независимого подтверждения не дали.';
+            }
+
+            return $summary.' Сильных источников: web '.$webCount.', Habr '.$habrCount.', Telegram '.$telegramCount.'.';
         }
 
-        if (($web['partial'] ?? true) && ($telegram['partial'] ?? true)) {
-            return 'Оба исследовательских источника сейчас недоступны. Клиент не определён без проверяемых доказательств.';
+        if (($web['partial'] ?? true) && ($habr['partial'] ?? true) && ($telegram['partial'] ?? true)) {
+            return 'Все исследовательские источники сейчас недоступны. Клиент не определён без проверяемых доказательств.';
         }
 
         return 'Надёжный конечный клиент не определён. После дедупликации проверено сильных источников: web '
-            .$webCount.', Telegram '.$telegramCount
+            .$webCount.', Habr '.$habrCount.', Telegram '.$telegramCount
             .'. Ни один кандидат не набрал порог '
             .config('vacancy_source.minimum_confidence', 60).'%.';
     }

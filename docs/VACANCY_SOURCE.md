@@ -17,7 +17,7 @@ Laravel database queue: vacancy-source
         |
 signal extraction
         |
-Telegram Reader FTS + public web research (Bing RSS SERP)
+Telegram Reader FTS + Habr Career direct vacancy pages + public web research (Bing RSS SERP)
         |
 strict Telegram repost dedup + deterministic evidence scoring
         |
@@ -26,7 +26,7 @@ candidates + sources
 web live status/history + Telegram result
 ```
 
-Both research sources are active: public web and the locally indexed Telegram work-chat corpus. Telegram evidence is text-only and comes only from the selected Reader folder.
+Three research layers are active: public web, direct Habr Career vacancy pages, and the locally indexed Telegram work-chat corpus. Telegram evidence is text-only and comes only from the selected Reader folder.
 
 ## Access model
 
@@ -190,7 +190,7 @@ Telegram final messages and `/status` use the same persisted candidates/sources 
 
 If no candidate crosses the threshold, the result explicitly says the end client was not reliably determined.
 
-## Production diagnostics for web research
+## Production diagnostics for web and Habr research
 
 Deploy runs:
 
@@ -198,7 +198,23 @@ Deploy runs:
 php8.3 artisan vacancy:web:probe
 ```
 
-The probe uses a generic non-user vacancy query and prints only provider/result-host diagnostics. Failure is non-fatal for the website deploy, but is visible in Actions so public-search connectivity can be distinguished from application bugs.
+The probe uses generic non-user vacancy queries. It checks both the ordinary Bing RSS path and the Habr Career provider (Habr-specific discovery plus direct vacancy-page fetch/scoring), and prints only aggregate/provider diagnostics. Failure is non-fatal for the website deploy, but is visible in Actions so provider connectivity can be distinguished from application bugs.
+
+## Habr Career research
+
+Habr Career is a dedicated evidence provider, not just a generic web result.
+
+Flow:
+
+1. build up to three Habr-specific discovery queries from rare phrases, role and stack;
+2. use Bing RSS only to discover concrete `career.habr.com/vacancies/<id>` URLs;
+3. fetch at most five concrete Habr vacancy pages directly from `career.habr.com`;
+4. parse the vacancy title, full vacancy description and the structured employer from the Habr page;
+5. score the full Habr vacancy text using the same rare-phrase / technology / role / token-overlap family;
+6. persist the Habr URL as provider `habr_career`;
+7. treat recruiting/outstaff employer profiles as intermediaries when their company context contains corresponding markers.
+
+The generic web provider no longer spends one of its query slots on Habr; Habr search is isolated so its availability/failures and evidence strength are visible separately.
 
 ## Telegram research corpus — setup implementation
 

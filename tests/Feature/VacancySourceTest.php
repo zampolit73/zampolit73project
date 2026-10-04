@@ -7,6 +7,8 @@ use App\Models\InvestigationCandidate;
 use App\Models\InvestigationSource;
 use App\Models\User;
 use App\Models\VacancyInvestigation;
+use App\Services\BingRssSearchProvider;
+use App\Services\HabrCareerResearchService;
 use App\Services\TelegramBotClient;
 use App\Services\TelegramReaderClient;
 use App\Services\VacancyCombinedResearchService;
@@ -227,6 +229,70 @@ XML, 200, ['Content-Type' => 'application/rss+xml']),
             ->assertOk()
             ->assertJsonPath('candidates.0.company_name', 'Acme Digital')
             ->assertJsonPath('sources.0.url', 'https://hh.ru/vacancy/123456');
+    }
+
+    public function test_habr_career_provider_fetches_full_vacancy_and_structured_employer(): void
+    {
+        $input = implode("\n", [
+            'Backend Java developer',
+            'Требования:',
+            '— Java, Spring Boot, Kafka, PostgreSQL',
+            '— Опыт проектирования микросервисной архитектуры',
+            '— Интеграции через REST API',
+        ]);
+
+        $search = Mockery::mock(BingRssSearchProvider::class);
+        $search->shouldReceive('search')
+            ->atLeast()
+            ->once()
+            ->andReturn([
+                [
+                    'title' => 'Java developer — Хабр Карьера',
+                    'url' => 'https://career.habr.com/vacancies/1000999999',
+                    'snippet' => 'Java Spring Boot Kafka PostgreSQL',
+                    'published_at' => null,
+                ],
+            ]);
+
+        Http::fake([
+            'https://career.habr.com/vacancies/1000999999' => Http::response(<<<'HTML'
+<!doctype html>
+<html lang="ru">
+<head>
+  <title>Вакансия «Backend Java developer» в Москве, работа в компании «Acme Bank» — Хабр Карьера</title>
+</head>
+<body>
+  <h1>Backend Java developer</h1>
+  <h2>Компания</h2>
+  <div>
+    <a href="/companies/acme-bank">Acme Bank</a>
+    <p>Продуктовый банк и финтех-компания</p>
+  </div>
+  <h2>Описание вакансии</h2>
+  <div>
+    Java, Spring Boot, Apache Kafka, PostgreSQL.
+    Опыт проектирования микросервисной архитектуры.
+    Интеграции через REST API.
+  </div>
+</body>
+</html>
+HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
+        ]);
+
+        $service = new HabrCareerResearchService(
+            app(VacancySignalExtractor::class),
+            $search,
+        );
+
+        $result = $service->research($input);
+
+        $this->assertFalse($result['partial']);
+        $this->assertCount(1, $result['sources']);
+        $this->assertSame('habr_career', $result['sources'][0]['provider']);
+        $this->assertSame('Acme Bank', $result['sources'][0]['candidate_name']);
+        $this->assertGreaterThanOrEqual(60, $result['sources'][0]['evidence_score']);
+        $this->assertSame('Acme Bank', $result['candidates'][0]['company_name']);
+        $this->assertTrue($result['candidates'][0]['is_end_client']);
     }
 
     public function test_telegram_corpus_hit_is_deduplicated_and_persisted_as_evidence(): void

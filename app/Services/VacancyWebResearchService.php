@@ -120,7 +120,6 @@ class VacancyWebResearchService
         if ($phrases !== []) {
             $quoted = '"'.str_replace('"', '', Str::limit($phrases[0], 105, '')).'"';
             $queries[] = 'site:hh.ru/vacancy '.$quoted;
-            $queries[] = 'site:career.habr.com/vacancies '.$quoted;
         }
 
         if ($technologies !== [] || $roles !== []) {

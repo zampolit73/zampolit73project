@@ -11,6 +11,14 @@ return [
         'max_saved_sources' => 18,
     ],
 
+    'habr' => [
+        'max_queries' => 3,
+        'max_results_per_query' => 6,
+        'max_pages' => 5,
+        'max_saved_sources' => 12,
+        'minimum_source_score' => 30,
+    ],
+
     'telegram' => [
         'max_hits' => 40,
         'max_saved_sources' => 18,

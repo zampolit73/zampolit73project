@@ -1028,15 +1028,16 @@ Implemented now:
 - normalized vacancy text + fingerprint;
 - **real public-web search** through Bing RSS SERP, with no paid search key;
 - **real Telegram Reader FTS research** against the selected work-folder corpus;
+- **dedicated Habr Career research**: Habr-specific discovery plus direct fetch/scoring of concrete vacancy pages and structured employer extraction;
 - strict exact-normalized Telegram repost clustering before evidence scoring;
-- combined Telegram + web deterministic candidate scoring;
+- combined Telegram + Habr Career + web deterministic candidate scoring;
 - up to three end-client candidates above the 60% threshold;
 - direct vs indirect hypothesis label;
 - intermediaries separated with `is_end_client=false`;
 - persisted source links/snippets/evidence scores in `investigation_sources`;
 - web UI shows candidates, explanations and clickable sources;
 - Telegram progress/final result and `/status` include persisted candidate/source information;
-- deploy probe `vacancy:web:probe` checks public search connectivity without user data.
+- deploy probe `vacancy:web:probe` checks both generic web-search and Habr Career provider connectivity without user data.
 
 Current web-search v1 deliberately scores Bing result titles/snippets and does not pretend that full page content was verified when it was not fetched. Query generation uses rare requirement phrases, technology combinations, HH/Habr targeted searches, and RU/EN role variants. Scoring weights are explicit in `config/vacancy_source.php`; geography is zero-weight and seniority is effectively zero-weight.
 
@@ -1089,9 +1090,10 @@ Investigation integration is now active:
 
 - `VacancyTelegramResearchService` queries Reader FTS and scores full Telegram message text;
 - exact normalized reposts are clustered before scoring;
-- `VacancyCombinedResearchService` merges Telegram + web evidence by normalized company name;
-- cross-provider corroboration can add +10 confidence only when both Telegram and web independently support the same candidate;
-- Telegram-only candidates are explicitly labelled as lacking independent web confirmation;
+- `HabrCareerResearchService` discovers concrete Habr vacancy URLs, fetches the vacancy page directly, scores full vacancy text and reads the structured employer;
+- `VacancyCombinedResearchService` merges Telegram + Habr Career + generic web evidence by normalized company name;
+- cross-provider corroboration can add +10 confidence when at least two independent provider families support the same candidate;
+- single-provider candidates are explicitly labelled when Habr/web/Telegram corroboration is absent;
 - chat title remains display-only metadata and never contributes to candidate score;
 - public Telegram source links are clickable; private evidence uses an internal non-public reference and renders non-clickable;
 - admin review UI and quality metrics remain pending.

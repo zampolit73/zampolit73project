@@ -22,10 +22,10 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 - интерактивная страница «Сказки Пушкина» с анимированной книгой внутри авторизованной зоны проектов;
 - читательский дневник в виде книжной полки с локальными оценками и заметками внутри авторизованной зоны проектов;
 - «Рейтинг Коммерсанта» — общая SQLite-база рейтинга топ-менеджеров с редактируемыми LinkedIn-ссылками, вкладками направлений и ответственными за работу;
-- `Vacancy Source` — асинхронное расследование вакансий с Telegram Bot, database queue, реальным web-search v1 через Bing RSS, детерминированным scoring, источниками и историей; Telegram MTProto-корпус рабочих чатов — следующий слой;
+- `Vacancy Source` — асинхронное расследование вакансий с Telegram Bot, database queue, Telegram MTProto Reader, отдельным Habr Career provider, web-search через Bing RSS, детерминированным scoring, источниками и историей;
 - авторизация по username/password с двумя ролями: `admin`, `user`;
 - атомарные release-директории с `current` symlink;
-- GitHub Actions: test → build → deploy → health checks → admin push.
+- GitHub Actions: test → build → deploy → health checks (включая Vacancy Source web/Habr provider probes) → admin push.
 
 ## Основные страницы
 
@@ -39,7 +39,7 @@ Production PWA-приложение на Laravel + Inertia + Vue.
 | `/projects/pushkin-fairytales` | авторизованный | интерактивная анимированная книга со сказками Пушкина |
 | `/projects/reading-diary` | авторизованный | личная книжная полка с оценками, датами и заметками; данные хранятся в браузере |
 | `/projects/kommersant-ranking` | авторизованный | общая рабочая база рейтинга топ-менеджеров «Коммерсанта»: вкладки, LinkedIn, ответственные и кандидаты на проверку |
-| `/projects/vacancy-source` | авторизованный | расследование вакансии: live-status, web-search v1, кандидаты конечного клиента, источники и история |
+| `/projects/vacancy-source` | авторизованный | расследование вакансии: live-status, Telegram + Habr Career + web evidence, кандидаты конечного клиента, источники и история |
 | `/login` | гость | вход |
 | `/admin/users` | admin | список аккаунтов, создание пользователей и управление привязкой Telegram через одноразовые коды |
 | `/design-system` | admin | каталог UI-компонентов и дизайн-системы |

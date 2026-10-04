@@ -74,7 +74,11 @@ class VacancyTelegramResultFormatter
                 $title = $source->title
                     ? Str::limit($source->title, 110, '…')
                     : (parse_url($source->url, PHP_URL_HOST) ?: 'Источник');
-                $label = $source->provider === 'telegram_reader' ? 'Telegram' : 'Web';
+                $label = match ($source->provider) {
+                    'telegram_reader' => 'Telegram',
+                    'habr_career' => 'Habr Career',
+                    default => 'Web',
+                };
 
                 $lines[] = '• ['.$label.'] '.$title;
 
