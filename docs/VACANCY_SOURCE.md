@@ -344,3 +344,15 @@ The bot result is answer-first:
 - intermediaries are shown separately;
 - source cards are provider-diversified so one Telegram chat cannot occupy the entire evidence section;
 - if there is no 60% candidate but a 40%+ hypothesis exists, the summary names the best hypothesis and says what additional confirmation is missing.
+
+
+## Source role / provenance model
+
+A publisher is not automatically the end client.
+
+- Habr Career's structured employer is treated as the **publisher/employer** of that Habr vacancy. The provider additionally fetches the public Habr company profile and checks service-provider markers such as outsourcing, custom development, systems integration and “solutions for business”. When those markers are present, the Habr company is classified as an intermediary instead of an end client.
+- Telegram chat titles are normally display-only. A narrow exception exists for strongly structured client-partnership channel names such as `<Company> IT Partnership`, `<Company> Partners` or `Partner: <Company>`. Such a title may provide a provenance candidate only when the vacancy itself is already a strong textual match.
+- Generic chat names containing “аутстафф”, “вакансии”, “jobs”, “recruit” or “staffing” never create a client candidate.
+- Known company aliases are canonicalized before cross-provider merging. Current seed aliases normalize T-Bank / Tinkoff / Тинькофф to `Т-Банк`.
+
+This is intended to recover chains such as **end client → service provider → repost channel** instead of mistaking the Habr publisher for the end client.

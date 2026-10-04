@@ -175,7 +175,16 @@ class VacancyCombinedResearchService
     private function pushCandidate(array &$groups, array $candidate, string $provider): void
     {
         $key = $this->companyKey($candidate['company_name']);
-        $groups[$key]['company_name'] ??= $candidate['company_name'];
+        $canonicalName = $candidate['company_name'];
+
+        foreach ((array) config('vacancy_source.company_aliases', []) as $alias => $canonical) {
+            if ($this->extractor->normalize($canonicalName) === $this->extractor->normalize((string) $alias)) {
+                $canonicalName = (string) $canonical;
+                break;
+            }
+        }
+
+        $groups[$key]['company_name'] ??= $canonicalName;
         $groups[$key]['candidates'][] = $candidate;
         $groups[$key]['providers'][] = $provider;
     }
@@ -238,6 +247,15 @@ class VacancyCombinedResearchService
 
     private function companyKey(string $company): string
     {
-        return preg_replace('/[^\p{L}\p{N}]+/u', '', $this->extractor->normalize($company)) ?: $company;
+        $normalized = $this->extractor->normalize($company);
+
+        foreach ((array) config('vacancy_source.company_aliases', []) as $alias => $canonical) {
+            if ($normalized === $this->extractor->normalize((string) $alias)) {
+                $normalized = $this->extractor->normalize((string) $canonical);
+                break;
+            }
+        }
+
+        return preg_replace('/[^\p{L}\p{N}]+/u', '', $normalized) ?: $company;
     }
 }

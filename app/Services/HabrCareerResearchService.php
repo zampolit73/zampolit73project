@@ -49,6 +49,17 @@ class HabrCareerResearchService
         'аутстафф',
         'hr agency',
         'hr-агент',
+        'аутсорс',
+        'outsourcing',
+        'заказная разработка',
+        'системный интегратор',
+        'ит-интегратор',
+        'интегратор',
+        'решения для бизнеса',
+        'для лидеров российского бизнеса',
+        'поддержка и развитие ит-систем',
+        'поддержка и развитие информационных систем',
+        'предоставляем специалистов',
     ];
 
     public function __construct(
@@ -161,6 +172,9 @@ class HabrCareerResearchService
                 'candidate_is_intermediary' => $this->looksLikeIntermediary(
                     $page['company'].' '.$page['company_context'],
                 ),
+                'candidate_relation' => $this->looksLikeIntermediary(
+                    $page['company'].' '.$page['company_context'],
+                ) ? 'intermediary' : 'employer',
             ];
         }
 
@@ -374,13 +388,23 @@ class HabrCareerResearchService
             $description = $this->extractDescription($xpath) ?: $body;
             $companyContext = $this->companyContextFromNode($companyNode)
                 ?: $this->extractCompanyContext($xpath);
+            $companyUrl = $this->companyUrlFromNode($companyNode);
+
+            if ($companyUrl) {
+                try {
+                    $companyProfile = $this->fetchHtml($companyUrl, 'Habr Career company');
+                    $companyContext .= ' '.$this->extractor->normalize(strip_tags($companyProfile));
+                } catch (Throwable) {
+                    // Vacancy evidence remains usable even when company profile enrichment fails.
+                }
+            }
 
             return [
                 'title' => Str::limit($title ?: 'Вакансия на Хабр Карьере', 500, ''),
                 'company' => Str::limit($company, 120, ''),
                 'text' => $this->extractor->normalize($title.' '.$company.' '.$description),
                 'description' => $description,
-                'company_context' => $companyContext,
+                'company_context' => Str::limit($companyContext, 2500, ''),
             ];
         } finally {
             libxml_clear_errors();
@@ -419,6 +443,21 @@ class HabrCareerResearchService
         }
 
         return trim(implode(' ', $parts));
+    }
+
+    private function companyUrlFromNode(?\DOMNode $node): ?string
+    {
+        if (! $node instanceof \DOMElement) {
+            return null;
+        }
+
+        $href = trim($node->getAttribute('href'));
+
+        if (preg_match('#^/companies/[A-Za-z0-9_-]+/?$#', $href) !== 1) {
+            return null;
+        }
+
+        return 'https://career.habr.com'.rtrim($href, '/');
     }
 
     private function companyContextFromNode(?\DOMNode $node): string

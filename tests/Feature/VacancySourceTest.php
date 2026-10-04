@@ -434,6 +434,48 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
         $this->assertStringContainsString('2 совпадений', $result['sources'][0]['title']);
     }
 
+    public function test_partner_channel_can_supply_client_provenance_without_explicit_company_in_message(): void
+    {
+        $reader = Mockery::mock(TelegramReaderClient::class);
+        $reader->shouldReceive('search')->once()->andReturn([
+            [
+                'peer_id' => -100777,
+                'message_id' => 77,
+                'text' => 'Frontend developer. JavaScript React HTML CSS. Разработка пользовательских интерфейсов.',
+                'source_link' => null,
+                'chat_title' => 'T-Bank IT Partnership',
+            ],
+        ]);
+        $this->app->instance(TelegramReaderClient::class, $reader);
+
+        $service = app(\App\Services\VacancyTelegramResearchService::class);
+        $result = $service->research('Frontend developer JavaScript React HTML CSS пользовательские интерфейсы');
+
+        $this->assertNotEmpty($result['candidates']);
+        $this->assertSame('Т-Банк', $result['candidates'][0]['company_name']);
+        $this->assertStringContainsString('партнёрском Telegram-канале', $result['candidates'][0]['explanation']);
+    }
+
+    public function test_generic_outstaff_chat_title_is_not_used_as_client_provenance(): void
+    {
+        $reader = Mockery::mock(TelegramReaderClient::class);
+        $reader->shouldReceive('search')->once()->andReturn([
+            [
+                'peer_id' => -100778,
+                'message_id' => 78,
+                'text' => 'Frontend developer. JavaScript React HTML CSS.',
+                'source_link' => 'https://t.me/outstaff_requests_phpdev/78',
+                'chat_title' => 'Аутстафф / Вакансии',
+            ],
+        ]);
+        $this->app->instance(TelegramReaderClient::class, $reader);
+
+        $service = app(\App\Services\VacancyTelegramResearchService::class);
+        $result = $service->research('Frontend developer JavaScript React HTML CSS');
+
+        $this->assertEmpty($result['candidates']);
+    }
+
     public function test_web_research_does_not_invent_client_when_search_has_no_evidence(): void
     {
         Http::fake([

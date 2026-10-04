@@ -1032,6 +1032,9 @@ Implemented now:
 - strict exact-normalized Telegram repost clustering before evidence scoring;
 - combined Telegram + Habr Career + web deterministic candidate scoring;
 - result quality policy: 60%+ = probable client, 40–59% = visible hypothesis, <40% = suppressed noise;
+- source-role model: Habr structured employer is publisher/employer, not automatically the end client; public company profile is checked for outsourcing/custom-development/integrator/service-provider markers;
+- narrow Telegram provenance rule: strongly structured client partnership chat titles (for example `<Company> IT Partnership`) may supply a client candidate when the message itself strongly matches; generic “Аутстафф / Вакансии” style chats never do;
+- company aliases are canonicalized across providers (seed mapping includes T-Bank/Tinkoff/Тинькофф → `Т-Банк`);
 - user-facing Telegram evidence collapses multiple matches from the same chat into one representative card, so repost-heavy chats cannot dominate the answer;
 - Telegram bot result is answer-first and provider-diversified instead of printing three near-identical Telegram sources;
 - provider-level Telegram progress (Telegram → Habr → Web → analysis) instead of one silent research stage;

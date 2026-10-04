@@ -59,9 +59,15 @@ class VacancyTelegramResearchService
                 continue;
             }
 
+            $chatTitle = (string) ($hit['chat_title'] ?? 'рабочий чат');
+            $explicitCandidate = $this->inferCompany($signals, (string) ($hit['text'] ?? ''));
+            $provenanceCandidate = $explicitCandidate
+                ? null
+                : $this->inferCompanyFromChatTitle($chatTitle);
+
             $source = [
                 'provider' => 'telegram_reader',
-                'title' => 'Telegram · '.Str::limit((string) ($hit['chat_title'] ?? 'рабочий чат'), 120, '…'),
+                'title' => 'Telegram · '.Str::limit($chatTitle, 120, '…'),
                 'url' => $this->sourceUrl($hit),
                 'snippet' => Str::limit((string) ($hit['text'] ?? ''), 1800, '…'),
                 'search_query' => $query,
@@ -70,7 +76,8 @@ class VacancyTelegramResearchService
                 'technology_hits' => $evidence['technology_hits'],
                 'role_hits' => $evidence['role_hits'],
                 'reason' => $evidence['reason'],
-                'candidate_name' => $this->inferCompany($signals, (string) ($hit['text'] ?? '')),
+                'candidate_name' => $explicitCandidate ?? $provenanceCandidate,
+                'candidate_origin' => $explicitCandidate ? 'message_explicit' : ($provenanceCandidate ? 'chat_provenance' : null),
                 'telegram_peer_id' => (int) ($hit['peer_id'] ?? 0),
                 'telegram_message_id' => (int) ($hit['message_id'] ?? 0),
                 'telegram_message_date' => $hit['message_date'] ?? null,
@@ -229,6 +236,13 @@ class VacancyTelegramResearchService
             $best = $candidateSources[0];
             $confidence = min(95, (int) $best['evidence_score']);
 
+            if (($best['candidate_origin'] ?? null) === 'chat_provenance') {
+                $confidence = max(
+                    (int) config('vacancy_source.hypothesis_confidence', 40),
+                    $confidence - (int) config('vacancy_source.scoring.telegram_provenance_penalty', 8),
+                );
+            }
+
             if ($confidence < (int) config('vacancy_source.hypothesis_confidence', 40)) {
                 continue;
             }
@@ -242,7 +256,12 @@ class VacancyTelegramResearchService
                     : 'indirect',
                 'confidence' => $confidence,
                 'is_end_client' => $isEndClient,
-                'explanation' => 'Сильнейшее совпадение в Telegram '.$best['evidence_score'].'/100: '.$best['reason'].'.'
+                'explanation' => (($best['candidate_origin'] ?? null) === 'chat_provenance'
+                    ? 'Вакансия найдена в специализированном партнёрском Telegram-канале «'
+                        .preg_replace('/^Telegram · /u', '', (string) $best['title'])
+                        .'». Название канала используется как provenance-сигнал; совпадение вакансии '
+                        .$best['evidence_score'].'/100: '.$best['reason'].'.'
+                    : 'Сильнейшее совпадение в Telegram '.$best['evidence_score'].'/100: '.$best['reason'].'.')
                     .($isEndClient ? '' : ' Название похоже на рекрутингового/аутстафф-посредника.'),
                 'source_urls' => array_values(array_unique(array_column(array_slice($candidateSources, 0, 3), 'url'))),
                 'providers' => ['telegram_reader'],
@@ -292,6 +311,48 @@ class VacancyTelegramResearchService
         return $result;
     }
 
+    private function inferCompanyFromChatTitle(string $title): ?string
+    {
+        $title = trim($title);
+
+        if ($title === '' || preg_match('/(?:аутстафф|вакансии|jobs?|recruit|подбор|staffing)/iu', $title)) {
+            return null;
+        }
+
+        $patterns = [
+            '/^(.{2,70}?)\s+(?:IT\s+)?Partnership$/iu',
+            '/^(.{2,70}?)\s+(?:Partners?|Партн[её]ры)$/iu',
+            '/^(?:Partner|Партн[её]рский\s+канал)\s*[:—-]\s*(.{2,70})$/iu',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (! preg_match($pattern, $title, $matches)) {
+                continue;
+            }
+
+            $company = trim($matches[1]);
+
+            if ($company !== '') {
+                return $this->canonicalCompanyName($company);
+            }
+        }
+
+        return null;
+    }
+
+    private function canonicalCompanyName(string $company): string
+    {
+        $normalized = $this->extractor->normalize($company);
+
+        foreach ((array) config('vacancy_source.company_aliases', []) as $alias => $canonical) {
+            if ($normalized === $this->extractor->normalize((string) $alias)) {
+                return (string) $canonical;
+            }
+        }
+
+        return trim($company);
+    }
+
     private function inferCompany(array $signals, string $text): ?string
     {
         $normalized = $this->extractor->normalize($text);
@@ -338,7 +399,7 @@ class VacancyTelegramResearchService
             return null;
         }
 
-        return Str::limit($value, 80, '');
+        return Str::limit($this->canonicalCompanyName($value), 80, '');
     }
 
     private function sourceUrl(array $hit): string

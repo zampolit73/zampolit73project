@@ -4,6 +4,16 @@ return [
     'minimum_confidence' => 60,
     'hypothesis_confidence' => 40,
 
+    'company_aliases' => [
+        't-bank' => 'Т-Банк',
+        't bank' => 'Т-Банк',
+        'tinkoff' => 'Т-Банк',
+        'tinkoff bank' => 'Т-Банк',
+        'тинькофф' => 'Т-Банк',
+        'тинькофф банк' => 'Т-Банк',
+        'т-банк' => 'Т-Банк',
+    ],
+
     'max_saved_sources' => 28,
 
     'web' => [
@@ -45,5 +55,6 @@ return [
         'corroboration_cap' => 14,
         'explicit_company_candidate' => 8,
         'cross_provider_corroboration' => 10,
+        'telegram_provenance_penalty' => 8,
     ],
 ];
