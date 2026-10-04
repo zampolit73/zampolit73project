@@ -173,6 +173,7 @@ class VacancySourceTest extends TestCase
   </channel>
 </rss>
 XML, 200, ['Content-Type' => 'application/rss+xml']),
+            'https://career.habr.com/*' => Http::response('', 404),
         ]);
 
         $user = $this->user();
@@ -301,6 +302,7 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
                 200,
                 ['Content-Type' => 'application/rss+xml'],
             ),
+            'https://career.habr.com/*' => Http::response('', 404),
         ]);
 
         $vacancy = implode("\n", [
@@ -377,6 +379,7 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
                 200,
                 ['Content-Type' => 'application/rss+xml'],
             ),
+            'https://career.habr.com/*' => Http::response('', 404),
         ]);
 
         $user = $this->user();
