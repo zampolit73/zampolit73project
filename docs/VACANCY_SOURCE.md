@@ -206,15 +206,16 @@ Habr Career is a dedicated evidence provider, not just a generic web result.
 
 Flow:
 
-1. build up to three Habr-specific discovery queries from rare phrases, role and stack;
-2. use Bing RSS only to discover concrete `career.habr.com/vacancies/<id>` URLs;
-3. fetch at most five concrete Habr vacancy pages directly from `career.habr.com`;
-4. parse the vacancy title, full vacancy description and the structured employer from the Habr page;
-5. score the full Habr vacancy text using the same rare-phrase / technology / role / token-overlap family;
-6. persist the Habr URL as provider `habr_career`;
-7. treat recruiting/outstaff employer profiles as intermediaries when their company context contains corresponding markers.
+1. map known technologies to Habr Career skill catalogs (for example `/vacancies/skills/java`, `/kafka`, `/postgresql`) and fetch up to four catalog pages directly;
+2. collect concrete `career.habr.com/vacancies/<id>` URLs from those live Habr catalogs and rank vacancies appearing under several matching skills higher;
+3. additionally run up to three Habr-specific Bing discovery queries for rare phrases that skill catalogs cannot express;
+4. fetch at most five concrete Habr vacancy pages directly from `career.habr.com`;
+5. parse the vacancy title, full vacancy description and the structured employer from the Habr page;
+6. score the full Habr vacancy text using the same rare-phrase / technology / role / token-overlap family;
+7. persist the Habr URL as provider `habr_career`;
+8. treat recruiting/outstaff employer profiles as intermediaries when their company context contains corresponding markers.
 
-The generic web provider no longer spends one of its query slots on Habr; Habr search is isolated so its availability/failures and evidence strength are visible separately.
+The generic web provider no longer spends one of its query slots on Habr. Habr discovery is direct-first through live skill catalogs, with Bing only as a supplementary rare-phrase path, so Habr availability/failures and evidence strength are visible separately.
 
 ## Telegram research corpus — setup implementation
 

@@ -12,6 +12,31 @@ use Throwable;
 
 class HabrCareerResearchService
 {
+    private const SKILL_SLUGS = [
+        'JavaScript' => 'javascript',
+        'TypeScript' => 'typescript',
+        'React' => 'react',
+        'Java' => 'java',
+        'Kotlin' => 'kotlin',
+        'Spring' => 'java-spring-framework',
+        'Kafka' => 'kafka',
+        'PostgreSQL' => 'postgresql',
+        'Python' => 'python',
+        'Django' => 'django',
+        'Go' => 'golang',
+        'C#' => 'c-sharp',
+        '.NET' => 'dot-net',
+        'PHP' => 'php',
+        'Ruby' => 'ruby',
+        'Kubernetes' => 'kubernetes',
+        'Docker' => 'docker',
+        'Redis' => 'redis',
+        'RabbitMQ' => 'rabbitmq',
+        'ClickHouse' => 'clickhouse',
+        'MongoDB' => 'mongodb',
+        'SAP' => 'sap',
+    ];
+
     private const INTERMEDIARY_MARKERS = [
         'recruit',
         'recruitment',
@@ -40,6 +65,25 @@ class HabrCareerResearchService
         $searchSuccesses = 0;
         $failures = [];
 
+        foreach ($this->buildSkillPages($signals) as $skillPage) {
+            try {
+                $urls = $this->discoverVacanciesFromListing($skillPage['url']);
+                $searchSuccesses++;
+            } catch (Throwable $exception) {
+                $failures[] = Str::limit($exception->getMessage(), 160);
+                continue;
+            }
+
+            foreach ($urls as $url) {
+                $this->rememberDiscovered(
+                    $discovered,
+                    $url,
+                    'Habr skill: '.$skillPage['technology'],
+                    1,
+                );
+            }
+        }
+
         foreach ($queries as $query) {
             try {
                 $results = $this->search->search(
@@ -53,22 +97,26 @@ class HabrCareerResearchService
             }
 
             foreach ($results as $result) {
-                if (! $this->isHabrVacancyUrl((string) ($result['url'] ?? ''))) {
+                $url = (string) ($result['url'] ?? '');
+
+                if (! $this->isHabrVacancyUrl($url)) {
                     continue;
                 }
 
-                $key = mb_strtolower(rtrim((string) $result['url'], '/'));
-                $discovered[$key] ??= [
-                    'url' => (string) $result['url'],
-                    'search_query' => $query,
-                ];
+                $this->rememberDiscovered($discovered, $url, $query, 2);
             }
         }
+
+        $rankedDiscovered = array_values($discovered);
+        usort(
+            $rankedDiscovered,
+            fn (array $a, array $b) => $b['discovery_score'] <=> $a['discovery_score'],
+        );
 
         $sources = [];
         $pageLimit = (int) config('vacancy_source.habr.max_pages', 5);
 
-        foreach (array_slice(array_values($discovered), 0, max(1, $pageLimit)) as $item) {
+        foreach (array_slice($rankedDiscovered, 0, max(1, $pageLimit)) as $item) {
             try {
                 $page = $this->fetchVacancy($item['url']);
             } catch (Throwable $exception) {
@@ -88,7 +136,7 @@ class HabrCareerResearchService
                 'url' => $item['url'],
                 'snippet' => Str::limit($page['description'], 1800, '…'),
                 'published_at' => null,
-                'search_query' => $item['search_query'],
+                'search_query' => implode(' | ', $item['discovery']),
                 'evidence_score' => $evidence['score'],
                 'phrase_hits' => $evidence['phrase_hits'],
                 'technology_hits' => $evidence['technology_hits'],
@@ -117,6 +165,95 @@ class HabrCareerResearchService
             'provider_failures' => $failures,
             'partial' => $searchSuccesses === 0,
         ];
+    }
+
+    private function buildSkillPages(array $signals): array
+    {
+        $pages = [];
+
+        foreach (array_slice($signals['technologies'], 0, 8) as $technology) {
+            $slug = self::SKILL_SLUGS[$technology] ?? null;
+
+            if (! $slug) {
+                continue;
+            }
+
+            $pages[$slug] = [
+                'technology' => $technology,
+                'url' => 'https://career.habr.com/vacancies/skills/'.$slug,
+            ];
+
+            if (count($pages) >= (int) config('vacancy_source.habr.max_skill_pages', 4)) {
+                break;
+            }
+        }
+
+        return array_values($pages);
+    }
+
+    private function discoverVacanciesFromListing(string $url): array
+    {
+        $html = $this->fetchHtml($url, 'Habr Career listing');
+        $previous = libxml_use_internal_errors(true);
+
+        try {
+            $document = new DOMDocument();
+            $loaded = $document->loadHTML(
+                '<?xml encoding="utf-8" ?>'.$html,
+                LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING,
+            );
+
+            if (! $loaded) {
+                throw new RuntimeException('Habr Career listing returned invalid HTML.');
+            }
+
+            $xpath = new DOMXPath($document);
+            $urls = [];
+
+            foreach ($xpath->query('//a[@href]') as $node) {
+                $href = trim((string) $node->getAttribute('href'));
+
+                if (preg_match('#^/vacancies/\d+/?$#', $href) !== 1) {
+                    continue;
+                }
+
+                $fullUrl = 'https://career.habr.com'.rtrim($href, '/');
+                $urls[$fullUrl] = true;
+
+                if (count($urls) >= (int) config('vacancy_source.habr.max_listing_vacancies', 30)) {
+                    break;
+                }
+            }
+
+            return array_keys($urls);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+    }
+
+    private function rememberDiscovered(
+        array &$discovered,
+        string $url,
+        string $discovery,
+        int $score,
+    ): void {
+        if (! $this->isHabrVacancyUrl($url)) {
+            return;
+        }
+
+        $key = mb_strtolower(rtrim($url, '/'));
+
+        $discovered[$key] ??= [
+            'url' => rtrim($url, '/'),
+            'discovery' => [],
+            'discovery_score' => 0,
+        ];
+
+        if (! in_array($discovery, $discovered[$key]['discovery'], true)) {
+            $discovered[$key]['discovery'][] = $discovery;
+            $discovered[$key]['discovery_score'] += $score;
+        }
     }
 
     private function buildQueries(array $signals): array
@@ -152,6 +289,11 @@ class HabrCareerResearchService
 
     private function fetchVacancy(string $url): array
     {
+        return $this->parseVacancyHtml($this->fetchHtml($url, 'Habr Career vacancy'));
+    }
+
+    private function fetchHtml(string $url, string $label): string
+    {
         try {
             $response = Http::withHeaders([
                 'User-Agent' => 'Mozilla/5.0 (compatible; Zampolit73VacancyResearch/1.0)',
@@ -161,20 +303,20 @@ class HabrCareerResearchService
                 ->timeout(12)
                 ->get($url);
         } catch (ConnectionException $exception) {
-            throw new RuntimeException('Habr Career connection failed.', previous: $exception);
+            throw new RuntimeException($label.' connection failed.', previous: $exception);
         }
 
         if (! $response->successful()) {
-            throw new RuntimeException('Habr Career returned HTTP '.$response->status().'.');
+            throw new RuntimeException($label.' returned HTTP '.$response->status().'.');
         }
 
         $html = $response->body();
 
         if (trim($html) === '') {
-            throw new RuntimeException('Habr Career returned an empty page.');
+            throw new RuntimeException($label.' returned an empty page.');
         }
 
-        return $this->parseVacancyHtml($html);
+        return $html;
     }
 
     private function parseVacancyHtml(string $html): array

@@ -14,6 +14,8 @@ return [
     'habr' => [
         'max_queries' => 3,
         'max_results_per_query' => 6,
+        'max_skill_pages' => 4,
+        'max_listing_vacancies' => 30,
         'max_pages' => 5,
         'max_saved_sources' => 12,
         'minimum_source_score' => 30,

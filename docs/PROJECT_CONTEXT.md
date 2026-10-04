@@ -1028,7 +1028,7 @@ Implemented now:
 - normalized vacancy text + fingerprint;
 - **real public-web search** through Bing RSS SERP, with no paid search key;
 - **real Telegram Reader FTS research** against the selected work-folder corpus;
-- **dedicated Habr Career research**: Habr-specific discovery plus direct fetch/scoring of concrete vacancy pages and structured employer extraction;
+- **dedicated Habr Career research**: direct live skill-catalog discovery plus supplementary Habr-specific Bing discovery, followed by direct fetch/scoring of concrete vacancy pages and structured employer extraction;
 - strict exact-normalized Telegram repost clustering before evidence scoring;
 - combined Telegram + Habr Career + web deterministic candidate scoring;
 - up to three end-client candidates above the 60% threshold;
@@ -1090,7 +1090,7 @@ Investigation integration is now active:
 
 - `VacancyTelegramResearchService` queries Reader FTS and scores full Telegram message text;
 - exact normalized reposts are clustered before scoring;
-- `HabrCareerResearchService` discovers concrete Habr vacancy URLs, fetches the vacancy page directly, scores full vacancy text and reads the structured employer;
+- `HabrCareerResearchService` discovers concrete Habr vacancy URLs primarily from live Habr skill catalogs (with cross-skill overlap ranking), uses Bing only as supplementary rare-phrase discovery, then fetches the vacancy page directly, scores full vacancy text and reads the structured employer;
 - `VacancyCombinedResearchService` merges Telegram + Habr Career + generic web evidence by normalized company name;
 - cross-provider corroboration can add +10 confidence when at least two independent provider families support the same candidate;
 - single-provider candidates are explicitly labelled when Habr/web/Telegram corroboration is absent;

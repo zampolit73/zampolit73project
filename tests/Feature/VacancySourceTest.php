@@ -245,16 +245,14 @@ XML, 200, ['Content-Type' => 'application/rss+xml']),
         $search->shouldReceive('search')
             ->atLeast()
             ->once()
-            ->andReturn([
-                [
-                    'title' => 'Java developer — Хабр Карьера',
-                    'url' => 'https://career.habr.com/vacancies/1000999999',
-                    'snippet' => 'Java Spring Boot Kafka PostgreSQL',
-                    'published_at' => null,
-                ],
-            ]);
+            ->andReturn([]);
 
         Http::fake([
+            'https://career.habr.com/vacancies/skills/*' => Http::response(
+                '<html><body><a href="/vacancies/1000999999">Backend Java developer</a></body></html>',
+                200,
+                ['Content-Type' => 'text/html; charset=UTF-8'],
+            ),
             'https://career.habr.com/vacancies/1000999999' => Http::response(<<<'HTML'
 <!doctype html>
 <html lang="ru">
