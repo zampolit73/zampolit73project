@@ -361,7 +361,7 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
 
         $this->assertSame('completed', $investigation->status);
         $this->assertStringContainsString('Acme Bank', (string) $investigation->result_summary);
-        $this->assertStringContainsString('только в Telegram', (string) $investigation->result_summary);
+        $this->assertStringContainsString('источником: Telegram', (string) $investigation->result_summary);
 
         $candidate = InvestigationCandidate::query()->firstOrFail();
         $this->assertSame('Acme Bank', $candidate->company_name);
@@ -387,12 +387,12 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
                 ['Content-Type' => 'text/html; charset=UTF-8'],
             ),
             'https://career.habr.com/vacancies/1000888888' => Http::response(<<<'HTML'
-<html><head><title>Вакансия «Java developer» в компании «Example Bank» — Хабр Карьера</title></head>
+<html><head><title>Вакансия «Backend Java developer» в компании «Example Bank» — Хабр Карьера</title></head>
 <body>
-<h1>Java developer</h1>
+<h1>Backend Java developer</h1>
 <a href="/companies/example-bank">Example Bank</a>
 <h2>Описание вакансии</h2>
-<div>Java, PostgreSQL, микросервисная архитектура.</div>
+<div>Backend Java, Kafka, PostgreSQL, микросервисная архитектура.</div>
 </body></html>
 HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
         ]);
