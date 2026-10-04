@@ -194,6 +194,47 @@ class TelegramBotTest extends TestCase
         $this->assertStringContainsString('Тестовый результат расследования.', (string) $response->json('text'));
     }
 
+    public function test_status_recovers_stale_running_investigation(): void
+    {
+        $user = $this->user('stale-status-user');
+
+        UserTelegramAccount::query()->create([
+            'user_id' => $user->id,
+            'telegram_user_id' => 555003,
+            'telegram_chat_id' => 555003,
+            'telegram_username' => 'stale_user',
+            'linked_at' => now(),
+        ]);
+
+        $investigation = VacancyInvestigation::query()->create([
+            'user_id' => $user->id,
+            'input_source' => 'telegram',
+            'input_text' => 'A sufficiently long vacancy text for a stale running investigation.',
+            'status' => 'running',
+            'progress_stage' => 'web_search',
+            'progress_text' => 'Проверяю открытый web',
+            'queued_at' => now()->subMinutes(12),
+            'started_at' => now()->subMinutes(10),
+        ]);
+
+        $response = $this->webhook([
+            'update_id' => 44,
+            'message' => [
+                'message_id' => 133,
+                'from' => ['id' => 555003, 'username' => 'stale_user'],
+                'chat' => ['id' => 555003, 'type' => 'private'],
+                'text' => '/status',
+            ],
+        ])->assertOk();
+
+        $investigation->refresh();
+
+        $this->assertSame('failed', $investigation->status);
+        $this->assertSame('failed', $investigation->progress_stage);
+        $this->assertNotNull($investigation->finished_at);
+        $this->assertStringContainsString('превысила допустимое время', (string) $response->json('text'));
+    }
+
     public function test_unbound_private_user_is_told_to_request_admin_code(): void
     {
         $response = $this->webhook([

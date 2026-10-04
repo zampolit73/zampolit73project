@@ -157,12 +157,28 @@ class TelegramUpdateHandler
             return 'У тебя пока нет расследований. Пришли текст вакансии обычным сообщением или Forward.';
         }
 
+        if (
+            $investigation->status === 'running'
+            && $investigation->started_at
+            && $investigation->started_at->lt(now()->subMinutes(8))
+        ) {
+            $investigation->update([
+                'status' => 'failed',
+                'progress_stage' => 'failed',
+                'progress_text' => 'Проверка превысила допустимое время выполнения и была остановлена.',
+                'finished_at' => now(),
+            ]);
+            $investigation->refresh();
+        }
+
         if (in_array($investigation->status, ['completed', 'partial'], true)) {
             return $this->formatter->format($investigation);
         }
 
         if ($investigation->status === 'failed') {
-            return 'Проверка #'.$investigation->id.' завершилась с ошибкой. Открой веб-историю или запусти новую проверку позже.';
+            return 'Проверка #'.$investigation->id.' завершилась с ошибкой: '
+                .($investigation->progress_text ?: 'не удалось завершить расследование')
+                .'. Можно сразу прислать вакансию ещё раз.';
         }
 
         if ($investigation->status === 'cancelled') {

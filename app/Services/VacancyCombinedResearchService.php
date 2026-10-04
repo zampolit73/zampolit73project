@@ -12,10 +12,26 @@ class VacancyCombinedResearchService
     ) {
     }
 
-    public function research(string $text): array
+    public function research(string $text, ?callable $progress = null): array
     {
         $telegram = $this->telegram->research($text);
+
+        if ($progress) {
+            $progress(
+                'habr_search',
+                'Telegram-корпус проверен. Теперь ищу совпадения на Habr Career',
+            );
+        }
+
         $habr = $this->habr->research($text);
+
+        if ($progress) {
+            $progress(
+                'web_search',
+                'Habr Career проверен. Теперь проверяю остальной открытый web',
+            );
+        }
+
         $web = $this->web->research($text);
 
         $sources = [...$web['sources'], ...$habr['sources'], ...$telegram['sources']];

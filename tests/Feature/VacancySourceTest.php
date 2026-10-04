@@ -292,6 +292,8 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
         $this->assertGreaterThanOrEqual(60, $result['sources'][0]['evidence_score']);
         $this->assertSame('Acme Bank', $result['candidates'][0]['company_name']);
         $this->assertTrue($result['candidates'][0]['is_end_client']);
+        $this->assertLessThanOrEqual(3, config('vacancy_source.habr.max_pages'));
+        $this->assertLessThanOrEqual(6, config('vacancy_source.habr.request_timeout'));
     }
 
     public function test_telegram_corpus_hit_is_deduplicated_and_persisted_as_evidence(): void

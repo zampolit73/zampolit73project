@@ -74,9 +74,17 @@ class RunVacancyInvestigation implements ShouldQueue
             'Проверка #'.$investigation->id.': проверяю рабочий Telegram-корпус и открытый web.',
         );
 
-        $this->advance('web_search', 'Проверяю открытый web по редким фразам и стеку');
-
-        $result = $research->research($investigation->input_text);
+        $result = $research->research(
+            $investigation->input_text,
+            function (string $stage, string $message) use ($telegramBot, $telegramChatId, $investigation): void {
+                $this->advance($stage, $message);
+                $this->notifyTelegram(
+                    $telegramBot,
+                    $telegramChatId,
+                    'Проверка #'.$investigation->id.': '.$message.'.',
+                );
+            },
+        );
 
         $this->advance('candidate_analysis', 'Проверяю кандидатов, источники и силу совпадений');
         $this->notifyTelegram(

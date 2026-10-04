@@ -64,8 +64,14 @@ class HabrCareerResearchService
         $discovered = [];
         $searchSuccesses = 0;
         $failures = [];
+        $deadline = microtime(true) + (float) config('vacancy_source.habr.max_elapsed_seconds', 50);
 
         foreach ($this->buildSkillPages($signals) as $skillPage) {
+            if ($this->deadlineReached($deadline)) {
+                $failures[] = 'Habr Career time budget reached during skill discovery.';
+                break;
+            }
+
             try {
                 $urls = $this->discoverVacanciesFromListing($skillPage['url']);
                 $searchSuccesses++;
@@ -85,6 +91,10 @@ class HabrCareerResearchService
         }
 
         foreach ($queries as $query) {
+            if ($this->secondsRemaining($deadline) < 14) {
+                break;
+            }
+
             try {
                 $results = $this->search->search(
                     $query,
@@ -117,6 +127,11 @@ class HabrCareerResearchService
         $pageLimit = (int) config('vacancy_source.habr.max_pages', 5);
 
         foreach (array_slice($rankedDiscovered, 0, max(1, $pageLimit)) as $item) {
+            if ($this->deadlineReached($deadline)) {
+                $failures[] = 'Habr Career time budget reached during vacancy fetch.';
+                break;
+            }
+
             try {
                 $page = $this->fetchVacancy($item['url']);
             } catch (Throwable $exception) {
@@ -299,8 +314,8 @@ class HabrCareerResearchService
                 'User-Agent' => 'Mozilla/5.0 (compatible; Zampolit73VacancyResearch/1.0)',
                 'Accept' => 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
             ])
-                ->connectTimeout(5)
-                ->timeout(12)
+                ->connectTimeout((int) config('vacancy_source.habr.connect_timeout', 3))
+                ->timeout((int) config('vacancy_source.habr.request_timeout', 6))
                 ->get($url);
         } catch (ConnectionException $exception) {
             throw new RuntimeException($label.' connection failed.', previous: $exception);
@@ -615,6 +630,16 @@ class HabrCareerResearchService
     private function companyKey(string $company): string
     {
         return preg_replace('/[^\p{L}\p{N}]+/u', '', $this->extractor->normalize($company)) ?: $company;
+    }
+
+    private function deadlineReached(float $deadline): bool
+    {
+        return microtime(true) >= $deadline;
+    }
+
+    private function secondsRemaining(float $deadline): float
+    {
+        return max(0.0, $deadline - microtime(true));
     }
 
     private function nodeText(?\DOMNode $node): string

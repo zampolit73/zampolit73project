@@ -6,17 +6,20 @@ return [
     'max_saved_sources' => 28,
 
     'web' => [
-        'max_queries' => 6,
+        'max_queries' => 5,
         'max_results_per_query' => 8,
         'max_saved_sources' => 18,
     ],
 
     'habr' => [
-        'max_queries' => 3,
+        'max_queries' => 1,
         'max_results_per_query' => 6,
-        'max_skill_pages' => 4,
+        'max_skill_pages' => 3,
         'max_listing_vacancies' => 30,
-        'max_pages' => 5,
+        'max_pages' => 3,
+        'max_elapsed_seconds' => 50,
+        'connect_timeout' => 3,
+        'request_timeout' => 6,
         'max_saved_sources' => 12,
         'minimum_source_score' => 30,
     ],
