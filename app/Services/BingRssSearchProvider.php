@@ -19,8 +19,8 @@ class BingRssSearchProvider
                 'User-Agent' => 'Mozilla/5.0 (compatible; Zampolit73VacancyResearch/1.0)',
                 'Accept' => 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5',
             ])
-                ->connectTimeout(5)
-                ->timeout(12)
+                ->connectTimeout((int) config('vacancy_source.web.connect_timeout', 2))
+                ->timeout((int) config('vacancy_source.web.request_timeout', 6))
                 ->get('https://www.bing.com/search', [
                     'q' => $query,
                     'format' => 'rss',

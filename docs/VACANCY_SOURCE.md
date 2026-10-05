@@ -383,3 +383,10 @@ This avoids treating staffing, integration or development suppliers as demand ow
 Candidate/source persistence is atomic: candidates and evidence are replaced inside one database transaction. Progress states now distinguish `candidate_analysis`, `saving_candidates`, `saving_sources`, and `finalizing`, so a stalled run can be localized after provider research has completed.
 
 Candidate/source linking uses the same company-alias canonicalization as combined research. For example a Telegram source carrying `T-Bank` links to the stored candidate `Т-Банк` instead of becoming orphan evidence.
+
+
+## Runtime budgets and stale-job watchdog
+
+Generic web search is bounded like Habr: at most 3 Bing RSS queries, 2-second connect timeout, 6-second request timeout and an overall ~40-second provider budget. A web provider timeout degrades to partial evidence instead of owning the whole investigation job.
+
+The Telegram long-polling process also acts as an independent stale-job watchdog. On each polling cycle it atomically marks any investigation still `running` for more than 6 minutes as `failed`, stores `timed_out_at`, and proactively sends the user a retry message. This does not rely on the queue worker's timeout/failure callback, so a worker killed at OS/process level cannot leave the UI/bot saying “in progress” indefinitely.

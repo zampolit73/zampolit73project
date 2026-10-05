@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\VacancyInvestigation;
 use App\Services\TelegramBotClient;
 use App\Services\TelegramUpdateHandler;
 use Illuminate\Console\Command;
@@ -33,6 +34,8 @@ class PollTelegramBot extends Command
         $this->info('Telegram Bot long polling started.');
 
         while (true) {
+            $this->recoverStaleInvestigations($bot);
+
             $updates = $bot->getUpdates(
                 $lastUpdateId === null ? null : $lastUpdateId + 1,
                 $once ? 0 : 25,
@@ -77,6 +80,46 @@ class PollTelegramBot extends Command
 
             if ($once) {
                 return self::SUCCESS;
+            }
+        }
+    }
+
+    private function recoverStaleInvestigations(TelegramBotClient $bot): void
+    {
+        $stale = VacancyInvestigation::query()
+            ->with('user.telegramAccount')
+            ->where('status', 'running')
+            ->whereNotNull('started_at')
+            ->where('started_at', '<', now()->subMinutes(6))
+            ->orderBy('id')
+            ->limit(20)
+            ->get();
+
+        foreach ($stale as $investigation) {
+            $updated = VacancyInvestigation::query()
+                ->whereKey($investigation->id)
+                ->where('status', 'running')
+                ->update([
+                    'status' => 'failed',
+                    'progress_stage' => 'failed',
+                    'progress_text' => 'Проверка автоматически остановлена: превышено максимальное время выполнения.',
+                    'finished_at' => now(),
+                    'timed_out_at' => now(),
+                ]);
+
+            if ($updated !== 1) {
+                continue;
+            }
+
+            $chatId = $investigation->user?->telegramAccount?->telegram_chat_id;
+
+            if ($chatId) {
+                $bot->sendMessage(
+                    $chatId,
+                    'Проверка #'.$investigation->id
+                    .' автоматически остановлена: она выполнялась больше 6 минут. '
+                    .'Можно сразу прислать вакансию ещё раз.',
+                );
             }
         }
     }

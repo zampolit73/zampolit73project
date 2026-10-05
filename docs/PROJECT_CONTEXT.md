@@ -1040,7 +1040,8 @@ Implemented now:
 - provider-level Telegram progress (Telegram → Habr → Web → analysis → candidate persistence → evidence persistence → finalization) instead of one silent research stage;
 - investigation finalization is transactional and candidate/source linking reuses canonical company aliases, so `T-Bank` evidence correctly links to candidate `Т-Банк`;
 - Habr provider is bounded to a ~50-second budget (3 skill catalogs, 1 rare-phrase discovery query, 3 vacancy pages; 3s connect / 6s request);
-- Telegram `/status` marks a `running` investigation older than 8 minutes as failed so orphaned worker state does not stay “in progress” forever;
+- generic web provider is bounded independently to ~40 seconds (max 3 Bing queries; 2s connect / 6s request), so web cannot consume the whole queue-job timeout;
+- Telegram `/status` still repairs a stale run on demand, and the long-polling bot now independently watches for any `running` investigation older than 6 minutes, atomically marks it failed/timed out and proactively notifies the user; orphaned worker state no longer requires a manual `/status`;
 - up to three end-client candidates above the 60% threshold;
 - direct vs indirect hypothesis label;
 - intermediaries separated with `is_end_client=false`;

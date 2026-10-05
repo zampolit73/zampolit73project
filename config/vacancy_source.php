@@ -17,9 +17,12 @@ return [
     'max_saved_sources' => 28,
 
     'web' => [
-        'max_queries' => 5,
+        'max_queries' => 3,
         'max_results_per_query' => 8,
         'max_saved_sources' => 18,
+        'max_elapsed_seconds' => 40,
+        'connect_timeout' => 2,
+        'request_timeout' => 6,
     ],
 
     'habr' => [

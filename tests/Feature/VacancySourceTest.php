@@ -232,6 +232,14 @@ XML, 200, ['Content-Type' => 'application/rss+xml']),
             ->assertJsonPath('sources.0.url', 'https://hh.ru/vacancy/123456');
     }
 
+    public function test_web_provider_has_bounded_runtime_configuration(): void
+    {
+        $this->assertLessThanOrEqual(3, config('vacancy_source.web.max_queries'));
+        $this->assertLessThanOrEqual(40, config('vacancy_source.web.max_elapsed_seconds'));
+        $this->assertLessThanOrEqual(2, config('vacancy_source.web.connect_timeout'));
+        $this->assertLessThanOrEqual(6, config('vacancy_source.web.request_timeout'));
+    }
+
     public function test_job_completes_with_telegram_client_and_habr_publisher_and_links_alias_evidence(): void
     {
         $user = $this->user('relation-finalization-user');

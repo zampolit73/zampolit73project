@@ -45,8 +45,14 @@ class VacancyWebResearchService
         $sourcesByUrl = [];
         $successes = 0;
         $failures = [];
+        $deadline = microtime(true) + (float) config('vacancy_source.web.max_elapsed_seconds', 40);
 
         foreach ($queries as $query) {
+            if (microtime(true) >= $deadline) {
+                $failures[] = 'Web search time budget reached.';
+                break;
+            }
+
             try {
                 $results = $this->search->search($query, (int) config('vacancy_source.web.max_results_per_query', 8));
                 $successes++;
@@ -140,7 +146,7 @@ class VacancyWebResearchService
             $queries[] = 'вакансия '.implode(' ', $tokens);
         }
 
-        return array_slice($queries, 0, (int) config('vacancy_source.web.max_queries', 6));
+        return array_slice($queries, 0, (int) config('vacancy_source.web.max_queries', 3));
     }
 
     private function scoreSource(array $signals, array $result): array
