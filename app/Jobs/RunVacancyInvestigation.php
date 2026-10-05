@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -93,48 +94,57 @@ class RunVacancyInvestigation implements ShouldQueue
             'Проверка #'.$investigation->id.': нашёл источники, проверяю кандидатов и уверенность.',
         );
 
-        InvestigationSource::query()
-            ->where('investigation_id', $investigation->id)
-            ->delete();
+        $this->advance('saving_candidates', 'Сохраняю кандидатов и связи между источниками');
 
-        InvestigationCandidate::query()
-            ->where('investigation_id', $investigation->id)
-            ->delete();
+        DB::transaction(function () use ($investigation, $result, $extractor): void {
+            InvestigationSource::query()
+                ->where('investigation_id', $investigation->id)
+                ->delete();
 
-        $candidateIds = [];
+            InvestigationCandidate::query()
+                ->where('investigation_id', $investigation->id)
+                ->delete();
 
-        foreach ($result['candidates'] as $index => $candidate) {
-            $record = InvestigationCandidate::query()->create([
-                'investigation_id' => $investigation->id,
-                'company_name' => $candidate['company_name'],
-                'candidate_type' => $candidate['candidate_type'],
-                'confidence' => $candidate['confidence'],
-                'is_end_client' => $candidate['is_end_client'],
-                'rank' => $index + 1,
-                'explanation' => $candidate['explanation'],
-            ]);
+            $candidateIds = [];
 
-            $candidateIds[$this->companyKey($candidate['company_name'], $extractor)] = $record->id;
-        }
+            foreach ($result['candidates'] as $index => $candidate) {
+                $record = InvestigationCandidate::query()->create([
+                    'investigation_id' => $investigation->id,
+                    'company_name' => $candidate['company_name'],
+                    'candidate_type' => $candidate['candidate_type'],
+                    'confidence' => $candidate['confidence'],
+                    'is_end_client' => $candidate['is_end_client'],
+                    'rank' => $index + 1,
+                    'explanation' => $candidate['explanation'],
+                ]);
 
-        foreach ($result['sources'] as $source) {
-            $candidateId = null;
-
-            if ($source['candidate_name']) {
-                $candidateId = $candidateIds[$this->companyKey($source['candidate_name'], $extractor)] ?? null;
+                $candidateIds[$this->companyKey($candidate['company_name'], $extractor)] = $record->id;
             }
 
-            InvestigationSource::query()->create([
-                'investigation_id' => $investigation->id,
-                'candidate_id' => $candidateId,
-                'provider' => $source['provider'],
-                'title' => Str::limit($source['title'], 500, ''),
-                'url' => $source['url'],
-                'snippet' => Str::limit($source['snippet'], 1800, '…'),
-                'search_query' => Str::limit($source['search_query'], 500, ''),
-                'evidence_score' => $source['evidence_score'],
-            ]);
-        }
+            $this->advance('saving_sources', 'Сохраняю evidence и привязываю его к кандидатам');
+
+            foreach ($result['sources'] as $source) {
+                $candidateId = null;
+                $sourceCandidate = $source['candidate_name'] ?? null;
+
+                if ($sourceCandidate) {
+                    $candidateId = $candidateIds[$this->companyKey((string) $sourceCandidate, $extractor)] ?? null;
+                }
+
+                InvestigationSource::query()->create([
+                    'investigation_id' => $investigation->id,
+                    'candidate_id' => $candidateId,
+                    'provider' => $source['provider'],
+                    'title' => Str::limit((string) ($source['title'] ?? ''), 500, ''),
+                    'url' => (string) $source['url'],
+                    'snippet' => Str::limit((string) ($source['snippet'] ?? ''), 1800, '…'),
+                    'search_query' => Str::limit((string) ($source['search_query'] ?? ''), 500, ''),
+                    'evidence_score' => $source['evidence_score'],
+                ]);
+            }
+        });
+
+        $this->advance('finalizing', 'Формирую итоговый ответ');
 
         $status = $result['partial'] ? 'partial' : 'completed';
 
@@ -218,6 +228,15 @@ class RunVacancyInvestigation implements ShouldQueue
 
     private function companyKey(string $company, VacancySignalExtractor $extractor): string
     {
-        return preg_replace('/[^\p{L}\p{N}]+/u', '', $extractor->normalize($company)) ?: $company;
+        $normalized = $extractor->normalize($company);
+
+        foreach ((array) config('vacancy_source.company_aliases', []) as $alias => $canonical) {
+            if ($normalized === $extractor->normalize((string) $alias)) {
+                $normalized = $extractor->normalize((string) $canonical);
+                break;
+            }
+        }
+
+        return preg_replace('/[^\p{L}\p{N}]+/u', '', $normalized) ?: $company;
     }
 }

@@ -232,6 +232,99 @@ XML, 200, ['Content-Type' => 'application/rss+xml']),
             ->assertJsonPath('sources.0.url', 'https://hh.ru/vacancy/123456');
     }
 
+    public function test_job_completes_with_telegram_client_and_habr_publisher_and_links_alias_evidence(): void
+    {
+        $user = $this->user('relation-finalization-user');
+        $investigation = VacancyInvestigation::query()->create([
+            'user_id' => $user->id,
+            'input_source' => 'web',
+            'input_text' => 'Frontend developer JavaScript React HTML CSS.',
+            'status' => 'queued',
+            'progress_stage' => 'queued',
+            'queued_at' => now(),
+        ]);
+
+        $research = Mockery::mock(VacancyCombinedResearchService::class);
+        $research->shouldReceive('research')
+            ->once()
+            ->andReturn([
+                'signals' => [
+                    'normalized_text' => 'frontend developer javascript react html css',
+                    'fingerprint' => str_repeat('a', 64),
+                ],
+                'sources' => [
+                    [
+                        'provider' => 'telegram_reader',
+                        'title' => 'Telegram · T-Bank IT Partnership',
+                        'url' => 'telegram://message/-1001/11',
+                        'snippet' => 'Frontend developer JavaScript React HTML CSS.',
+                        'search_query' => 'frontend react',
+                        'evidence_score' => 95,
+                        'candidate_name' => 'T-Bank',
+                    ],
+                    [
+                        'provider' => 'habr_career',
+                        'title' => 'Стажёр-фронтенд разработчик',
+                        'url' => 'https://career.habr.com/vacancies/1000168347',
+                        'snippet' => 'JavaScript React HTML CSS.',
+                        'search_query' => 'Habr skill: JavaScript',
+                        'evidence_score' => 55,
+                        'candidate_name' => 'Лоция',
+                    ],
+                ],
+                'candidates' => [
+                    [
+                        'company_name' => 'Т-Банк',
+                        'candidate_type' => 'provenance',
+                        'confidence' => 72,
+                        'is_end_client' => true,
+                        'explanation' => 'Telegram provenance.',
+                    ],
+                    [
+                        'company_name' => 'Лоция',
+                        'candidate_type' => 'publisher',
+                        'confidence' => 55,
+                        'is_end_client' => false,
+                        'explanation' => 'Habr publisher.',
+                    ],
+                ],
+                'summary' => 'Вероятный конечный клиент: Т-Банк — 72%.',
+                'partial' => false,
+            ]);
+
+        (new RunVacancyInvestigation($investigation->id))->handle(
+            app(TelegramBotClient::class),
+            $research,
+            app(VacancySignalExtractor::class),
+            app(VacancyTelegramResultFormatter::class),
+        );
+
+        $investigation->refresh();
+
+        $this->assertSame('completed', $investigation->status);
+        $this->assertSame('completed', $investigation->progress_stage);
+
+        $tbank = InvestigationCandidate::query()
+            ->where('investigation_id', $investigation->id)
+            ->where('company_name', 'Т-Банк')
+            ->firstOrFail();
+        $loodsen = InvestigationCandidate::query()
+            ->where('investigation_id', $investigation->id)
+            ->where('company_name', 'Лоция')
+            ->firstOrFail();
+
+        $this->assertTrue($tbank->is_end_client);
+        $this->assertFalse($loodsen->is_end_client);
+        $this->assertSame('publisher', $loodsen->candidate_type);
+
+        $telegramSource = InvestigationSource::query()
+            ->where('investigation_id', $investigation->id)
+            ->where('provider', 'telegram_reader')
+            ->firstOrFail();
+
+        $this->assertSame($tbank->id, $telegramSource->candidate_id);
+    }
+
     public function test_habr_career_provider_fetches_full_vacancy_and_structured_employer(): void
     {
         $input = implode("\n", [

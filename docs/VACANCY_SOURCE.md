@@ -376,3 +376,10 @@ Telegram output no longer prints a global evidence list that can visually attach
 Habr Career alone never promotes its structured employer to an end-client answer. A Habr-only company is stored as `publisher`; if its public profile contains service-provider markers it is stored as `intermediary`. It becomes an end-client candidate only when the same normalized company is independently supported by another provider that explicitly produces an end-client signal (for example web evidence or Telegram provenance/explicit-company evidence).
 
 This avoids treating staffing, integration or development suppliers as demand owners merely because they published the vacancy on Habr.
+
+
+## Investigation finalization
+
+Candidate/source persistence is atomic: candidates and evidence are replaced inside one database transaction. Progress states now distinguish `candidate_analysis`, `saving_candidates`, `saving_sources`, and `finalizing`, so a stalled run can be localized after provider research has completed.
+
+Candidate/source linking uses the same company-alias canonicalization as combined research. For example a Telegram source carrying `T-Bank` links to the stored candidate `Т-Банк` instead of becoming orphan evidence.
