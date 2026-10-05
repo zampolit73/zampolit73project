@@ -369,3 +369,10 @@ The final result separates three concepts:
 A Telegram partnership-channel provenance signal alone is capped at 72% confidence. It can cross that ceiling only through independent corroboration from another provider family.
 
 Telegram output no longer prints a global evidence list that can visually attach an unrelated source to the top candidate. Each candidate is followed only by investigation sources whose candidate_id points to that candidate. Intermediaries/publishers have their own evidence block.
+
+
+## Habr employer semantics
+
+Habr Career alone never promotes its structured employer to an end-client answer. A Habr-only company is stored as `publisher`; if its public profile contains service-provider markers it is stored as `intermediary`. It becomes an end-client candidate only when the same normalized company is independently supported by another provider that explicitly produces an end-client signal (for example web evidence or Telegram provenance/explicit-company evidence).
+
+This avoids treating staffing, integration or development suppliers as demand owners merely because they published the vacancy on Habr.

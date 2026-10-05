@@ -618,18 +618,18 @@ class HabrCareerResearchService
                 continue;
             }
 
-            $isEndClient = ! $best['candidate_is_intermediary'];
+            $isIntermediary = (bool) ($best['candidate_is_intermediary'] ?? false);
 
             $candidates[] = [
                 'company_name' => $group['company_name'],
-                'candidate_type' => $isEndClient
-                    ? (count($best['phrase_hits']) > 0 && $best['evidence_score'] >= 78 ? 'direct' : 'indirect')
-                    : 'intermediary',
+                'candidate_type' => $isIntermediary ? 'intermediary' : 'publisher',
                 'confidence' => $confidence,
-                'is_end_client' => $isEndClient,
+                'is_end_client' => false,
                 'explanation' => 'Хабр Карьера '.$best['evidence_score'].'/100: '.$best['reason']
-                    .'. Работодатель взят из структурированной страницы вакансии.'
-                    .($isEndClient ? '' : ' Профиль работодателя похож на рекрутингового/аутстафф-посредника.'),
+                    .'. Компания указана работодателем/публикатором на странице вакансии.'
+                    .($isIntermediary
+                        ? ' Публичный профиль содержит признаки сервисного подрядчика/интегратора, поэтому она классифицирована как посредник.'
+                        : ' Сам по себе Habr-работодатель не считается конечным заказчиком без независимого подтверждения.'),
                 'source_urls' => array_values(array_unique(array_column(array_slice($sources, 0, 3), 'url'))),
                 'providers' => ['habr_career'],
             ];

@@ -291,7 +291,8 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
         $this->assertSame('Acme Bank', $result['sources'][0]['candidate_name']);
         $this->assertGreaterThanOrEqual(60, $result['sources'][0]['evidence_score']);
         $this->assertSame('Acme Bank', $result['candidates'][0]['company_name']);
-        $this->assertTrue($result['candidates'][0]['is_end_client']);
+        $this->assertFalse($result['candidates'][0]['is_end_client']);
+        $this->assertSame('publisher', $result['candidates'][0]['candidate_type']);
         $this->assertLessThanOrEqual(3, config('vacancy_source.habr.max_pages'));
         $this->assertLessThanOrEqual(6, config('vacancy_source.habr.request_timeout'));
     }
@@ -404,6 +405,8 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
         $this->assertNotEmpty($result['candidates']);
         $this->assertSame('Example Bank', $result['candidates'][0]['company_name']);
         $this->assertGreaterThanOrEqual(40, $result['candidates'][0]['confidence']);
+        $this->assertFalse($result['candidates'][0]['is_end_client']);
+        $this->assertSame('publisher', $result['candidates'][0]['candidate_type']);
     }
 
     public function test_telegram_display_collapses_multiple_matches_from_same_chat(): void
@@ -456,6 +459,57 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
         $this->assertSame('provenance', $result['candidates'][0]['candidate_type']);
         $this->assertLessThanOrEqual(72, $result['candidates'][0]['confidence']);
         $this->assertStringContainsString('партнёрском Telegram-канале', $result['candidates'][0]['explanation']);
+    }
+
+    public function test_habr_publisher_can_be_promoted_to_end_client_when_independently_confirmed(): void
+    {
+        $combined = app(VacancyCombinedResearchService::class);
+
+        $reflection = new \ReflectionClass($combined);
+        $method = $reflection->getMethod('mergeCandidates');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $combined,
+            [[
+                'company_name' => 'Acme Bank',
+                'candidate_type' => 'direct',
+                'confidence' => 70,
+                'is_end_client' => true,
+                'explanation' => 'Web confirmation.',
+                'source_urls' => ['https://example.com/acme'],
+                'providers' => ['bing_rss'],
+            ]],
+            [[
+                'company_name' => 'Acme Bank',
+                'candidate_type' => 'publisher',
+                'confidence' => 65,
+                'is_end_client' => false,
+                'explanation' => 'Habr publisher.',
+                'source_urls' => ['https://career.habr.com/vacancies/1000'],
+                'providers' => ['habr_career'],
+            ]],
+            [],
+            [
+                [
+                    'provider' => 'bing_rss',
+                    'candidate_name' => 'Acme Bank',
+                    'url' => 'https://example.com/acme',
+                    'evidence_score' => 70,
+                ],
+                [
+                    'provider' => 'habr_career',
+                    'candidate_name' => 'Acme Bank',
+                    'url' => 'https://career.habr.com/vacancies/1000',
+                    'evidence_score' => 65,
+                ],
+            ],
+        );
+
+        $this->assertNotEmpty($result);
+        $this->assertTrue($result[0]['is_end_client']);
+        $this->assertSame('direct', $result[0]['candidate_type']);
+        $this->assertGreaterThan(70, $result[0]['confidence']);
     }
 
     public function test_habr_service_provider_is_classified_as_intermediary_not_end_client(): void

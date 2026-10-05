@@ -134,6 +134,11 @@ class VacancyCombinedResearchService
             }
 
             $explanation = $best['explanation'];
+
+            if ($isEndClient && in_array('habr_career', $providerSet, true)) {
+                $explanation .= ' Habr подтверждает публикацию, но конечный клиент определяется независимым источником.';
+            }
+
             if (count($providerSet) > 1) {
                 $explanation .= ' Независимое подтверждение: '.implode(' + ', $providersLabel).'.';
             } elseif ($providerSet === ['telegram_reader']) {
@@ -144,14 +149,27 @@ class VacancyCombinedResearchService
                 $explanation .= ' Habr Career и Telegram не дали независимого подтверждения этому кандидату.';
             }
 
-            $isEndClient = ! in_array(false, array_column($group['candidates'], 'is_end_client'), true);
             $candidateTypes = array_column($group['candidates'], 'candidate_type');
+            $hasIndependentEndClientSignal = false;
 
-            $candidateType = ! $isEndClient
-                ? 'intermediary'
-                : (in_array('direct', $candidateTypes, true)
+            foreach ($group['candidates'] as $candidate) {
+                if (($candidate['is_end_client'] ?? false) === true) {
+                    $hasIndependentEndClientSignal = true;
+                    break;
+                }
+            }
+
+            $isEndClient = $hasIndependentEndClientSignal;
+
+            if ($isEndClient) {
+                $candidateType = in_array('direct', $candidateTypes, true)
                     ? 'direct'
-                    : (in_array('provenance', $candidateTypes, true) ? 'provenance' : 'indirect'));
+                    : (in_array('provenance', $candidateTypes, true) ? 'provenance' : 'indirect');
+            } else {
+                $candidateType = in_array('intermediary', $candidateTypes, true)
+                    ? 'intermediary'
+                    : 'publisher';
+            }
 
             $result[] = [
                 'company_name' => $group['company_name'],
