@@ -135,10 +135,6 @@ class VacancyCombinedResearchService
 
             $explanation = $best['explanation'];
 
-            if ($isEndClient && in_array('habr_career', $providerSet, true)) {
-                $explanation .= ' Habr подтверждает публикацию, но конечный клиент определяется независимым источником.';
-            }
-
             if (count($providerSet) > 1) {
                 $explanation .= ' Независимое подтверждение: '.implode(' + ', $providersLabel).'.';
             } elseif ($providerSet === ['telegram_reader']) {
@@ -169,6 +165,10 @@ class VacancyCombinedResearchService
                 $candidateType = in_array('intermediary', $candidateTypes, true)
                     ? 'intermediary'
                     : 'publisher';
+            }
+
+            if ($isEndClient && in_array('habr_career', $providerSet, true)) {
+                $explanation .= ' Habr подтверждает публикацию, но конечный клиент определяется независимым источником.';
             }
 
             $result[] = [
