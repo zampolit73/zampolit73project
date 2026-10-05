@@ -453,7 +453,47 @@ HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
 
         $this->assertNotEmpty($result['candidates']);
         $this->assertSame('Т-Банк', $result['candidates'][0]['company_name']);
+        $this->assertSame('provenance', $result['candidates'][0]['candidate_type']);
+        $this->assertLessThanOrEqual(72, $result['candidates'][0]['confidence']);
         $this->assertStringContainsString('партнёрском Telegram-канале', $result['candidates'][0]['explanation']);
+    }
+
+    public function test_habr_service_provider_is_classified_as_intermediary_not_end_client(): void
+    {
+        $input = 'Frontend developer JavaScript React HTML CSS пользовательские интерфейсы';
+
+        $search = Mockery::mock(BingRssSearchProvider::class);
+        $search->shouldReceive('search')->andReturn([]);
+
+        Http::fake([
+            'https://career.habr.com/vacancies/skills/*' => Http::response(
+                '<html><body><a href="/vacancies/1000123456">Frontend developer</a></body></html>',
+                200,
+                ['Content-Type' => 'text/html; charset=UTF-8'],
+            ),
+            'https://career.habr.com/vacancies/1000123456' => Http::response(<<<'HTML'
+<html><head><title>Вакансия «Frontend developer» в компании «Лоция» — Хабр Карьера</title></head>
+<body>
+<h1>Frontend developer</h1>
+<a href="/companies/loodsen">Лоция</a>
+<h2>Описание вакансии</h2>
+<div>JavaScript React HTML CSS. Разработка пользовательских интерфейсов.</div>
+</body></html>
+HTML, 200, ['Content-Type' => 'text/html; charset=UTF-8']),
+            'https://career.habr.com/companies/loodsen' => Http::response(
+                '<html><body>Создаем ИТ-решения для бизнеса. Разрабатываем ПО и цифровые продукты для клиентов.</body></html>',
+                200,
+                ['Content-Type' => 'text/html; charset=UTF-8'],
+            ),
+        ]);
+
+        $service = new HabrCareerResearchService(app(VacancySignalExtractor::class), $search);
+        $result = $service->research($input);
+
+        $this->assertNotEmpty($result['candidates']);
+        $this->assertSame('Лоция', $result['candidates'][0]['company_name']);
+        $this->assertFalse($result['candidates'][0]['is_end_client']);
+        $this->assertSame('intermediary', $result['candidates'][0]['candidate_type']);
     }
 
     public function test_generic_outstaff_chat_title_is_not_used_as_client_provenance(): void

@@ -622,9 +622,9 @@ class HabrCareerResearchService
 
             $candidates[] = [
                 'company_name' => $group['company_name'],
-                'candidate_type' => count($best['phrase_hits']) > 0 && $best['evidence_score'] >= 78
-                    ? 'direct'
-                    : 'indirect',
+                'candidate_type' => $isEndClient
+                    ? (count($best['phrase_hits']) > 0 && $best['evidence_score'] >= 78 ? 'direct' : 'indirect')
+                    : 'intermediary',
                 'confidence' => $confidence,
                 'is_end_client' => $isEndClient,
                 'explanation' => 'Хабр Карьера '.$best['evidence_score'].'/100: '.$best['reason']

@@ -1033,10 +1033,10 @@ Implemented now:
 - combined Telegram + Habr Career + web deterministic candidate scoring;
 - result quality policy: 60%+ = probable client, 40–59% = visible hypothesis, <40% = suppressed noise;
 - source-role model: Habr structured employer is publisher/employer, not automatically the end client; public company profile is checked for outsourcing/custom-development/integrator/service-provider markers;
-- narrow Telegram provenance rule: strongly structured client partnership chat titles (for example `<Company> IT Partnership`) may supply a client candidate when the message itself strongly matches; generic “Аутстафф / Вакансии” style chats never do;
+- narrow Telegram provenance rule: strongly structured client partnership chat titles (for example `<Company> IT Partnership`) may supply a client candidate when the message itself strongly matches; generic “Аутстафф / Вакансии” style chats never do; provenance-only confidence is capped at 72% until another independent provider corroborates it;
 - company aliases are canonicalized across providers (seed mapping includes T-Bank/Tinkoff/Тинькофф → `Т-Банк`);
 - user-facing Telegram evidence collapses multiple matches from the same chat into one representative card, so repost-heavy chats cannot dominate the answer;
-- Telegram bot result is answer-first and provider-diversified instead of printing three near-identical Telegram sources;
+- Telegram bot result is relation-aware: end clients and intermediaries/publishers are separate blocks, and evidence is printed only under the candidate it is actually linked to via candidate_id; there is no global evidence list that can misattribute an unrelated source;
 - provider-level Telegram progress (Telegram → Habr → Web → analysis) instead of one silent research stage;
 - Habr provider is bounded to a ~50-second budget (3 skill catalogs, 1 rare-phrase discovery query, 3 vacancy pages; 3s connect / 6s request);
 - Telegram `/status` marks a `running` investigation older than 8 minutes as failed so orphaned worker state does not stay “in progress” forever;

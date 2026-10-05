@@ -241,6 +241,10 @@ class VacancyTelegramResearchService
                     (int) config('vacancy_source.hypothesis_confidence', 40),
                     $confidence - (int) config('vacancy_source.scoring.telegram_provenance_penalty', 8),
                 );
+                $confidence = min(
+                    $confidence,
+                    (int) config('vacancy_source.scoring.telegram_provenance_max_confidence', 72),
+                );
             }
 
             if ($confidence < (int) config('vacancy_source.hypothesis_confidence', 40)) {
@@ -251,9 +255,11 @@ class VacancyTelegramResearchService
 
             $candidates[] = [
                 'company_name' => $company,
-                'candidate_type' => count($best['phrase_hits']) > 0 && $best['evidence_score'] >= 78
-                    ? 'direct'
-                    : 'indirect',
+                'candidate_type' => ($best['candidate_origin'] ?? null) === 'chat_provenance'
+                    ? 'provenance'
+                    : (count($best['phrase_hits']) > 0 && $best['evidence_score'] >= 78
+                        ? 'direct'
+                        : 'indirect'),
                 'confidence' => $confidence,
                 'is_end_client' => $isEndClient,
                 'explanation' => (($best['candidate_origin'] ?? null) === 'chat_provenance'

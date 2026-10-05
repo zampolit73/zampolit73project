@@ -144,13 +144,20 @@ class VacancyCombinedResearchService
                 $explanation .= ' Habr Career и Telegram не дали независимого подтверждения этому кандидату.';
             }
 
+            $isEndClient = ! in_array(false, array_column($group['candidates'], 'is_end_client'), true);
+            $candidateTypes = array_column($group['candidates'], 'candidate_type');
+
+            $candidateType = ! $isEndClient
+                ? 'intermediary'
+                : (in_array('direct', $candidateTypes, true)
+                    ? 'direct'
+                    : (in_array('provenance', $candidateTypes, true) ? 'provenance' : 'indirect'));
+
             $result[] = [
                 'company_name' => $group['company_name'],
-                'candidate_type' => in_array('direct', array_column($group['candidates'], 'candidate_type'), true)
-                    ? 'direct'
-                    : 'indirect',
+                'candidate_type' => $candidateType,
                 'confidence' => $confidence,
-                'is_end_client' => ! in_array(false, array_column($group['candidates'], 'is_end_client'), true),
+                'is_end_client' => $isEndClient,
                 'explanation' => $explanation,
                 'source_urls' => array_values(array_unique(array_column(array_slice($matchingSources, 0, 3), 'url'))),
                 'providers' => $providerSet,

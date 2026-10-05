@@ -46,7 +46,8 @@ class VacancyTelegramResultFormatter
 
                 foreach ($strong as $index => $candidate) {
                     $lines[] = ($index + 1).'. '.$candidate->company_name.' — '.$candidate->confidence.'%';
-                    $lines[] = Str::limit((string) $candidate->explanation, 360, '…');
+                    $lines[] = Str::limit((string) $candidate->explanation, 340, '…');
+                    $this->appendCandidateEvidence($lines, $investigation, $candidate->id);
                 }
             }
 
@@ -56,7 +57,8 @@ class VacancyTelegramResultFormatter
 
                 foreach ($hypotheses as $index => $candidate) {
                     $lines[] = ($index + 1).'. '.$candidate->company_name.' — '.$candidate->confidence.'%';
-                    $lines[] = Str::limit((string) $candidate->explanation, 320, '…');
+                    $lines[] = Str::limit((string) $candidate->explanation, 300, '…');
+                    $this->appendCandidateEvidence($lines, $investigation, $candidate->id);
                 }
             }
         }
@@ -64,48 +66,50 @@ class VacancyTelegramResultFormatter
         $intermediaries = $investigation->candidates
             ->where('is_end_client', false)
             ->sortByDesc('confidence')
-            ->take(2)
+            ->take(3)
             ->values();
 
         if ($intermediaries->isNotEmpty()) {
             $lines[] = '';
-            $lines[] = 'Вероятные посредники:';
+            $lines[] = 'Посредники / публикаторы:';
 
             foreach ($intermediaries as $candidate) {
                 $lines[] = '• '.$candidate->company_name.' — '.$candidate->confidence.'%';
-            }
-        }
-
-        $topSources = $investigation->sources
-            ->sortByDesc('evidence_score')
-            ->groupBy('provider')
-            ->flatMap(fn ($group) => $group->take($group->first()->provider === 'telegram_reader' ? 1 : 2))
-            ->sortByDesc('evidence_score')
-            ->take(5)
-            ->values();
-
-        if ($topSources->isNotEmpty()) {
-            $lines[] = '';
-            $lines[] = 'Что подтверждает результат:';
-
-            foreach ($topSources as $source) {
-                $title = $source->title
-                    ? Str::limit($source->title, 110, '…')
-                    : (parse_url($source->url, PHP_URL_HOST) ?: 'Источник');
-                $label = match ($source->provider) {
-                    'telegram_reader' => 'Telegram',
-                    'habr_career' => 'Habr Career',
-                    default => 'Web',
-                };
-
-                $lines[] = '• ['.$label.'] '.$title;
-
-                if (str_starts_with($source->url, 'http://') || str_starts_with($source->url, 'https://')) {
-                    $lines[] = $source->url;
-                }
+                $lines[] = Str::limit((string) $candidate->explanation, 260, '…');
+                $this->appendCandidateEvidence($lines, $investigation, $candidate->id, 1);
             }
         }
 
         return Str::limit(implode("\n", $lines), 4000, '…');
+    }
+
+    private function appendCandidateEvidence(
+        array &$lines,
+        VacancyInvestigation $investigation,
+        int $candidateId,
+        int $limit = 2,
+    ): void {
+        $sources = $investigation->sources
+            ->where('candidate_id', $candidateId)
+            ->sortByDesc('evidence_score')
+            ->take($limit)
+            ->values();
+
+        foreach ($sources as $source) {
+            $label = match ($source->provider) {
+                'telegram_reader' => 'Telegram',
+                'habr_career' => 'Habr Career',
+                default => 'Web',
+            };
+            $title = $source->title
+                ? Str::limit($source->title, 95, '…')
+                : (parse_url($source->url, PHP_URL_HOST) ?: 'Источник');
+
+            $lines[] = '  ↳ ['.$label.'] '.$title;
+
+            if (str_starts_with($source->url, 'http://') || str_starts_with($source->url, 'https://')) {
+                $lines[] = '     '.$source->url;
+            }
+        }
     }
 }

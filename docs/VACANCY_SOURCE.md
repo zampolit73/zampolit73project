@@ -356,3 +356,16 @@ A publisher is not automatically the end client.
 - Known company aliases are canonicalized before cross-provider merging. Current seed aliases normalize T-Bank / Tinkoff / Тинькофф to `Т-Банк`.
 
 This is intended to recover chains such as **end client → service provider → repost channel** instead of mistaking the Habr publisher for the end client.
+
+
+## Relation-aware result formatting
+
+The final result separates three concepts:
+
+- **end client** — the organization believed to own the demand;
+- **intermediary** — recruiter, outstaffer, integrator or service provider that may publish/fulfil the demand for someone else;
+- **publisher/source** — the concrete Habr/web/Telegram page or channel where evidence was observed.
+
+A Telegram partnership-channel provenance signal alone is capped at 72% confidence. It can cross that ceiling only through independent corroboration from another provider family.
+
+Telegram output no longer prints a global evidence list that can visually attach an unrelated source to the top candidate. Each candidate is followed only by investigation sources whose candidate_id points to that candidate. Intermediaries/publishers have their own evidence block.

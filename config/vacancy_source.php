@@ -56,5 +56,6 @@ return [
         'explicit_company_candidate' => 8,
         'cross_provider_corroboration' => 10,
         'telegram_provenance_penalty' => 8,
+        'telegram_provenance_max_confidence' => 72,
     ],
 ];
