@@ -71,7 +71,7 @@ class PollTelegramBot extends Command
                 $reply = $handler->handle($update);
 
                 if ($reply !== null) {
-                    $bot->sendMessage($reply['chat_id'], $reply['text']);
+                    $bot->sendMessage($reply['chat_id'], $reply['text'], $reply['reply_markup'] ?? null);
                 }
 
                 Cache::forever(self::CACHE_KEY, $updateId);

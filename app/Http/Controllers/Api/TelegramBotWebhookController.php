@@ -21,12 +21,17 @@ class TelegramBotWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        return response()->json([
+        $payload = [
             'method' => 'sendMessage',
             'chat_id' => $reply['chat_id'],
             'text' => $reply['text'],
             'disable_web_page_preview' => true,
-        ]);
+        ];
+        if (isset($reply['reply_markup'])) {
+            $payload['reply_markup'] = $reply['reply_markup'];
+        }
+
+        return response()->json($payload);
     }
 
     private function hasValidSecret(Request $request): bool

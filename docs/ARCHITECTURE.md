@@ -435,3 +435,35 @@ Security: only logged-in employees can view SQLite research, not guests.
 There is no direct ChatGPT-to-private-SQLite connector or background AI API.
 Direct chat-to-GitHub remains public-only; to ingest a private report prepared
 by a colleague, upload its JSON through the authenticated site.
+
+
+## Telegram JSON company research importer
+
+The existing TelegramUpdateHandler delegates incoming private-chat JSON
+documents and callback_query updates to TelegramResearchImportHandler.
+TelegramBotClient uses getFile/file-download via the configured api.telegram.org
+TLS transport, the same transportOptions/IP override as polling. The existing
+long-polling systemd process now subscribes to both message and callback_query.
+The secret-header webhook fallback remains available and handles inline
+reply_markup. Vacancy text and /status continue unchanged; /import gives help.
+
+All document validation and persistence are centralized in
+CompanyResearchImportService, shared by the web controller and Telegram:
+UTF-8/256-KiB file size, v1 schema and business fields, HTTP(S) source
+sanitization, company-INN matching, proof requirement for confirmed demand,
+collision check by INN or report ID, SQLite revisions and author attribution.
+
+Unconfirmed uploads are stored in \`company_research_telegram_pending\` with
+random confirmation-token SHA-256, bound site user, Telegram identity/chat,
+message id, expiry, original preview collision state and normalized JSON.
+Callbacks are accepted only for the original linked user in their private chat,
+while pending, before 30-minute expiry and with the exact token.
+Replay, cancellation and expiry cannot re-save. Applied/rejected/cancelled
+pending rows erase the temporary JSON payload; expired rows are pruned on
+subsequent document intake. No incoming file is saved under public storage.
+
+An import that would unexpectedly overwrite a newly appeared company between
+preview and confirmation is rejected and must be sent again. The private
+SQLite research tables remain outside GitHub and the application release.
+Telegram cloud document transport is not end-to-end encrypted; use direct
+web upload for especially sensitive files.

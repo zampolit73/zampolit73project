@@ -14,6 +14,7 @@ class TelegramUpdateHandler
 {
     public function __construct(
         private readonly VacancyTelegramResultFormatter $formatter,
+        private readonly TelegramResearchImportHandler $researchImports,
     ) {
     }
     /**
@@ -21,6 +22,11 @@ class TelegramUpdateHandler
      */
     public function handle(array $update): ?array
     {
+        $callback = data_get($update, 'callback_query');
+        if (is_array($callback)) {
+            return $this->researchImports->callback($callback);
+        }
+
         $message = data_get($update, 'message');
 
         if (! is_array($message) || data_get($message, 'chat.type') !== 'private') {
@@ -63,6 +69,17 @@ class TelegramUpdateHandler
                 $chatId,
                 'Telegram пока не привязан к аккаунту сайта. Получи код у администратора и отправь сюда /start КОД.',
             );
+        }
+
+        if (is_array(data_get($message, 'document'))) {
+            return $this->researchImports->document($message, $binding);
+        }
+
+        if (preg_match('/^\/import(?:@\w+)?$/u', $text)) {
+            return $this->reply($chatId,
+                'Пришли JSON-файл анализа компании из IRLIX Sales Analyst как документ. '
+                .'Бот проверит структуру, ИНН и источники, затем предложит Сохранить или Обновить. '
+                .'Запись попадёт в SQLite, не в публичный GitHub.');
         }
 
         if (preg_match('/^\/status(?:@\w+)?$/u', $text)) {
