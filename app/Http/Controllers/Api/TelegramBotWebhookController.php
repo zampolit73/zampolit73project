@@ -4,12 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\TelegramUpdateHandler;
+use App\Services\TelegramBotClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TelegramBotWebhookController extends Controller
 {
-    public function __invoke(Request $request, TelegramUpdateHandler $handler): JsonResponse
+    public function __invoke(Request $request, TelegramUpdateHandler $handler, TelegramBotClient $bot): JsonResponse
     {
         if (! $this->hasValidSecret($request)) {
             abort(403);
@@ -19,6 +20,20 @@ class TelegramBotWebhookController extends Controller
 
         if ($reply === null) {
             return response()->json(['ok' => true]);
+        }
+
+        if (isset($reply['clear_inline_keyboard'])) {
+            // Telegram's webhook single-method response cannot also edit a
+            // message. Send directly first, then remove buttons if delivered.
+            $sent = $bot->sendMessage(
+                $reply['chat_id'], $reply['text'], $reply['reply_markup'] ?? null
+            );
+            if ($sent) {
+                $bot->removeInlineKeyboard($reply['chat_id'], (int) $reply['clear_inline_keyboard']);
+            }
+
+            // Telegram retries non-2xx webhook deliveries; replay is idempotent.
+            return response()->json(['ok' => $sent], $sent ? 200 : 503);
         }
 
         $payload = [
