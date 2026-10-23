@@ -22,19 +22,22 @@ class TelegramBotClient
         return $username === '' ? null : ltrim($username, '@');
     }
 
-    public function sendMessage(int|string $chatId, string $text): bool
+    public function sendMessage(int|string $chatId, string $text, ?array $replyMarkup = null): bool
     {
         if (! $this->isConfigured()) {
             return false;
         }
 
         try {
-            $response = $this->request(12)
-                ->post($this->apiUrl('sendMessage'), [
-                    'chat_id' => $chatId,
-                    'text' => Str::limit($text, 4000, '…'),
-                    'disable_web_page_preview' => true,
-                ]);
+            $payload = [
+                'chat_id' => $chatId,
+                'text' => Str::limit($text, 4000, '…'),
+                'disable_web_page_preview' => true,
+            ];
+            if ($replyMarkup !== null) {
+                $payload['reply_markup'] = $replyMarkup;
+            }
+            $response = $this->request(12)->post($this->apiUrl('sendMessage'), $payload);
         } catch (ConnectionException) {
             Log::warning('Telegram Bot API connection failed while sending a message.');
 
@@ -64,7 +67,7 @@ class TelegramBotClient
 
         $payload = [
             'timeout' => max(0, min($timeout, 50)),
-            'allowed_updates' => ['message'],
+            'allowed_updates' => ['message', 'callback_query'],
         ];
 
         if ($offset !== null) {
@@ -92,6 +95,62 @@ class TelegramBotClient
         $updates = $response->json('result');
 
         return is_array($updates) ? $updates : [];
+    }
+
+    /**
+     * Download a small JSON document through Telegram's getFile -> file API.
+     * File paths are issued by Telegram; reject traversal and arbitrary URLs.
+     */
+    public function downloadJson(string $fileId, int $maxBytes = 262144): ?string
+    {
+        if (! $this->isConfigured() || $fileId === '' || strlen($fileId) > 256) {
+            return null;
+        }
+
+        try {
+            $meta = $this->request(15)->post($this->apiUrl('getFile'), ['file_id' => $fileId]);
+            if (! $meta->successful() || $meta->json('ok') !== true) {
+                return null;
+            }
+
+            $path = $meta->json('result.file_path');
+            $size = $meta->json('result.file_size');
+            if (! is_string($path) || strlen($path) > 400
+                || ! preg_match('#^[a-zA-Z0-9_.\-/]+$#', $path)
+                || str_starts_with($path, '/') || str_contains($path, '..')
+                || ($size !== null && (! is_numeric($size) || $size > $maxBytes))) {
+                return null;
+            }
+
+            $download = $this->request(20)
+                ->get('https://api.telegram.org/file/bot'.$this->token().'/'.$path);
+            if (! $download->successful() || strlen($download->body()) > $maxBytes) {
+                return null;
+            }
+
+            return $download->body();
+        } catch (ConnectionException) {
+            Log::warning('Telegram file download connection failed.');
+
+            return null;
+        }
+    }
+
+    public function answerCallback(string $callbackId, string $text = ''): bool
+    {
+        if (! $this->isConfigured() || $callbackId === '') {
+            return false;
+        }
+        try {
+            $response = $this->request(12)->post($this->apiUrl('answerCallbackQuery'), [
+                'callback_query_id' => $callbackId,
+                'text' => Str::limit($text, 180, '…'),
+            ]);
+
+            return $response->successful() && $response->json('ok') === true;
+        } catch (ConnectionException) {
+            return false;
+        }
     }
 
     public function deleteWebhook(bool $dropPendingUpdates = false): bool
