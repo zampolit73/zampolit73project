@@ -19,6 +19,9 @@ class CompanyResearchTelegramPending extends Model
     {
         return [
             'had_collision' => 'boolean',
+            'telegram_user_id' => 'integer',
+            'telegram_chat_id' => 'integer',
+            'telegram_message_id' => 'integer',
             'expires_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
