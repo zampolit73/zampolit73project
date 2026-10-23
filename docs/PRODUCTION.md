@@ -423,3 +423,15 @@ preserve the damaged database for diagnosis, restore a chosen snapshot, verify i
 and restart services. Do not restore a SQLite backup on top of a running application.
 Application code rollback alone does not undo a schema migration, so coordinate
 database restoration with an appropriate release.
+
+
+## IRLIX Intelligence uploaded research persistence
+
+- Production persists the import tables \`company_research_imports\` and
+  \`company_research_import_revisions\` in the same shared SQLite database as
+  existing application data, outside atomic release directories.
+- Deploy must verify an online SQLite backup before running the new migration,
+  as with all database changes.
+- **Private imported research is not in GitHub.** Restore from production
+  SQLite backups only. The pre-migration backups are stored on the VPS and
+  do not replace secure encrypted/off-site backups.

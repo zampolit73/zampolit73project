@@ -31,9 +31,13 @@ Route::middleware('auth')->group(function () {
         ->name('projects.cio-presentations');
     Route::get('/projects/kommersant-ranking', [KommersantRankingController::class, 'index'])
         ->name('projects.kommersant-ranking');
+    // Research and JSON import are available to authenticated sales managers.
+    Route::get('/projects/irlix-sales/research', [CompanyResearchController::class, 'index'])
+        ->name('projects.irlix-sales.research');
+    Route::post('/projects/irlix-sales/research/import', [CompanyResearchController::class, 'store'])
+        ->middleware('throttle:10,1')->name('projects.irlix-sales.research.import');
+
     Route::middleware(EnsureUserIsAdmin::class)->group(function () {
-        Route::get('/projects/irlix-sales/research', [CompanyResearchController::class, 'index'])
-            ->name('projects.irlix-sales.research');
         Route::get('/projects/irlix-sales', [SalesProspectController::class, 'index'])
             ->name('projects.irlix-sales');
         Route::post('/projects/irlix-sales/prospects', [SalesProspectController::class, 'store'])

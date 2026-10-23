@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\CompanyResearchImport;
+
 class CompanyResearchRepository
 {
     private string $directory;
@@ -12,39 +14,88 @@ class CompanyResearchRepository
     }
 
     /**
-     * Read-only, Git-backed public reports. No network access and no database migrations.
-     * Invalid documents are ignored instead of breaking the admin workspace.
+     * Merge bundled public GitHub research with private SQLite imports. A private
+     * import takes precedence by identifier OR INN, without writing it to Git.
      */
     public function all(): array
     {
         $reports = [];
-
         foreach (glob($this->directory.'/*.json') ?: [] as $file) {
             if (! is_file($file) || filesize($file) > 131072) {
                 continue;
             }
-
             $record = json_decode((string) file_get_contents($file), true);
-
-            if (! is_array($record) || ($record['schema_version'] ?? null) !== 1) {
+            if (! is_array($record)) {
                 continue;
             }
+            $normalized = $this->normalizePayload($record, pathinfo($file, PATHINFO_FILENAME));
+            if ($normalized) {
+                $normalized['origin'] = 'github';
+                $normalized['revision'] = 0;
+                $normalized['imported_by_name'] = null;
+                $reports[$this->key($normalized)] = $normalized;
+            }
+        }
 
-            $id = $record['id'] ?? '';
-            $company = $record['company'] ?? [];
-            if (! is_string($id) || ! preg_match('/^[a-z0-9][a-z0-9-]{2,79}$/', $id)
-                || pathinfo($file, PATHINFO_FILENAME) !== $id
-                || ! is_array($company)
-                || ! is_string($company['name'] ?? null)
-                || trim($company['name']) === '') {
+        foreach (CompanyResearchImport::query()->with('importer:id,username')->orderBy('id')->get() as $item) {
+            $payload = json_decode($item->payload, true);
+            $normalized = is_array($payload) ? $this->normalizePayload($payload) : null;
+            if (! $normalized) {
                 continue;
             }
-
-            $date = $record['researched_at'] ?? '';
-            if (! is_string($date) || ! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $date)
-                || strtotime($date) === false) {
-                continue;
+            // Do not show an obsolete public duplicate after a private import.
+            unset($reports['id:'.$normalized['id']]);
+            $key = $this->key($normalized);
+            if (str_starts_with($key, 'inn:')) {
+                foreach ($reports as $otherKey => $other) {
+                    if (($other['id'] ?? '') === $normalized['id']) {
+                        unset($reports[$otherKey]);
+                    }
+                }
             }
+            $normalized['origin'] = 'sqlite';
+            $normalized['revision'] = $item->revision;
+            $normalized['imported_by_name'] = $item->importer?->username;
+            $normalized['imported_at'] = $item->updated_at?->toIso8601String();
+            $normalized['history'] = $item->revisions()
+                ->with('importer:id,username')
+                ->orderByDesc('revision')
+                ->limit(10)
+                ->get()
+                ->map(fn ($rev) => [
+                    'revision' => $rev->revision,
+                    'by' => $rev->importer?->username ?? 'Удалённый пользователь',
+                    'at' => $rev->created_at?->toIso8601String(),
+                ])->all();
+            $reports[$key] = $normalized;
+        }
+
+        $reports = array_values($reports);
+        usort($reports, fn (array $a, array $b) =>
+            strcmp($b['researched_at'], $a['researched_at']) ?: strcmp($a['id'], $b['id'])
+        );
+
+        return $reports;
+    }
+
+    public function normalizePayload(array $record, ?string $expectedId = null): ?array
+    {
+        if (($record['schema_version'] ?? null) !== 1) {
+            return null;
+        }
+        $id = $record['id'] ?? null;
+        $company = $record['company'] ?? null;
+        if (! is_string($id) || ! preg_match('/^[a-z0-9][a-z0-9-]{2,79}$/', $id)
+            || ($expectedId !== null && $expectedId !== $id)
+            || ! is_array($company) || ! is_string($company['name'] ?? null)
+            || trim($company['name']) === '') {
+            return null;
+        }
+        $date = $record['researched_at'] ?? null;
+        if (! is_string($date) || ! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $date)
+            || strtotime($date) === false) {
+            return null;
+        }
 
             $evidence = [];
             foreach (array_slice(is_array($record['evidence'] ?? null) ? $record['evidence'] : [], 0, 30) as $source) {
@@ -209,7 +260,7 @@ class CompanyResearchRepository
                 }
             }
 
-            $reports[] = [
+            return [
                 'id' => $id,
                 'company' => [
                     'name' => $this->s($company['name'], 200),
@@ -261,13 +312,12 @@ class CompanyResearchRepository
                 'recommendation' => $this->s($record['recommendation'] ?? '', 4000),
                 'open_questions' => $this->strings($record['open_questions'] ?? [], 20, 350),
             ];
-        }
+    }
 
-        usort($reports, fn (array $a, array $b) =>
-            strcmp($b['researched_at'], $a['researched_at']) ?: strcmp($a['id'], $b['id'])
-        );
-
-        return $reports;
+    private function key(array $record): string
+    {
+        $inn = $record['company']['inn'] ?? '';
+        return preg_match('/^\d{10}(\d{2})?$/', $inn) ? 'inn:'.$inn : 'id:'.$record['id'];
     }
 
     private function s(mixed $value, int $max): string
