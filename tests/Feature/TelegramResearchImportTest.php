@@ -160,7 +160,7 @@ class TelegramResearchImportTest extends TestCase
         $changed['summary'] = 'Новые сведения';
         [$again, , $message] = $this->uploadAndGetAction(101, $changed);
         $this->assertStringContainsString('Уже есть карточка', $message);
-        $this->assertStringContainsString('Обновить', $message);
+        $this->assertStringContainsString('Обновление', $message);
         $this->assertDatabaseHas('company_research_imports', ['revision' => 1]);
 
         $this->webhook($this->callbackUpdate($again))->assertOk();
