@@ -10,6 +10,7 @@ use App\Http\Controllers\KommersantRankingController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\VacancySourceController;
 use App\Http\Controllers\SalesProspectController;
+use App\Http\Controllers\CompanyResearchController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -31,6 +32,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/projects/kommersant-ranking', [KommersantRankingController::class, 'index'])
         ->name('projects.kommersant-ranking');
     Route::middleware(EnsureUserIsAdmin::class)->group(function () {
+        Route::get('/projects/irlix-sales/research', [CompanyResearchController::class, 'index'])
+            ->name('projects.irlix-sales.research');
         Route::get('/projects/irlix-sales', [SalesProspectController::class, 'index'])
             ->name('projects.irlix-sales');
         Route::post('/projects/irlix-sales/prospects', [SalesProspectController::class, 'store'])
