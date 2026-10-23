@@ -373,7 +373,7 @@ The Reader currently provides setup/auth/folder/backfill/sync/search primitives.
 
 ## IRLIX AI Sales (project #07)
 
-Route: `GET /projects/irlix-sales` (authenticated), Inertia page `IrlixSales.vue`.
+Route: `GET /projects/irlix-sales` (admin-only pilot), Inertia page `IrlixSales.vue`.
 
 - `POST /projects/irlix-sales/prospects`: create company manually;
 - `PATCH /projects/irlix-sales/prospects/{prospect}`: update company manually;
