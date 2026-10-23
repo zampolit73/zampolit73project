@@ -202,13 +202,16 @@ class TelegramResearchImportHandler
                 .'Открой IRLIX Intelligence: https://zampolit73.duckdns.org/projects/irlix-sales/research');
         });
 
-        // Commit SQLite FIRST. A Telegram API outage must never undo an import.
-        // The message is linked to the validated callback's original private chat.
+        // Telegram transport sends the success message FIRST and removes buttons
+        // only after successful delivery. On delivery failure, retry the update
+        // safely: the saved outcome is persisted and the callback is idempotent.
         if ($reply['clear_inline_keyboard'] ?? false) {
-            if (is_numeric(data_get($query, 'message.message_id'))) {
-                $this->bot->removeInlineKeyboard($chatId, (int) data_get($query, 'message.message_id'));
+            $messageId = data_get($query, 'message.message_id');
+            if (is_numeric($messageId) && (int) $messageId > 0) {
+                $reply['clear_inline_keyboard'] = (int) $messageId;
+            } else {
+                unset($reply['clear_inline_keyboard']);
             }
-            unset($reply['clear_inline_keyboard']);
         }
 
         return $reply;
