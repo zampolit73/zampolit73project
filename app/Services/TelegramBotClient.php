@@ -153,6 +153,40 @@ class TelegramBotClient
         }
     }
 
+    /**
+     * Hide action buttons after a terminal decision. Failure to reach Telegram
+     * must NOT undo the already committed SQLite import; replay remains safe.
+     */
+    public function removeInlineKeyboard(int|string $chatId, int $messageId): bool
+    {
+        if (! $this->isConfigured() || $messageId <= 0) {
+            return false;
+        }
+
+        try {
+            $response = $this->request(8)->post($this->apiUrl('editMessageReplyMarkup'), [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'reply_markup' => ['inline_keyboard' => []],
+            ]);
+        } catch (ConnectionException) {
+            Log::warning('Telegram: cannot remove used research confirmation buttons.');
+
+            return false;
+        }
+
+        if (! $response->successful() || $response->json('ok') !== true) {
+            // Telegram may already have removed the buttons. Best effort.
+            Log::info('Telegram: editMessageReplyMarkup not applied.', [
+                'status' => $response->status(),
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
     public function deleteWebhook(bool $dropPendingUpdates = false): bool
     {
         if (! $this->isConfigured()) {
