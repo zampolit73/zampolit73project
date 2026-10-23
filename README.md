@@ -300,3 +300,11 @@ Credentials come only from GitHub Actions Secrets `TELEGRAM_READER_API_ID` and `
 
 Настройка аналитика: `docs/IRLIX_ANALYST_CHATGPT.md`.
 JSON-схема и правила: `data/company-reports/README.md`.
+
+## Полный коммерческий формат IRLIX Intelligence
+
+Исследования компаний отображаются в форме прежнего 10-раздельного OSINT-отчёта:
+вывод по IT-аутстаффингу, реквизиты и финансы, доказательства, тендеры,
+подрядчики/проекты, ЛПР и опубликованные корпоративные контакты, стек,
+закупочный маршрут, стратегия выхода, коммерческий рейтинг A–D и CRM-вывод.
+Смотрите `docs/IRLIX_ANALYST_CHATGPT.md` и `data/company-reports/README.md`.
