@@ -71,7 +71,25 @@ class PollTelegramBot extends Command
                 $reply = $handler->handle($update);
 
                 if ($reply !== null) {
-                    $bot->sendMessage($reply['chat_id'], $reply['text'], $reply['reply_markup'] ?? null);
+                    $sent = $bot->sendMessage(
+                        $reply['chat_id'], $reply['text'], $reply['reply_markup'] ?? null
+                    );
+
+                    if (! $sent && isset($reply['clear_inline_keyboard'])) {
+                        // The SQLite write may already be committed. Do not
+                        // acknowledge an undelivered confirmation update.
+                        // Retrying is safe: replay returns the original revision.
+                        $this->warn('Telegram research acknowledgement failed; retrying this update.');
+                        if ($once) {
+                            return self::FAILURE;
+                        }
+                        sleep(5);
+                        break;
+                    }
+
+                    if ($sent && isset($reply['clear_inline_keyboard'])) {
+                        $bot->removeInlineKeyboard($reply['chat_id'], (int) $reply['clear_inline_keyboard']);
+                    }
                 }
 
                 Cache::forever(self::CACHE_KEY, $updateId);
