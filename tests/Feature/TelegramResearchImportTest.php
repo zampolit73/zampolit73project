@@ -100,7 +100,7 @@ class TelegramResearchImportTest extends TestCase
         ]);
     }
 
-    private function callback(string $data, int $senderId = 77701): array
+    private function callbackUpdate(string $data, int $senderId = 77701): array
     {
         return [
             'update_id' => 9001,
@@ -136,7 +136,7 @@ class TelegramResearchImportTest extends TestCase
         $this->assertDatabaseCount('company_research_imports', 0);
         $this->assertDatabaseCount('company_research_telegram_pending', 1);
 
-        $this->webhook($this->callback($save))
+        $this->webhook($this->callbackUpdate($save))
             ->assertOk()->assertJsonPath('method', 'sendMessage');
         $this->assertDatabaseHas('company_research_imports', [
             'identifier' => 'inn-7707083893',
@@ -154,7 +154,7 @@ class TelegramResearchImportTest extends TestCase
     {
         $this->user();
         [$save] = $this->uploadAndGetAction();
-        $this->webhook($this->callback($save))->assertOk();
+        $this->webhook($this->callbackUpdate($save))->assertOk();
 
         $changed = $this->report();
         $changed['summary'] = 'Новые сведения';
@@ -163,12 +163,12 @@ class TelegramResearchImportTest extends TestCase
         $this->assertStringContainsString('Обновить', $message);
         $this->assertDatabaseHas('company_research_imports', ['revision' => 1]);
 
-        $this->webhook($this->callback($again))->assertOk();
+        $this->webhook($this->callbackUpdate($again))->assertOk();
         $this->assertDatabaseCount('company_research_imports', 1);
         $this->assertDatabaseCount('company_research_import_revisions', 2);
         $this->assertSame(2, CompanyResearchImport::query()->firstOrFail()->revision);
 
-        $this->webhook($this->callback($again))->assertOk();
+        $this->webhook($this->callbackUpdate($again))->assertOk();
         $this->assertDatabaseCount('company_research_import_revisions', 2);
     }
 
@@ -176,7 +176,7 @@ class TelegramResearchImportTest extends TestCase
     {
         $this->user();
         [, $cancel] = $this->uploadAndGetAction();
-        $this->webhook($this->callback($cancel))
+        $this->webhook($this->callbackUpdate($cancel))
             ->assertOk()->assertJsonPath('method', 'sendMessage');
         $this->assertDatabaseCount('company_research_imports', 0);
         $this->assertDatabaseHas('company_research_telegram_pending', [
@@ -190,7 +190,7 @@ class TelegramResearchImportTest extends TestCase
         $this->user(77702, 'other-person');
         [$save] = $this->uploadAndGetAction();
 
-        $response = $this->webhook($this->callback($save, 77702))->assertOk();
+        $response = $this->webhook($this->callbackUpdate($save, 77702))->assertOk();
         $this->assertStringContainsString('недействительный импорт', (string) $response->json('text'));
         $this->assertDatabaseCount('company_research_imports', 0);
         $this->assertDatabaseHas('company_research_telegram_pending', ['state' => 'pending']);
@@ -231,7 +231,7 @@ class TelegramResearchImportTest extends TestCase
         $this->user();
         [$save] = $this->uploadAndGetAction();
         CompanyResearchTelegramPending::query()->update(['expires_at' => now()->subMinute()]);
-        $this->webhook($this->callback($save))->assertOk();
+        $this->webhook($this->callbackUpdate($save))->assertOk();
         $this->assertDatabaseCount('company_research_imports', 0);
         $this->assertDatabaseHas('company_research_telegram_pending', ['state' => 'expired']);
     }
