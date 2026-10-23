@@ -320,11 +320,6 @@ class CompanyResearchRepository
         return preg_match('/^\d{10}(\d{2})?$/', $inn) ? 'inn:'.$inn : 'id:'.$record['id'];
     }
 
-   );
-
-        return $reports;
-    }
-
     private function s(mixed $value, int $max): string
     {
         return is_string($value) ? mb_substr(trim($value), 0, $max) : '';
