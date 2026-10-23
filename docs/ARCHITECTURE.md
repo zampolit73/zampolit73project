@@ -410,3 +410,28 @@ contact channels), `legal_profile`, `financials`, `projects`, `buying_signals`,
 The UI renders the commercial 10-section buyer report. No migration is required,
 and existing v1 reports render with empty optional sections. Public repository
 history remains accessible outside site authentication.
+
+
+## IRLIX research JSON import and revision history
+
+Authenticated users now access \`GET /projects/irlix-sales/research\`
+and \`POST /projects/irlix-sales/research/import\` (throttled). Main
+sales-prospects CRUD remains admin-only.
+
+The upload endpoint validates UTF-8 JSON (<=256 KiB), v1 schema,
+mandatory attributes, provenance links, identity consistency, collision
+confirmation and user review. It normalizes the document through the same
+\`CompanyResearchRepository::normalizePayload\` path as bundled public reports,
+then writes whitelisted JSON into a persistent SQLite transaction. Historical
+versions live in \`company_research_import_revisions\`. The original upload
+is not kept and no import data is sent to GitHub.
+
+The repository service merges public Git-backed JSON and private SQLite
+reports, matching identity by INN or stable ID, with the imported record
+taking precedence for display. Each displayed document includes origin,
+revision/author metadata (for SQLite) and a standard JSON export action.
+
+Security: only logged-in employees can view SQLite research, not guests.
+There is no direct ChatGPT-to-private-SQLite connector or background AI API.
+Direct chat-to-GitHub remains public-only; to ingest a private report prepared
+by a colleague, upload its JSON through the authenticated site.
