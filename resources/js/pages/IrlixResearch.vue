@@ -122,12 +122,52 @@ function formattedDate(date) {
                         </div>
                     </section>
 
-                    <section v-if="selected.decision_makers.length" class="research-section">
-                        <h3>05 / ПУБЛИЧНЫЕ ЛПР</h3>
-                        <div v-for="(person,index) in selected.decision_makers" :key="index" class="research-line">
-                            <strong>{{ person.name }}</strong><span>{{ person.role }}</span>
-                            <a :href="person.public_url" target="_blank" rel="noopener noreferrer">Публичный источник ↗</a>
+                    <section class="research-section">
+                        <h3>05 / КЛЮЧЕВЫЕ ЛПР — IT, ПРОДУКТ, ЗАКУПКИ</h3>
+                        <p class="research-help">Приоритет показывает полезность для выхода на заказчика, а не подтверждает полномочия на подписание договора. У каждого контакта должен быть открытый источник.</p>
+                        <div v-if="selected.decision_makers.length" class="research-people">
+                            <div v-for="(person,index) in selected.decision_makers" :key="index" class="research-person">
+                                <div class="research-person-head">
+                                    <div><strong>{{ person.name }}</strong><p>{{ person.role }}<span v-if="person.company_unit"> · {{ person.company_unit }}</span></p></div>
+                                    <span class="research-priority">ПРИОРИТЕТ {{ person.priority }}</span>
+                                </div>
+                                <p class="research-person-status">
+                                    {{ person.role_status === 'current' ? 'Актуальная роль подтверждена источником' : person.role_status === 'former' ? 'Бывший сотрудник / прежняя роль' : 'Должность требует перепроверки' }}
+                                    <span v-if="person.last_checked_at"> · Проверено {{ person.last_checked_at }}</span>
+                                </p>
+                                <p v-if="person.responsibility"><b>Зона ответственности:</b> {{ person.responsibility }}</p>
+                                <p v-if="person.outreach_angle"><b>Что предложить:</b> {{ person.outreach_angle }}</p>
+                                <div class="research-contact-actions">
+                                    <a v-if="person.public_url" :href="person.public_url" target="_blank" rel="noopener noreferrer">Профессиональный профиль ↗</a>
+                                    <a :href="person.source_url" target="_blank" rel="noopener noreferrer">Подтверждение роли ↗</a>
+                                    <a v-if="person.work_email" :href="'mailto:' + person.work_email">{{ person.work_email }}</a>
+                                    <a v-if="person.work_phone" :href="'tel:' + person.work_phone.replace(/[^+\d]/g,'')">{{ person.work_phone }}</a>
+                                </div>
+                            </div>
                         </div>
+                        <p v-else>Подтверждённые IT-ЛПР пока не установлены. Не подменяем их контактами продавцов или службы поддержки.</p>
+                    </section>
+
+                    <section class="research-section">
+                        <h3>05A / КОРПОРАТИВНЫЕ КОНТАКТЫ И КАНАЛЫ</h3>
+                        <div v-if="selected.business_contacts?.length" class="research-people">
+                            <div v-for="(channel,index) in selected.business_contacts" :key="index" class="research-person">
+                                <div class="research-person-head">
+                                    <div>
+                                        <strong>{{ channel.department || 'Корпоративный контакт' }}</strong>
+                                        <p v-if="channel.contact_name">{{ channel.contact_name }}</p>
+                                    </div>
+                                </div>
+                                <p v-if="channel.purpose">{{ channel.purpose }}</p>
+                                <div class="research-contact-actions">
+                                    <a v-if="channel.work_email" :href="'mailto:' + channel.work_email">{{ channel.work_email }}</a>
+                                    <a v-if="channel.work_phone" :href="'tel:' + channel.work_phone.replace(/[^+\d]/g,'')">{{ channel.work_phone }}</a>
+                                    <a :href="channel.source_url" target="_blank" rel="noopener noreferrer">Официальный источник ↗</a>
+                                </div>
+                                <small v-if="channel.last_checked_at">Проверено: {{ channel.last_checked_at }}</small>
+                            </div>
+                        </div>
+                        <p v-else>Официальные деловые контакты пока не найдены.</p>
                     </section>
 
                     <section v-if="selected.recommendation" class="research-section">
@@ -213,4 +253,17 @@ function formattedDate(date) {
 .research-no-reports p {line-height:1.55;}
 @media(max-width:750px){.research-workspace{grid-template-columns:minmax(0,1fr);}.research-list{max-height:270px;}.research-hero-links{gap:12px;}}
 @media(max-width:400px){.research-page{padding:0 4px 40px;}.research-overview{gap:5px;}.research-overview>div{padding:8px 6px;border-width:2px;}.research-overview span{font-size:10px;}.research-index{padding:10px;}.research-detail{padding:12px;box-shadow:2px 2px 0 #201b18;}}
+.research-help {font-size:13px;color:#786357;margin:0 0 12px;}
+.research-people{display:grid;gap:12px;}
+.research-person{border:2px solid #201b18;padding:14px;min-width:0;}
+.research-person-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;}
+.research-person-head strong{font-size:18px;overflow-wrap:anywhere;}
+.research-person-head p{margin:4px 0;}
+.research-priority{font-size:11px;font-weight:900;background:#f1e5d8;border:1px solid #201b18;padding:6px 8px;}
+.research-person-status{font-size:12px;color:#786357;margin:6px 0;}
+.research-person>p{margin:9px 0;line-height:1.5;}
+.research-contact-actions{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:10px;}
+.research-contact-actions a{font-size:13px;overflow-wrap:anywhere;min-height:40px;display:inline-flex;align-items:center;}
+.research-person small{color:#786357;}
+@media(max-width:400px){.research-person{padding:10px;}.research-contact-actions{flex-direction:column;gap:0;}}
 </style>
