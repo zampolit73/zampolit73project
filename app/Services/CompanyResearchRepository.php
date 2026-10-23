@@ -10,7 +10,10 @@ class CompanyResearchRepository
 
     public function __construct(?string $directory = null)
     {
-        $this->directory = $directory ?? bas    /**
+        $this->directory = $directory ?? base_path('data/company-reports');
+    }
+
+    /**
      * Merge bundled public GitHub research with private SQLite imports. A private
      * import takes precedence by identifier OR INN, without writing it to Git.
      */
