@@ -132,6 +132,26 @@ class CompanyResearchTest extends TestCase
         $this->assertSame('unclear', $reports[0]['outstaff_demand']['assessment']);
     }
 
+    public function test_all_committed_public_reports_are_valid_before_release(): void
+    {
+        $files = glob(base_path('data/company-reports/*.json')) ?: [];
+        $published = (new CompanyResearchRepository())->all();
+
+        $this->assertCount(count($files), $published, 'A committed company report is malformed or its filename/id does not match.');
+
+        foreach ($files as $file) {
+            $input = json_decode((string) file_get_contents($file), true);
+            $id = pathinfo($file, PATHINFO_FILENAME);
+            $record = collect($published)->firstWhere('id', $id);
+            $this->assertNotNull($record, 'Missing company report '.$id);
+            $this->assertSame(count($input['evidence'] ?? []), count($record['evidence']), 'Invalid evidence URL in '.$id);
+            $this->assertSame(count($input['decision_makers'] ?? []), count($record['decision_makers']), 'Non-public or invalid decision maker link in '.$id);
+            if (($input['outstaff_demand']['assessment'] ?? '') === 'confirmed') {
+                $this->assertSame('confirmed', $record['outstaff_demand']['assessment'], 'Confirmed signals must cite evidence in '.$id);
+            }
+        }
+    }
+
     public function test_updating_same_file_replaces_old_version_without_duplicate(): void
     {
         $this->write($this->sample());
