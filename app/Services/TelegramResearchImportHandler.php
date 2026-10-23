@@ -130,7 +130,7 @@ class TelegramResearchImportHandler
             return $this->reply($chatId, 'Нет действующей привязки Telegram к сотруднику IRLIX. Импорт запрещён.');
         }
 
-        return DB::transaction(function () use ($binding, $telegramId, $chatId, $matches) {
+        $reply = DB::transaction(function () use ($binding, $telegramId, $chatId, $matches) {
             $pending = CompanyResearchTelegramPending::query()
                 ->whereKey((int) $matches[2])
                 ->lockForUpdate()->first();
@@ -142,18 +142,37 @@ class TelegramResearchImportHandler
                 return $this->reply($chatId, 'Невозможно подтвердить чужой или недействительный импорт.');
             }
 
+            if ($pending->state === 'applied') {
+                $version = $pending->result_revision
+                    ? ', версия '.$pending->result_revision : '';
+                $status = $pending->result_changed === false ? 'без изменений' : 'уже сохранено';
+
+                return $this->terminalReply($chatId,
+                    '✅ Исследование «'.$pending->company_name.'» '.$status.$version
+                    .".\n".'Повторная запись не создаётся.'
+                    ."\n".'Открыть: https://zampolit73.duckdns.org/projects/irlix-sales/research');
+            }
+
             if ($pending->state !== 'pending') {
-                return $this->reply($chatId, 'Это действие уже обработано. Повторная запись не создаётся.');
+                $message = match ($pending->state) {
+                    'cancelled' => '❌ Импорт «'.$pending->company_name.'» уже отменён.',
+                    'expired' => 'Срок подтверждения истёк. Пришли JSON заново.',
+                    'stale' => 'Карточка уже появилась в базе. Пришли JSON заново для обновления.',
+                    'rejected' => 'Импорт ранее отклонён. Исправь JSON и пришли заново.',
+                    default => 'Это действие уже завершено. Повторной записи не было.',
+                };
+
+                return $this->terminalReply($chatId, $message);
             }
 
             if ($pending->expires_at->isPast()) {
                 $pending->update(['state' => 'expired', 'payload' => null, 'completed_at' => now()]);
-                return $this->reply($chatId, 'Срок подтверждения истёк. Пришли файл заново.');
+                return $this->terminalReply($chatId, 'Срок подтверждения истёк. Пришли файл заново.');
             }
 
             if ($matches[1] === 'cancel') {
                 $pending->update(['state' => 'cancelled', 'payload' => null, 'completed_at' => now()]);
-                return $this->reply($chatId, 'Импорт отменён. На сайте ничего не изменилось.');
+                return $this->terminalReply($chatId, '❌ Импорт «'.$pending->company_name.'» отменён. На сайте ничего не изменилось.');
             }
 
             try {
@@ -162,22 +181,42 @@ class TelegramResearchImportHandler
                 // not silently convert "Save" into an overwriting operation.
                 if (! $pending->had_collision && $this->imports->existing($report)) {
                     $pending->update(['state' => 'stale', 'payload' => null, 'completed_at' => now()]);
-                    return $this->reply($chatId, 'Компания появилась после отправки файла. Пришли его заново для подтверждения обновления.');
+                    return $this->terminalReply($chatId, 'Компания появилась после отправки файла. Пришли JSON заново для подтверждения обновления.');
                 }
                 $saved = $this->imports->save($report, $binding->user_id, $pending->had_collision);
             } catch (ValidationException $exception) {
                 $pending->update(['state' => 'rejected', 'payload' => null, 'completed_at' => now()]);
-                return $this->reply($chatId, 'Импорт не выполнен: '.$this->errorText($exception));
+                return $this->terminalReply($chatId, 'Импорт не выполнен: '.$this->errorText($exception));
             }
 
-            $pending->update(['state' => 'applied', 'payload' => null, 'completed_at' => now()]);
-            return $this->reply($chatId,
+            $pending->update([
+                'state' => 'applied', 'payload' => null, 'completed_at' => now(),
+                'result_revision' => $saved['revision'],
+                'result_changed' => $saved['changed'],
+            ]);
+            return $this->terminalReply($chatId,
                 '✅ '.($saved['changed'] ? 'Исследование сохранено' : 'Исследование без изменений')
                 .': '.$saved['name']."\n"
                 .'Версия '.$saved['revision']."\n"
                 .'Автор: '.$binding->user?->username."\n"
                 .'Открой IRLIX Intelligence: https://zampolit73.duckdns.org/projects/irlix-sales/research');
         });
+
+        // Commit SQLite FIRST. A Telegram API outage must never undo an import.
+        // The message is linked to the validated callback's original private chat.
+        if ($reply['clear_inline_keyboard'] ?? false) {
+            if (is_numeric(data_get($query, 'message.message_id'))) {
+                $this->bot->removeInlineKeyboard($chatId, (int) data_get($query, 'message.message_id'));
+            }
+            unset($reply['clear_inline_keyboard']);
+        }
+
+        return $reply;
+    }
+
+    private function terminalReply(int $chatId, string $text): array
+    {
+        return $this->reply($chatId, $text) + ['clear_inline_keyboard' => true];
     }
 
     private function errorText(ValidationException $exception): string
