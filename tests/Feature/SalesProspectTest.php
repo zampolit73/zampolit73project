@@ -48,9 +48,17 @@ class SalesProspectTest extends TestCase
         $this->post('/projects/irlix-sales/prospects', $this->payload())->assertRedirect('/login');
     }
 
-    public function test_authenticated_user_can_add_find_and_update_company(): void
+    public function test_regular_user_cannot_access_private_sales_cards(): void
     {
         $user = $this->user();
+        $this->actingAs($user)->get('/projects/irlix-sales')->assertForbidden();
+        $this->actingAs($user)->post('/projects/irlix-sales/prospects', $this->payload())
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_add_find_and_update_company(): void
+    {
+        $user = $this->user('sales-admin', 'admin');
         $this->actingAs($user)
             ->post('/projects/irlix-sales/prospects', $this->payload())
             ->assertRedirect();
@@ -80,7 +88,7 @@ class SalesProspectTest extends TestCase
 
     public function test_duplicate_name_or_inn_is_rejected(): void
     {
-        $user = $this->user();
+        $user = $this->user('sales-admin', 'admin');
         $this->actingAs($user)->post('/projects/irlix-sales/prospects', $this->payload());
 
         $sameName = $this->payload(' ТЕСТОВЫЙ    ЗАКАЗЧИК ');
@@ -98,7 +106,7 @@ class SalesProspectTest extends TestCase
 
     public function test_untrusted_url_and_unknown_owner_are_rejected(): void
     {
-        $user = $this->user();
+        $user = $this->user('sales-admin', 'admin');
         $input = $this->payload();
         $input['contact_url'] = 'not-a-valid-web-url';
         $input['owner_id'] = 999999;
@@ -111,6 +119,7 @@ class SalesProspectTest extends TestCase
     {
         $owner = $this->user('vacancy-owner');
         $another = $this->user('another');
+        $admin = $this->user('sales-admin', 'admin');
         $investigation = VacancyInvestigation::query()->create([
             'user_id' => $owner->id,
             'input_source' => 'web',
@@ -127,10 +136,10 @@ class SalesProspectTest extends TestCase
         ]);
 
         $this->actingAs($another)->post('/projects/irlix-sales/import-candidate/'.$candidate->id)
-            ->assertNotFound();
-        $this->actingAs($owner)->post('/projects/irlix-sales/import-candidate/'.$candidate->id)
+            ->assertForbidden();
+        $this->actingAs($admin)->post('/projects/irlix-sales/import-candidate/'.$candidate->id)
             ->assertRedirect();
-        $this->actingAs($owner)->post('/projects/irlix-sales/import-candidate/'.$candidate->id)
+        $this->actingAs($admin)->post('/projects/irlix-sales/import-candidate/'.$candidate->id)
             ->assertRedirect();
 
         $this->assertDatabaseCount('sales_prospects', 1);
