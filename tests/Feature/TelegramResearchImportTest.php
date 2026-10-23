@@ -16,6 +16,7 @@ class TelegramResearchImportTest extends TestCase
     use RefreshDatabase;
 
     private array $telegramPayload = [];
+    private bool $failAcknowledgement = false;
 
     protected function setUp(): void
     {
@@ -88,6 +89,12 @@ class TelegramResearchImportTest extends TestCase
                     200, ['Content-Type' => 'application/json']);
             },
             'https://api.telegram.org/bot*/answerCallbackQuery' => Http::response(['ok' => true, 'result' => true]),
+            'https://api.telegram.org/bot*/sendMessage' => function () {
+                return $this->failAcknowledgement
+                    ? Http::response(['ok' => false, 'description' => 'Temporary unavailable'], 503)
+                    : Http::response(['ok' => true, 'result' => ['message_id' => 900]]);
+            },
+            'https://api.telegram.org/bot*/editMessageReplyMarkup' => Http::response(['ok' => true, 'result' => true]),
         ]);
     }
 
@@ -147,7 +154,7 @@ class TelegramResearchImportTest extends TestCase
         $this->assertDatabaseCount('company_research_telegram_pending', 1);
 
         $this->webhook($this->callbackUpdate($save))
-            ->assertOk()->assertJsonPath('method', 'sendMessage');
+            ->assertOk()->assertJsonPath('ok', true);
         $this->assertDatabaseHas('company_research_imports', [
             'identifier' => 'inn-7707083893',
             'revision' => 1,
@@ -156,7 +163,17 @@ class TelegramResearchImportTest extends TestCase
         $this->assertDatabaseCount('company_research_import_revisions', 1);
         $this->assertDatabaseHas('company_research_telegram_pending', [
             'state' => 'applied', 'payload' => null,
+            'result_revision' => 1, 'result_changed' => true,
         ]);
+        Http::assertSent(fn ($request) =>
+            str_ends_with($request->url(), '/sendMessage')
+            && str_contains((string) $request['text'], 'Исследование сохранено')
+            && str_contains((string) $request['text'], 'Версия 1')
+        );
+        Http::assertSent(fn ($request) =>
+            str_ends_with($request->url(), '/editMessageReplyMarkup')
+            && data_get($request->data(), 'reply_markup.inline_keyboard') === []
+        );
         $this->assertFileDoesNotExist(base_path('data/company-reports/inn-7707083893.json'));
     }
 
@@ -180,6 +197,52 @@ class TelegramResearchImportTest extends TestCase
 
         $this->webhook($this->callbackUpdate($again))->assertOk();
         $this->assertDatabaseCount('company_research_import_revisions', 2);
+        Http::assertSent(fn ($request) =>
+            str_ends_with($request->url(), '/sendMessage')
+            && str_contains((string) $request['text'], 'уже сохранено, версия 2')
+        );
+
+        // A callback on the original version-1 button must report version 1,
+        // not the latest revision 2. No accidental version 3 may be created.
+        $this->webhook($this->callbackUpdate($save))->assertOk();
+        $this->assertDatabaseCount('company_research_import_revisions', 2);
+        Http::assertSent(fn ($request) =>
+            str_ends_with($request->url(), '/sendMessage')
+            && str_contains((string) $request['text'], 'уже сохранено, версия 1')
+        );
+    }
+
+    public function test_failed_notification_does_not_hide_buttons_and_replay_recovers_saved_version(): void
+    {
+        $this->user();
+        [$save] = $this->uploadAndGetAction();
+
+        // Telegram can fail after the DB transaction has been committed.
+        $this->failAcknowledgement = true;
+        $this->webhook($this->callbackUpdate($save))->assertStatus(503);
+        $this->assertDatabaseHas('company_research_imports', [
+            'identifier' => 'inn-7707083893', 'revision' => 1,
+        ]);
+        $this->assertDatabaseHas('company_research_telegram_pending', [
+            'state' => 'applied', 'result_revision' => 1,
+        ]);
+        $this->assertDatabaseCount('company_research_import_revisions', 1);
+        Http::assertNotSent(fn ($request) =>
+            str_ends_with($request->url(), '/editMessageReplyMarkup')
+        );
+
+        // Next delivery is safe and tells the employee what was saved.
+        $this->failAcknowledgement = false;
+        $this->webhook($this->callbackUpdate($save))->assertOk();
+        $this->assertDatabaseCount('company_research_import_revisions', 1);
+        Http::assertSent(fn ($request) =>
+            str_ends_with($request->url(), '/sendMessage')
+            && str_contains((string) $request['text'], 'уже сохранено, версия 1')
+        );
+        Http::assertSent(fn ($request) =>
+            str_ends_with($request->url(), '/editMessageReplyMarkup')
+            && data_get($request->data(), 'reply_markup.inline_keyboard') === []
+        );
     }
 
     public function test_cancel_never_writes_research(): void
@@ -187,11 +250,15 @@ class TelegramResearchImportTest extends TestCase
         $this->user();
         [, $cancel] = $this->uploadAndGetAction();
         $this->webhook($this->callbackUpdate($cancel))
-            ->assertOk()->assertJsonPath('method', 'sendMessage');
+            ->assertOk()->assertJsonPath('ok', true);
         $this->assertDatabaseCount('company_research_imports', 0);
         $this->assertDatabaseHas('company_research_telegram_pending', [
             'state' => 'cancelled', 'payload' => null,
         ]);
+        Http::assertSent(fn ($request) =>
+            str_ends_with($request->url(), '/editMessageReplyMarkup')
+            && data_get($request->data(), 'reply_markup.inline_keyboard') === []
+        );
     }
 
     public function test_callback_from_another_employee_cannot_apply_file(): void

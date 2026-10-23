@@ -467,3 +467,25 @@ preview and confirmation is rejected and must be sent again. The private
 SQLite research tables remain outside GitHub and the application release.
 Telegram cloud document transport is not end-to-end encrypted; use direct
 web upload for especially sensitive files.
+
+
+## Telegram research confirmation delivery and version-aware replay
+
+\`company_research_telegram_pending\` stores nullable \`result_revision\`
+and \`result_changed\` for applied callbacks. Old applied rows remain readable.
+The pending row is committed in the same SQLite transaction as its corresponding
+research revision. Replays emit a version-aware acknowledgement without a second
+write, even after later imports of the same company.
+
+After a terminal callback the handler returns a \`clear_inline_keyboard\`
+message-id hint to the transport. Long polling sends the success message FIRST
+and clears the original inline keyboard using Telegram
+\`editMessageReplyMarkup\` only when sendMessage succeeds. If notification
+delivery fails, the update offset remains unacknowledged and the same callback
+will retry using persisted result metadata; no duplicate revision is created.
+The webhook fallback uses explicit Telegram API sendMessage + cleanup for
+terminal callbacks and returns HTTP 503 if delivery fails, allowing retry.
+Keyboard-removal errors are best-effort and do not revert SQLite writes.
+
+Tests verify save-v1/save-v2 replay versions, button removal, cancellation,
+failure to send acknowledgement, and original permission checks.
