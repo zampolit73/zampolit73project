@@ -83,8 +83,10 @@ class SalesProspectTest extends TestCase
         $user = $this->user();
         $this->actingAs($user)->post('/projects/irlix-sales/prospects', $this->payload());
 
+        $sameName = $this->payload(' ТЕСТОВЫЙ    ЗАКАЗЧИК ');
+        $sameName['inn'] = null;
         $this->actingAs($user)
-            ->post('/projects/irlix-sales/prospects', $this->payload(' ТЕСТОВЫЙ    ЗАКАЗЧИК '))
+            ->post('/projects/irlix-sales/prospects', $sameName)
             ->assertSessionHasErrors('name');
 
         $this->actingAs($user)
