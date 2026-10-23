@@ -23,7 +23,7 @@ const visibleReports = computed(() => {
             .join(' ').toLocaleLowerCase('ru-RU').includes(q)
     );
 });
-const selected = computed(() => props.reports.find((item) => item.id === selectedId.value) ?? visibleReports.value[0] ?? null);
+const selected = computed(() => visibleReports.value.find((item) => item.id === selectedId.value) ?? visibleReports.value[0] ?? null);
 
 function selectReport(id) {
     selectedId.value = id;
