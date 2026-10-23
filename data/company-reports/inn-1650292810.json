@@ -8,7 +8,7 @@
     "industry": "Бытовая техника, e-commerce, цифровые сервисы",
     "ogrn": "1141650016540"
   },
-  "researched_at": "2026-10-23T11:00:00Z",
+  "researched_at": "2026-10-23T11:45:00Z",
   "summary": "Подтверждено публичное размещение компанией ООО «ХАР» закупки №362-279 на техническую поддержку и развитие e-commerce платформы Haier: опубликована 12.08.2026, завершена 09.09.2026. В спецификации есть почасовые позиции аналитика, дизайнера, руководителя разработки, backend и frontend-разработчиков. Это прямой сигнал спроса на внешние IT-услуги, но не подтверждение именно IT-аутстаффинга или состоявшегося договора. ООО «ХАР» также указано оператором цифрового сервиса EVO в публичном пользовательском соглашении.",
   "outstaff_demand": {
     "assessment": "likely",
@@ -22,7 +22,143 @@
     "Android (приложение EVO)"
   ],
   "contractors": [],
-  "decision_makers": [],
+  "decision_makers": [
+    {
+      "name": "Андрей Филатов",
+      "role": "IT & Business Transformation Director",
+      "company_unit": "Haier Russia · IT & Business Transformation",
+      "category": "it_leadership",
+      "priority": 1,
+      "role_status": "needs_verification",
+      "responsibility": "Профиль указывает руководство IT и цифровой трансформацией. В предыдущем исследовании отмечалось управление внутренними и внешними командами; распределение полномочий между юрлицами группы требует уточнения.",
+      "outreach_angle": "Приоритет №1: выяснить модель привлечения внешних IT-команд, закупку T&M и процедуру допуска новых IT-поставщиков.",
+      "public_url": "https://ru.linkedin.com/in/andreyfilatov",
+      "source_url": "https://ru.linkedin.com/in/andreyfilatov",
+      "last_checked_at": "2026-10-23",
+      "work_email": null,
+      "work_phone": null
+    },
+    {
+      "name": "Евгений Ким",
+      "role": "Director of Software Development",
+      "company_unit": "Haier · Software Development",
+      "category": "engineering",
+      "priority": 1,
+      "role_status": "needs_verification",
+      "responsibility": "Публичный профиль связывает с руководством разработкой ПО Haier; конкретные текущие проекты и право выбора подрядчиков требуют подтверждения.",
+      "outreach_angle": "Приоритет №1: обсудить спрос на backend, frontend, QA, системных аналитиков и способы подключения инженерных команд.",
+      "public_url": "https://ru.linkedin.com/in/kim-evgeny",
+      "source_url": "https://ru.linkedin.com/in/kim-evgeny",
+      "last_checked_at": "2026-10-23",
+      "work_email": null,
+      "work_phone": null
+    },
+    {
+      "name": "Антон Швейнов",
+      "role": "Head of D2C eCommerce & Development (RU)",
+      "company_unit": "Haier Russia · D2C / eCommerce",
+      "category": "product",
+      "priority": 1,
+      "role_status": "needs_verification",
+      "responsibility": "Публичный профиль указывает руководство российским D2C e-commerce направлением; это релевантно опубликованной закупке №362-279.",
+      "outreach_angle": "Приоритет №1 по e-commerce: выяснить итоги Bidzaar №362-279, новые задачи разработки и возможность резервного подрядчика.",
+      "public_url": "https://ru.linkedin.com/in/anton-shveynov",
+      "source_url": "https://ru.linkedin.com/in/anton-shveynov",
+      "last_checked_at": "2026-10-23",
+      "work_email": null,
+      "work_phone": null
+    },
+    {
+      "name": "Константин Потемичев",
+      "role": "Head of Backend Development",
+      "company_unit": "Haier · Backend Engineering",
+      "category": "engineering",
+      "priority": 1,
+      "role_status": "needs_verification",
+      "responsibility": "Профессиональный профиль указывает руководство backend-разработкой; в публичной активности встречаются роли Senior Golang Developer и Team Lead Development.",
+      "outreach_angle": "Предметный выход с Senior Go, PHP/backend, техлидами, интеграциями и QA после проверки спроса и договорной модели.",
+      "public_url": "https://ru.linkedin.com/in/konstantin-potemichev-b89341119",
+      "source_url": "https://ru.linkedin.com/in/konstantin-potemichev-b89341119",
+      "last_checked_at": "2026-10-23",
+      "work_email": null,
+      "work_phone": null
+    },
+    {
+      "name": "Максим Кузьмин",
+      "role": "IT Manager",
+      "company_unit": "Haier · IT Operations / SAP",
+      "category": "it_leadership",
+      "priority": 2,
+      "role_status": "needs_verification",
+      "responsibility": "Профессиональный профиль подтверждает IT Manager Haier. В прежнем разборе отмечались локальные корпоративные системы и SAP; актуальный функционал следует уточнить.",
+      "outreach_angle": "Контакт второго приоритета по интеграциям, SAP/1С, системной аналитике, поддержке и корпоративной инфраструктуре.",
+      "public_url": "https://ru.linkedin.com/in/maxim-kuzmin-8945394",
+      "source_url": "https://ru.linkedin.com/in/maxim-kuzmin-8945394",
+      "last_checked_at": "2026-10-23",
+      "work_email": null,
+      "work_phone": null
+    },
+    {
+      "name": "Ренат Няжеметдинов",
+      "role": "Технический менеджер проектов — роль из прежнего исследования, требуется перепроверка",
+      "company_unit": "Haier · Smart TV / Smart Home",
+      "category": "product",
+      "priority": 2,
+      "role_status": "needs_verification",
+      "responsibility": "Публичный профиль связывает специалиста с Haier и IT; в предыдущем исследовании упомянуты Smart TV, Smart Home и EVO. Точное текущее название должности не подтверждено.",
+      "outreach_angle": "Уточнить владельцев технических проектов Smart TV, Smart Home, EVO; предложить мобильную разработку и QA Automation при наличии запроса.",
+      "public_url": "https://ru.linkedin.com/in/rnyazhemetdinov/en",
+      "source_url": "https://ru.linkedin.com/in/rnyazhemetdinov/en",
+      "last_checked_at": "2026-10-23",
+      "work_email": null,
+      "work_phone": null
+    },
+    {
+      "name": "Павел Соболев",
+      "role": "IT Business Applications Manager / Leader",
+      "company_unit": "Haier · Business Applications",
+      "category": "it_leadership",
+      "priority": 2,
+      "role_status": "needs_verification",
+      "responsibility": "В публичном профиле указаны Business Intelligence, аналитика, SAP BW/BO, MM и SD. Не подтверждено управление закупкой разработчиков.",
+      "outreach_angle": "Второй приоритет: SAP, BI, аналитика, корпоративные приложения, интеграционные специалисты.",
+      "public_url": "https://ru.linkedin.com/in/pavel-sobolev-17a89516",
+      "source_url": "https://ru.linkedin.com/in/pavel-sobolev-17a89516",
+      "last_checked_at": "2026-10-23",
+      "work_email": null,
+      "work_phone": null
+    },
+    {
+      "name": "Олеся Райченко",
+      "role": "Head of Ecom & CRM",
+      "company_unit": "Haier · E-commerce & CRM",
+      "category": "product",
+      "priority": 2,
+      "role_status": "needs_verification",
+      "responsibility": "Публичный профессиональный профиль связывает с e-commerce и CRM Haier. Роль в закупке конкретного подрядчика не подтверждена.",
+      "outreach_angle": "Второй приоритет: CRM, интеграции, продуктовые и маркетинговые системы, e-commerce аналитика.",
+      "public_url": "https://ru.linkedin.com/in/%D0%BE%D0%BB%D0%B5%D1%81%D1%8F-%D1%80%D0%B0%D0%B9%D1%87%D0%B5%D0%BD%D0%BA%D0%BE-3326a363",
+      "source_url": "https://ru.linkedin.com/in/%D0%BE%D0%BB%D0%B5%D1%81%D1%8F-%D1%80%D0%B0%D0%B9%D1%87%D0%B5%D0%BD%D0%BA%D0%BE-3326a363",
+      "last_checked_at": "2026-10-23",
+      "work_email": null,
+      "work_phone": null
+    },
+    {
+      "name": "Андрей Азаренко",
+      "role": "Возможный руководитель инфраструктуры и ИБ — нужно подтвердить",
+      "company_unit": "Haier · Infrastructure / Information Security (по прежнему исследованию)",
+      "category": "it_leadership",
+      "priority": 3,
+      "role_status": "needs_verification",
+      "responsibility": "В прежнем разборе назван Head of Infrastructure and Information Security; публичный профиль «Андрей А.» связан с Haier, но полное имя и текущие полномочия не подтверждены независимо.",
+      "outreach_angle": "Не начинать предметную продажу без подтверждения личности и должности; возможный профиль — инфраструктура, DevOps и ИБ.",
+      "public_url": "https://ru.linkedin.com/in/azarenko/ru",
+      "source_url": "https://ru.linkedin.com/in/azarenko/ru",
+      "last_checked_at": "2026-10-23",
+      "work_email": null,
+      "work_phone": null
+    }
+  ],
   "evidence": [
     {
       "title": "Bidzaar — закупка №362-279 «Разработка и сопровождение онлайн-сайта Haier»",
@@ -53,10 +189,56 @@
       "title": "Haier Online — условия оплаты и доставки, реквизиты продавца",
       "url": "https://haieronline.ru/terms/payment-and-delivery/",
       "finding": "Юрлицо ООО «Хайер Электрикал Эпплаенсис РУС», ИНН 1650292810, ОГРН 1141650016540; общий телефон и email."
+    },
+    {
+      "title": "LinkedIn — Андрей Филатов, IT & Business Transformation Director, Haier",
+      "url": "https://ru.linkedin.com/in/andreyfilatov",
+      "finding": "Открытая профессиональная страница связывает специалиста с Haier и IT/Business Transformation. Требует проверки актуальности."
+    },
+    {
+      "title": "LinkedIn — Евгений Ким, Director of Software Development, Haier",
+      "url": "https://ru.linkedin.com/in/kim-evgeny",
+      "finding": "Профессиональный профиль руководителя разработки ПО Haier; контрактные полномочия неизвестны."
+    },
+    {
+      "title": "LinkedIn — Антон Швейнов, Head of D2C eCommerce & Development RU",
+      "url": "https://ru.linkedin.com/in/anton-shveynov",
+      "finding": "Российское e-commerce направление Haier по профилю LinkedIn; нужно проверить текущие полномочия."
+    },
+    {
+      "title": "LinkedIn — Константин Потемичев, Head of Backend Development",
+      "url": "https://ru.linkedin.com/in/konstantin-potemichev-b89341119",
+      "finding": "Публичный профиль Haier и интерес к backend/Go вакансии."
+    },
+    {
+      "title": "LinkedIn — Максим Кузьмин, IT Manager Haier",
+      "url": "https://ru.linkedin.com/in/maxim-kuzmin-8945394",
+      "finding": "Публичный профиль Haier указывает IT Manager."
+    },
+    {
+      "title": "LinkedIn — Ренат Няжеметдинов, Haier",
+      "url": "https://ru.linkedin.com/in/rnyazhemetdinov/en",
+      "finding": "Профиль связан с IT Haier; точная текущая должность и зоны ответственности требуют проверки."
+    },
+    {
+      "title": "LinkedIn — Павел Соболев, Business Applications",
+      "url": "https://ru.linkedin.com/in/pavel-sobolev-17a89516",
+      "finding": "Профиль Haier содержит BI/SAP BW/BO, MM, SD."
+    },
+    {
+      "title": "LinkedIn — Олеся Райченко, Head of Ecom & CRM",
+      "url": "https://ru.linkedin.com/in/%D0%BE%D0%BB%D0%B5%D1%81%D1%8F-%D1%80%D0%B0%D0%B9%D1%87%D0%B5%D0%BD%D0%BA%D0%BE-3326a363",
+      "finding": "Открытый профиль в e-commerce и CRM Haier."
+    },
+    {
+      "title": "LinkedIn — Андрей А. (в прежнем отчёте Андрей Азаренко)",
+      "url": "https://ru.linkedin.com/in/azarenko/ru",
+      "finding": "Профессиональная страница Haier частично соответствует имени из прежнего исследования; полное имя и Head of Infrastructure & Security не подтверждены."
     }
   ],
   "recommendation": "Публичная возможность: развивать контакт вокруг поддержки и развития e-commerce и мобильных сервисов, а не утверждать наличие аутстаффинга. Уточнить победителя закупки №362-279, повторные тендеры, применяемые технологии и потребность в отдельных специалистах (frontend, backend, аналитика, QA). Закупка августа 2026 уже завершена; не представлять её как открытую.",
   "open_questions": [
+    "Какие из перечисленных девяти специалистов сохраняют указанные роли на октябрь 2026 года и какие юрлица Haier обслуживают?",
     "Какие действующие CIO/CDTO/CTO и IT procurement ООО «ХАР» подтверждены публичными источниками? На дату исследования такие контакты не установлены.",
     "Кто победил в закупке Bidzaar №362-279 и какой контракт был подписан?",
     "Привлекаются ли IT-специалисты именно в формате аутстаффинга или компания покупает проекты и техподдержку?",
@@ -141,7 +323,7 @@
   },
   "sales_assessment": {
     "grade": "B+",
-    "rationale": "Коммерческая оценка Ирликс: интересный покупатель внешних IT-услуг, поскольку есть подтверждённая закупка e-commerce разработки с почасовыми позициями и длительным горизонтом договора. Но прямое использование IT-аутстаффинга, победитель, действующие IT-ЛПР и бюджет неизвестны. Рейтинг не означает гарантированного спроса.",
+    "rationale": "Коммерческая оценка Ирликс: интересный покупатель внешних IT-услуг, поскольку есть подтверждённая закупка e-commerce разработки с почасовыми позициями и длительным горизонтом договора. Но прямое использование IT-аутстаффинга, победитель, действующие IT-ЛПР и бюджет неизвестны. Рейтинг не означает гарантированного спроса. Проверены открытые профессиональные профили 8 ключевых специалистов и дополнительного кандидата, однако актуальность должностей и участие в выборе IT-подрядчиков требуют прямой квалификации.",
     "confidence": "medium",
     "risks": [
       "Закупка завершена — нельзя считать её действующей возможностью.",
@@ -152,34 +334,45 @@
     "opportunities": [
       "Поставка frontend/backend/аналитики под e-commerce задачи при наличии подтверждённой потребности.",
       "Предварительный выход через открытый Bidzaar и общекорпоративный контакт.",
-      "Проверка повторных закупок и результатов запроса №362-279."
+      "Проверка повторных закупок и результатов запроса №362-279.",
+      "Существуют публичные профессиональные профили руководителей IT, разработки, e-commerce и CRM, пригодные для адресной проверки спроса."
     ]
   },
   "sales_plan": [
     {
       "step": 1,
-      "target": "Закупки Haier / Bidzaar",
-      "action": "Проверить результат запроса №362-279, победителя и новые IT-запросы того же заказчика. Разделять договор подряда и аутстаффинг."
+      "target": "Андрей Филатов · IT & Business Transformation",
+      "action": "Через открытый профессиональный профиль уточнить актуальность роли, полномочия по внешним IT-командам, формат аутстаффинга и квалификацию поставщиков."
     },
     {
       "step": 2,
-      "target": "Общий корпоративный канал",
-      "action": "Использовать публичный info@haierrussia.ru только для уточнения правильного адресата по IT procurement или digital engineering. Не выдавать B2B-отдел бытовой техники за IT buyer."
+      "target": "Евгений Ким · Software Development",
+      "action": "Проверить потребность в backend, frontend, системных аналитиках и QA. Обсудить дополнительную инженерную ёмкость, не предполагая, что он сам ведёт закупку."
     },
     {
       "step": 3,
-      "target": "IT leadership / e-commerce",
-      "action": "Найти публично подтверждённых действующих руководителей e-commerce, разработки и подрядных IT-закупок, проверить роль и дату перед персональным выходом."
+      "target": "Антон Швейнов · D2C eCommerce",
+      "action": "Уточнить победителя и статус исполнения Bidzaar №362-279, наличие дополнительного пула технических подрядчиков и новых направлений разработки."
     },
     {
       "step": 4,
-      "target": "Коммерческое предложение Ирликс",
-      "action": "Если подтвердится формат привлечения внешних специалистов, подготовить целевое предложение по backend, frontend, системной аналитике и QA; ставки обсуждать после подтверждения потребности."
+      "target": "Константин Потемичев · Backend",
+      "action": "Технический разговор по Go/PHP backend, разработке интеграций, техлидам и QA; проверить фактическую открытость потребности."
+    },
+    {
+      "step": 5,
+      "target": "Ренат Няжеметдинов · Smart TV / Smart Home",
+      "action": "Уточнить текущую роль и продуктовую команду, предложить помощь с Android/mobile, backend и автоматизацией тестирования при доказанном спросе."
+    },
+    {
+      "step": 6,
+      "target": "IT procurement / vendor management",
+      "action": "Уточнить корректное подразделение закупок через процедуру Bidzaar или официальные контакты ООО «ХАР»."
     }
   ],
   "crm_summary": {
     "recommended_status": "Изучаем (не квалифицирован как подтверждённый аутстафф-покупатель)",
-    "next_action": "Найти действующего IT buyer и результаты Bidzaar №362-279; проверить, есть ли закупки отдельных специалистов.",
+    "next_action": "Приоритет №1: проверить актуальные роли Андрея Филатова, Евгения Кима и Антона Швейнова; затем уточнить итоги закупки Bidzaar №362-279 и модель подключения подрядчиков.",
     "focus_roles": [
       "Frontend",
       "Backend",
