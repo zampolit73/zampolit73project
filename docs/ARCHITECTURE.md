@@ -383,3 +383,20 @@ Route: `GET /projects/irlix-sales` (admin-only pilot), Inertia page `IrlixSales.
 - Data is shared among authenticated users in the same way as other internal project tools. No automated outreach, CRM integration or AI API calls are part of this MVP.
 - PHP feature tests in `tests/Feature/SalesProspectTest.php` cover authentication, CRUD, duplicate detection, URL and ownership validation, private candidate import.
 - New user-facing navigation entry in the sidebar and Projects catalogue; responsive Vue page at 320px.
+
+## IRLIX Intelligence — public Git-backed research
+
+- Route `GET /projects/irlix-sales/research`, admin-only;
+- Inertia page `IrlixResearch.vue`;
+- Laravel service `CompanyResearchRepository` reads and checks JSON files
+  bundled with the current release from `data/company-reports/*.json`;
+- Each company is one public, versioned JSON file (`<stable-id>.json`), with UTF-8
+  details, demand rating, public links, sources and unanswered questions;
+- GitHub push to main triggers existing CI, staging of the code/research
+  and a normal atomic production release (no separate data sync service);
+- No OpenAI API and no hidden server-side research execution in this MVP;
+- Research documents are **not** saved into the SQLite prospect table automatically.
+  They are a distinct read-only section, linked from the IRLIX Sales page;
+- Site authorization restricts display to administrators; the underlying GitHub
+  report source is openly readable to anyone because this repository is public.
+  Never commit nonpublic personal data or confidential sales materials.

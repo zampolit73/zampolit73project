@@ -79,6 +79,8 @@ function save() {
                 <div class="sales-hero-aside">
                     <strong>AI + ЧЕЛОВЕК</strong>
                     <p>AI помогает исследовать. Решение о продаже принимает менеджер. Гипотезы из Vacancy Source не равны подтверждённым закупкам.</p>
+                    <a href="/projects/irlix-sales/research">ОТКРЫТЬ AI ИССЛЕДОВАНИЯ ↗</a>
+                    <p>Отчёты из GitHub появляются здесь после публикации и проверки деплоя.</p>
                     <a href="/projects/vacancy-source">ПЕРЕЙТИ В VACANCY SOURCE ↗</a>
                 </div>
             </header>

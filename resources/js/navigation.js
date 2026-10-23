@@ -7,5 +7,6 @@ export const appLinks = [
     { href: '/design-system', label: 'Дизайн-система', number: '5', auth: true, roles: ['admin'] },
     { href: '/tests', label: 'Tests', number: '6', auth: true, roles: ['admin'] },
     { href: '/projects/irlix-sales', label: 'IRLIX Sales', number: '7', auth: true, roles: ['admin'] },
+    { href: '/projects/irlix-sales/research', label: 'AI Исследования', number: '8', auth: true, roles: ['admin'] },
     { href: '/login', label: 'Войти', number: '→', guest: true },
 ];

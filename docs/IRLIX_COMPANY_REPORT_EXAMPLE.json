@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "example-company",
+  "company": {
+    "name": "Условная компания (пример структуры)",
+    "inn": "",
+    "website": null,
+    "industry": ""
+  },
+  "researched_at": "2026-10-23T00:00:00Z",
+  "summary": "Это пример формата. Не публикуйте его как результат реального исследования.",
+  "outstaff_demand": {
+    "assessment": "unclear",
+    "explanation": "Фактические подтверждения не приведены."
+  },
+  "technologies": [],
+  "contractors": [],
+  "decision_makers": [],
+  "evidence": [],
+  "recommendation": "",
+  "open_questions": []
+}
