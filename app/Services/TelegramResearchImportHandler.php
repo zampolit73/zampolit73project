@@ -24,6 +24,9 @@ class TelegramResearchImportHandler
     {
         $chatId = (int) data_get($message, 'chat.id');
         $messageId = (int) data_get($message, 'message_id');
+        if ($chatId !== (int) $binding->telegram_chat_id) {
+            return $this->reply($chatId, 'Чат Telegram не совпадает с привязанным аккаунтом сотрудника.');
+        }
         $fileName = data_get($message, 'document.file_name');
         $fileId = data_get($message, 'document.file_id');
         $fileSize = data_get($message, 'document.file_size');
