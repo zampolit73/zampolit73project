@@ -456,6 +456,32 @@ jobs:
           $SUDO chown -R www-data:www-data "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
           $SUDO chmod -R ug+rwX "$SHARED_DIR/storage" "$SHARED_DIR/database" "$RELEASE_DIR/bootstrap/cache"
 
+          # Always snapshot live SQLite before applying migrations.
+          # PHP SQLite3::backup is safe with concurrent readers/writers (including WAL).
+          # This path is outside releases and outside the web root.
+          DB_BACKUP_DIR="/var/backups/zampolit73project"
+          DB_BACKUP_FILE="$DB_BACKUP_DIR/pre-migration-$RELEASE_SHA.sqlite"
+          $SUDO install -d -m 0700 "$DB_BACKUP_DIR"
+          $SUDO php8.3 -r '
+            $source = new SQLite3($argv[1], SQLITE3_OPEN_READONLY);
+            $source->busyTimeout(15000);
+            $target = new SQLite3($argv[2], SQLITE3_OPEN_READWRITE | SQLITE3_OPEN_CREATE);
+            if (! $source->backup($target)) {
+                fwrite(STDERR, "SQLite backup failed. Aborting deploy before migration.\n");
+                exit(1);
+            }
+            $integrity = $target->querySingle("PRAGMA quick_check");
+            if ($integrity !== "ok") {
+                fwrite(STDERR, "SQLite backup failed integrity check. Aborting deploy.\n");
+                exit(1);
+            }
+            $target->close();
+            $source->close();
+          ' "$SHARED_DIR/database/database.sqlite" "$DB_BACKUP_FILE"
+          $SUDO chmod 0600 "$DB_BACKUP_FILE"
+          $SUDO test -s "$DB_BACKUP_FILE"
+          echo "Verified pre-migration backup: $DB_BACKUP_FILE"
+
           $SUDO php8.3 artisan config:clear
           $SUDO php8.3 artisan migrate --force
           $SUDO php8.3 artisan storage:link || true
