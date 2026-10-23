@@ -402,3 +402,24 @@ The service is launched with `--no-cfproxy`, so Cloudflare proxy fallback is dis
 A random local MTProxy secret is generated once on the VPS and persisted only in `/etc/zampolit73-telegram-reader.env` (mode 0600). The secret is not a Telegram credential and is never printed in Actions.
 
 The Reader systemd unit requires/starts after the bridge and Telethon uses `ConnectionTcpMTProxyRandomizedIntermediate` to connect to the local listener.
+
+
+## Automatic SQLite backup before deployment migrations
+
+Every update of an existing production installation saves a transactionally consistent,
+integrity-checked SQLite snapshot **before** running \`php artisan migrate --force\`:
+
+- Database source: \`/var/www/zampolit73project/shared/database/database.sqlite\`.
+- Private backup directory: \`/var/backups/zampolit73project/\` (mode 0700).
+- Files: \`pre-migration-<release-sha>-<UTC-timestamp>.sqlite\` (mode 0600).
+- Script: \`scripts/backup-sqlite.php\`, using PHP SQLite3 online backup and \`PRAGMA quick_check\`.
+- If the backup cannot be completed or verified, deployment stops before migrations and activation.
+- Normal releases never remove previous snapshots automatically. Monitor remaining VPS disk space and
+  arrange an independent encrypted off-server backup before relying on this as disaster recovery.
+- The Telegram Reader's separate private SQLite corpus and session are **not** included.
+
+Recovery is a deliberate administrator procedure: stop services that write to the database,
+preserve the damaged database for diagnosis, restore a chosen snapshot, verify its integrity,
+and restart services. Do not restore a SQLite backup on top of a running application.
+Application code rollback alone does not undo a schema migration, so coordinate
+database restoration with an appropriate release.

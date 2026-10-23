@@ -369,3 +369,17 @@ Security boundary:
 - media is never downloaded.
 
 The Reader currently provides setup/auth/folder/backfill/sync/search primitives. Investigation scoring integration is a separate next iteration.
+
+
+## IRLIX AI Sales (project #07)
+
+Route: `GET /projects/irlix-sales` (admin-only pilot), Inertia page `IrlixSales.vue`.
+
+- `POST /projects/irlix-sales/prospects`: create company manually;
+- `PATCH /projects/irlix-sales/prospects/{prospect}`: update company manually;
+- `POST /projects/irlix-sales/import-candidate/{candidate}`: save a candidate from `Vacancy Source` as **unverified** prospect.
+- Table `sales_prospects`: normalized unique company name, optional unique INN, website, status, priority, assigned user, contact, evidence link, notes, next action, optional source candidate.
+- The import endpoint checks that the candidate belongs to an investigation visible to the current user (admin may import any); creating the same company again is idempotent.
+- Data is shared among authenticated users in the same way as other internal project tools. No automated outreach, CRM integration or AI API calls are part of this MVP.
+- PHP feature tests in `tests/Feature/SalesProspectTest.php` cover authentication, CRUD, duplicate detection, URL and ownership validation, private candidate import.
+- New user-facing navigation entry in the sidebar and Projects catalogue; responsive Vue page at 320px.
