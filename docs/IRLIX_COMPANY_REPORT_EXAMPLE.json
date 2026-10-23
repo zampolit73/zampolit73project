@@ -5,7 +5,8 @@
     "name": "Условная компания (пример структуры)",
     "inn": "",
     "website": null,
-    "industry": ""
+    "industry": "",
+    "ogrn": ""
   },
   "researched_at": "2026-10-23T00:00:00Z",
   "summary": "Это пример формата. Не публикуйте его как результат реального исследования.",
@@ -15,8 +16,64 @@
   },
   "technologies": [],
   "contractors": [],
-  "decision_makers": [],
+  "decision_makers": [
+    {
+      "name": "Тестовая персона — только пример",
+      "role": "CIO",
+      "company_unit": "IT",
+      "category": "it_leadership",
+      "priority": 1,
+      "role_status": "needs_verification",
+      "last_checked_at": null,
+      "responsibility": "Подтверждать по источнику",
+      "outreach_angle": "Предмет касания",
+      "public_url": "https://example.org/profile",
+      "source_url": "https://example.org/company/management",
+      "work_email": null,
+      "work_phone": null
+    }
+  ],
   "evidence": [],
   "recommendation": "",
-  "open_questions": []
+  "open_questions": [],
+  "legal_profile": {
+    "group": "",
+    "contracting_entity": "",
+    "description": "",
+    "source_url": null
+  },
+  "financials": [],
+  "buying_signals": [],
+  "tenders": [],
+  "projects": [],
+  "business_contacts": [
+    {
+      "department": "Общий контакт",
+      "contact_name": "",
+      "work_email": "info@example.org",
+      "work_phone": null,
+      "purpose": "Пример официального канала",
+      "source_url": "https://example.org/contacts",
+      "last_checked_at": null
+    }
+  ],
+  "procurement": {
+    "platforms": [],
+    "route": "",
+    "requirements": [],
+    "unknowns": []
+  },
+  "sales_assessment": {
+    "grade": "C",
+    "rationale": "Пример оценки",
+    "confidence": "low",
+    "risks": [],
+    "opportunities": []
+  },
+  "sales_plan": [],
+  "crm_summary": {
+    "recommended_status": "",
+    "next_action": "",
+    "focus_roles": []
+  }
 }
