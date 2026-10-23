@@ -6,7 +6,7 @@
 
 Все файлы, их прошлые версии и Git history доступны посторонним.
 **Не размещать** здесь:
-- контакты, полученные из непубличных CRM/переписки, личные телефоны/email;
+- контакты, полученные из непубличных CRM/переписки, личные телефоны/email;\n- выдуманные контакты или email, угаданные по шаблону ФИО;
 - договоры, ставки, планы переговоров, внутренние заметки и клиентские секреты;
 - непроверенные персональные утверждения или конфиденциальные сведения;
 - пароли, токены и ключи.
@@ -61,3 +61,27 @@
 - Ссылка на источник должна поддерживать именно заявленный факт.
 - Ссылки на публичную информацию об ЛПР не являются разрешением публиковать их частную переписку.
 - В GitHub сохранять те же выводы, что и в отчёте пользователю; при ограничениях GitHub не утверждать, что запись произошла.
+
+## Контакты и 10-блочный формат анализа
+
+Для каждого исследования по возможности ищи 3–6 **подтверждённых действующих IT-ЛПР**: IT-директор, CIO/CDTO/CTO, engineering/product, IT procurement/vendor management, IT hiring. Если нет проверенных персоналий — `decision_makers: []`. Не путай продавцов и B2B-поддержку с IT procurement.
+
+Поля `decision_makers`: `name`, `role`, `company_unit`, `category` (`it_leadership|engineering|product|it_procurement|it_recruiting|other`), `priority` (1, 2 или 3), `role_status` (`current|needs_verification|former`), `last_checked_at` (`YYYY-MM-DD` или null), `responsibility`, `outreach_angle`, `public_url` (профиль или null), `source_url` (обязательно, подтверждает должность), `work_email`, `work_phone` (только если явно опубликованы работодателем, иначе null).
+
+`business_contacts` — официальные рабочие контакты подразделений: `department`, `contact_name`, `work_email`, `work_phone`, `purpose`, `source_url`, `last_checked_at`. У каждого контакта должен быть достоверный публичный источник и хотя бы email либо телефон. Не угадывать рабочий email по ФИО.
+
+Для полного формата прежнего коммерческого OSINT-анализа используются дополнительные поля:
+- `company.ogrn`: ОГРН исследованного **именно этого** юрлица;
+- `legal_profile`: `group`, `contracting_entity`, `description`, `source_url`;
+- `financials`: массив `year`, `revenue_rub`, `profit_rub`, `source_url` — только проверенные числа и периоды; пустой массив при отсутствии;
+- `projects`: `name`, `details`, `source_url`;
+- `buying_signals`: `signal`, `evidence_level` (A/B/C), `details`, `source_url`;
+- `tenders`: `title`, `platform`, `number`, `published_at`, `closed_at`, `status`, `terms`, `roles`, `url`;
+- `procurement`: `platforms`, `route`, `requirements`, `unknowns`;
+- `sales_assessment`: `grade` (A/B+/B/C/D), `rationale`, `confidence`, `risks`, `opportunities`;
+- `sales_plan`: список последовательных публично допустимых шагов `step`, `action`, `target`;
+- `crm_summary`: `recommended_status`, `next_action`, `focus_roles`.
+
+Отчёт на сайте повторяет прежнюю методику по 10 разделам: **вывод; юрлицо/финансы; факты закупок; тендеры/ставки/даты; подрядчики и проекты; ЛПР/контакты; стек/вакансии; закупочный маршрут; стратегия выхода; рейтинг A–D + CRM**.
+
+Публичный GitHub — не место для закрытых CRM-контактов, личных мобильных номеров, внутренней переписки, ставки собственного предложения и клиентских секретов. Даже если файл впоследствии удалить, информация останется в истории Git.
