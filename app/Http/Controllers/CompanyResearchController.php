@@ -58,7 +58,7 @@ class CompanyResearchController extends Controller
             'researched_at' => ['required', 'date_format:Y-m-d\TH:i:s\Z'],
             'outstaff_demand' => ['required', 'array'],
             'outstaff_demand.assessment' => ['required', 'in:confirmed,likely,unclear,no_evidence'],
-            'evidence' => ['required', 'array', 'max:30'],
+            'evidence' => ['present', 'array', 'max:30'],
             'decision_makers' => ['sometimes', 'array', 'max:30'],
             'business_contacts' => ['sometimes', 'array', 'max:30'],
             'tenders' => ['sometimes', 'array', 'max:20'],
