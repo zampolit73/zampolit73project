@@ -1,11 +1,84 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '../layouts/AppLayout.vue';
 
 const props = defineProps({
     reports: { type: Array, required: true },
+    importResult: { type: Object, default: null },
 });
+
+
+const page = usePage();
+const isAdmin = computed(() => page.props.auth?.user?.role === 'admin');
+const fileInput = ref(null);
+const preview = ref(null);
+const previewError = ref('');
+const upload = useForm({ report_file: null, reviewed: false, replace_existing: false });
+const duplicate = computed(() => {
+    const doc = preview.value;
+    if (!doc) return null;
+    return props.reports.find((item) =>
+        item.id === doc.id || (doc.company?.inn && item.company.inn === doc.company.inn)
+    ) || null;
+});
+
+async function inspectFile(event) {
+    preview.value = null;
+    previewError.value = '';
+    upload.clearErrors();
+    upload.reviewed = false;
+    upload.replace_existing = false;
+    upload.report_file = event.target.files?.[0] || null;
+    const file = upload.report_file;
+    if (!file) return;
+    if (!/\.json$/i.test(file.name) || file.size > 256 * 1024) {
+        previewError.value = 'Выбери файл .json не больше 256 КБ.';
+        return;
+    }
+    try {
+        const data = JSON.parse(await file.text());
+        if (data.schema_version !== 1 || !/^[a-z0-9][a-z0-9-]{2,79}$/.test(data.id)
+            || !data.company || typeof data.company.name !== 'string' || !data.company.name.trim()
+            || typeof data.researched_at !== 'string'
+            || !Array.isArray(data.evidence)
+            || !data.outstaff_demand?.assessment) {
+            throw new Error('Необходим формат IRLIX Intelligence версии 1.');
+        }
+        preview.value = data;
+    } catch (error) {
+        previewError.value = error.message || 'Не удалось прочитать JSON.';
+    }
+}
+
+function importReport() {
+    if (!preview.value || !upload.report_file || !upload.reviewed) return;
+    upload.post('/projects/irlix-sales/research/import', {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: (page) => {
+            const latest = page.props.importResult;
+            if (latest?.id) selectedId.value = latest.id;
+            preview.value = null;
+            upload.reset();
+            if (fileInput.value) fileInput.value.value = '';
+        },
+    });
+}
+
+function downloadReport(report) {
+    const clone = JSON.parse(JSON.stringify(report));
+    ['origin', 'revision', 'imported_by_name', 'imported_at', 'history'].forEach((key) => delete clone[key]);
+    const content = JSON.stringify({ schema_version: 1, ...clone }, null, 2);
+    const url = URL.createObjectURL(new Blob([content], { type: 'application/json;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = report.id + '.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
 
 const search = ref('');
 const selectedId = ref(props.reports[0]?.id ?? '');
@@ -44,9 +117,9 @@ function formattedDate(date) {
             <header class="research-hero">
                 <p class="research-overline">IRLIX / INTELLIGENCE / SOURCE-BACKED</p>
                 <h1>ИССЛЕДОВАНИЯ<br><span>КОМПАНИЙ</span></h1>
-                <p>Проверенные публичные сведения и гипотезы для поиска заказчиков IT-аутстаффинга. Источник отчётов — GitHub.</p>
+                <p>Проверенные публичные сведения и гипотезы для поиска заказчиков IT-аутстаффинга. Публичные отчёты из GitHub и закрытые импорты из SQLite. Единый формат анализа, история обновлений.</p>
                 <div class="research-hero-links">
-                    <a href="/projects/irlix-sales">← БАЗА ЗАКАЗЧИКОВ</a>
+                    <a v-if="isAdmin" href="/projects/irlix-sales">← БАЗА ЗАКАЗЧИКОВ</a>
                     <a href="/projects/vacancy-source">VACANCY SOURCE ↗</a>
                 </div>
             </header>
@@ -58,9 +131,57 @@ function formattedDate(date) {
             </section>
 
             <div class="research-public-warning">
-                <strong>ПУБЛИЧНЫЙ GITHUB</strong>
-                <p>Сюда попадают только открытые исследования. Непубличные контакты, условия договоров и внутренние коммерческие сведения не публикуются.</p>
+                <strong>ДВА ИСТОЧНИКА ИССЛЕДОВАНИЙ</strong>
+                <p>Ранее опубликованные карточки из GitHub остаются публичными. Импортированные сюда JSON хранятся в закрытой SQLite на VPS и доступны только вошедшим в систему сотрудникам. Не размещай конфиденциальные данные в самом публичном GitHub.</p>
             </div>
+
+            <section class="research-import" aria-label="Загрузка исследования в SQLite">
+                <div class="research-import-head">
+                    <div>
+                        <p class="research-overline">IMPORT / RESEARCH PACKAGE V1</p>
+                        <h2>ИМПОРТ ИССЛЕДОВАНИЯ</h2>
+                        <p>Менеджер скачивает JSON из своего ChatGPT и загружает сюда. Перед сохранением проверяем компанию, ИНН и контакты.</p>
+                    </div>
+                    <a href="https://github.com/zampolit73/zampolit73project/blob/main/docs/IRLIX_COMPANY_REPORT_EXAMPLE.json" target="_blank" rel="noopener noreferrer">Пример JSON ↗</a>
+                </div>
+
+                <p v-if="importResult" class="research-import-result" role="status">
+                    {{ importResult.changed ? 'Сохранено' : 'Без изменений' }}:
+                    <b>{{ importResult.company }}</b>, версия {{ importResult.revision }}. Данные в SQLite, без публикации в GitHub.
+                </p>
+
+                <form @submit.prevent="importReport" class="research-import-form">
+                    <label for="research-import-file">1 / Выбери JSON-файл (до 256 КБ)</label>
+                    <input id="research-import-file" ref="fileInput" type="file" accept=".json,application/json" @change="inspectFile">
+                    <p v-if="previewError" class="research-import-error" role="alert">{{ previewError }}</p>
+                    <p v-if="upload.errors.report_file" class="research-import-error" role="alert">{{ upload.errors.report_file }}</p>
+                    <p v-if="upload.errors.replace_existing" class="research-import-error" role="alert">{{ upload.errors.replace_existing }}</p>
+                    <div v-if="preview" class="research-import-preview">
+                        <h3>2 / Предварительный просмотр</h3>
+                        <strong>{{ preview.company.name }}</strong>
+                        <div class="research-import-preview-grid">
+                            <span><b>ИНН:</b> {{ preview.company.inn || 'Не указан' }}</span>
+                            <span><b>Исследовано:</b> {{ preview.researched_at }}</span>
+                            <span><b>ЛПР:</b> {{ preview.decision_makers?.length || 0 }}</span>
+                            <span><b>Источников:</b> {{ preview.evidence?.length || 0 }}</span>
+                            <span><b>Закупок:</b> {{ preview.tenders?.length || 0 }}</span>
+                            <span><b>Скоринг:</b> {{ preview.sales_assessment?.grade || '—' }}</span>
+                        </div>
+                        <p class="research-import-note">Это быстрый просмотр файла. Полная серверная проверка структуры и ссылок выполняется при сохранении.</p>
+                        <label v-if="duplicate" class="research-import-check">
+                            <input v-model="upload.replace_existing" type="checkbox">
+                            <span><b>Найдено совпадение:</b> {{ duplicate.company.name }} ({{ duplicate.origin === 'sqlite' ? 'SQLite' : 'GitHub' }}). Подтверждаю замену отображаемой карточки и сохранение новой версии в SQLite. Предыдущие версии SQLite остаются в истории.</span>
+                        </label>
+                        <label class="research-import-check">
+                            <input v-model="upload.reviewed" type="checkbox">
+                            <span>Я проверил название, ИНН, источники и контакты и разрешаю сохранить этот отчёт в рабочей базе IRLIX.</span>
+                        </label>
+                        <button type="submit" class="research-import-submit" :disabled="upload.processing || !upload.reviewed || Boolean(duplicate && !upload.replace_existing)">
+                            {{ upload.processing ? 'ПРОВЕРЯЕМ И СОХРАНЯЕМ…' : duplicate ? 'ОБНОВИТЬ КОМПАНИЮ' : 'СОХРАНИТЬ ИССЛЕДОВАНИЕ' }}
+                        </button>
+                    </div>
+                </form>
+            </section>
 
             <section class="research-workspace" aria-label="Исследования компаний">
                 <aside class="research-index">
@@ -97,9 +218,20 @@ function formattedDate(date) {
                         <span v-if="selected.company.inn"><b>ИНН:</b> {{ selected.company.inn }}</span>
                         <span v-if="selected.company.industry"><b>Сфера:</b> {{ selected.company.industry }}</span>
                         <span><b>Обновлено:</b> {{ formattedDate(selected.researched_at) }}</span>
+                        <span><b>Хранилище:</b> {{ selected.origin === 'sqlite' ? 'SQLite (непублично)' : 'GitHub (публично)' }}</span>
+                        <span v-if="selected.origin === 'sqlite'"><b>Версия:</b> {{ selected.revision }} · <b>Загрузил:</b> {{ selected.imported_by_name || '—' }}</span>
                         <a v-if="selected.company.website" :href="selected.company.website" target="_blank" rel="noopener noreferrer">Сайт компании ↗</a>
                     </div>
 
+                    <div class="research-report-actions">
+                        <button type="button" class="research-import-submit" @click="downloadReport(selected)">↓ ЭКСПОРТ JSON</button>
+                    </div>
+                    <section v-if="selected.origin === 'sqlite' && selected.history?.length" class="research-section">
+                        <h3>ИСТОРИЯ ИМПОРТА</h3>
+                        <p v-for="item in selected.history" :key="item.revision" class="research-history-row">
+                            <b>Версия {{ item.revision }}</b> — {{ item.by }} · {{ formattedDate(item.at) }}
+                        </p>
+                    </section>
                     <section class="research-section">
                         <h3>01 / ВЫВОД</h3>
                         <p>{{ selected.summary || 'Общий вывод пока не сформирован.' }}</p>
@@ -405,4 +537,29 @@ function formattedDate(date) {
 .research-rating-row>div{display:grid;gap:3px;}
 .research-grade{font-size:42px;line-height:1;font-weight:1000;color:#a82a22;}
 @media(max-width:400px){.research-kv{grid-template-columns:minmax(0,1fr);}}
+
+.research-import{border:3px solid #201b18;margin:22px 0;padding:clamp(12px,2.5vw,24px);}
+.research-import-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px;}
+.research-import-head h2{font-size:clamp(24px,4vw,35px);font-weight:1000;letter-spacing:-.03em;margin:8px 0;}
+.research-import-head p:not(.research-overline){max-width:710px;line-height:1.45;}
+.research-import-head a{color:#a82a22;font-weight:800;overflow-wrap:anywhere;}
+.research-import-form{display:grid;gap:10px;margin-top:16px;}
+.research-import-form>label{font-size:12px;font-weight:900;}
+.research-import-form input[type=file]{min-width:0;max-width:100%;padding:13px;border:2px dashed #201b18;}
+.research-import-preview{background:#f7ebde;padding:15px;border:2px solid #201b18;margin-top:8px;display:grid;gap:12px;min-width:0;}
+.research-import-preview h3{font-size:15px;font-weight:900;margin:0;}
+.research-import-preview>strong{font-size:22px;overflow-wrap:anywhere;}
+.research-import-preview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.research-import-preview-grid span{border:1px solid #c2b5a5;padding:8px;font-size:12px;overflow-wrap:anywhere;}
+.research-import-check{display:flex;gap:11px;align-items:flex-start;font-size:14px;line-height:1.45;}
+.research-import-check input{min-width:20px;min-height:20px;cursor:pointer;}
+.research-import-note{font-size:12px;color:#786357;margin:0;}
+.research-import-error{color:#ac231f;font-size:13px;font-weight:800;margin:2px 0;}
+.research-import-result{border-left:4px solid #31613b;background:#e1eacb;padding:12px;margin:15px 0;font-size:13px;}
+.research-import-submit{border:2px solid #201b18;background:#a82a22;color:#fffaf0;font-size:13px;font-weight:900;cursor:pointer;padding:13px 17px;min-height:45px;justify-self:start;}
+.research-import-submit:disabled{opacity:.45;cursor:not-allowed;}
+.research-report-actions{display:flex;flex-wrap:wrap;gap:10px;padding:10px 0 18px;}
+.research-history-row{font-size:13px;margin:6px 0;}
+@media(max-width:750px){.research-import-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:360px){.research-import-preview-grid{grid-template-columns:minmax(0,1fr);}.research-import-submit{width:100%;}}
 </style>
