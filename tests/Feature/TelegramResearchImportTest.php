@@ -15,6 +15,8 @@ class TelegramResearchImportTest extends TestCase
 {
     use RefreshDatabase;
 
+    private array $telegramPayload = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -69,14 +71,22 @@ class TelegramResearchImportTest extends TestCase
 
     private function fakeTelegram(array $payload): void
     {
-        $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
+        // The same Laravel Http factory can retain the first fake callback
+        // across multiple uploads within one test. Read the current payload
+        // lazily to simulate the newly downloaded version.
+        $this->telegramPayload = $payload;
         Http::fake([
-            'https://api.telegram.org/bot*/getFile' => Http::response([
-                'ok' => true, 'result' => [
-                    'file_path' => 'documents/secure.json', 'file_size' => strlen($json),
-                ],
-            ]),
-            'https://api.telegram.org/file/bot*/*' => Http::response($json, 200, ['Content-Type' => 'application/json']),
+            'https://api.telegram.org/bot*/getFile' => function () {
+                $json = json_encode($this->telegramPayload, JSON_UNESCAPED_UNICODE);
+                return Http::response(['ok' => true, 'result' => [
+                    'file_path' => 'documents/secure.json',
+                    'file_size' => strlen($json),
+                ]]);
+            },
+            'https://api.telegram.org/file/bot*/*' => function () {
+                return Http::response(json_encode($this->telegramPayload, JSON_UNESCAPED_UNICODE),
+                    200, ['Content-Type' => 'application/json']);
+            },
             'https://api.telegram.org/bot*/answerCallbackQuery' => Http::response(['ok' => true, 'result' => true]),
         ]);
     }
