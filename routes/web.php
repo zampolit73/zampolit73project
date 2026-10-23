@@ -9,6 +9,7 @@ use App\Http\Controllers\CioPresentationController;
 use App\Http\Controllers\KommersantRankingController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\VacancySourceController;
+use App\Http\Controllers\SalesProspectController;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -29,6 +30,14 @@ Route::middleware('auth')->group(function () {
         ->name('projects.cio-presentations');
     Route::get('/projects/kommersant-ranking', [KommersantRankingController::class, 'index'])
         ->name('projects.kommersant-ranking');
+    Route::get('/projects/irlix-sales', [SalesProspectController::class, 'index'])
+        ->name('projects.irlix-sales');
+    Route::post('/projects/irlix-sales/prospects', [SalesProspectController::class, 'store'])
+        ->name('projects.irlix-sales.prospects.store');
+    Route::patch('/projects/irlix-sales/prospects/{prospect}', [SalesProspectController::class, 'update'])
+        ->name('projects.irlix-sales.prospects.update');
+    Route::post('/projects/irlix-sales/import-candidate/{candidate}', [SalesProspectController::class, 'importCandidate'])
+        ->name('projects.irlix-sales.import-candidate');
     Route::get('/projects/vacancy-source', [VacancySourceController::class, 'index'])
         ->name('projects.vacancy-source');
     Route::post('/projects/vacancy-source/investigations', [VacancySourceController::class, 'store'])

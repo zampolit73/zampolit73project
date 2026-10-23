@@ -270,3 +270,17 @@ Work-chat history is read by a separate Python/Telethon service, not by the Bot 
 The Reader owns its MTProto session under `/var/lib/zampolit73-telegram-reader` and communicates with Laravel only through a local Unix socket. The admin page performs one-time phone/code/optional-2FA authorization and lets the admin choose the work Telegram folder. Selecting a folder starts a 90-day text-only backfill and periodic sync.
 
 Credentials come only from GitHub Actions Secrets `TELEGRAM_READER_API_ID` and `TELEGRAM_READER_API_HASH`. Never commit or paste them into project files.
+
+
+## IRLIX AI Sales — база заказчиков (MVP)
+
+- Раздел для авторизованных пользователей: `/projects/irlix-sales`;
+- общая база компаний в существующей SQLite (без сторонних CRM и API-ключей);
+- добавление и редактирование карточки: название, ИНН, сайт, статус, приоритет, ответственный, ЛПР, источник, заметки, следующий шаг;
+- поиск по названию, ИНН и контакту, фильтр по статусу, пагинация;
+- ручной перенос гипотезы из `Vacancy Source` кнопкой «Сохранить гипотезу в IRLIX Sales»;
+- предотвращение повторного добавления компании с одинаковым нормализованным названием, проверка уникального ИНН;
+- проверки на уровне сервера: авторизация, допустимые статусы, корректность URL, валидный пользователь-ответственный и доступ только к своим расследованиям (у администратора — ко всем);
+- AI в приложении не вызывается: исследования выполняются отдельно в ChatGPT Plus, пользователь переносит подтверждённые результаты вручную.
+
+Новые таблицы создаёт миграция. Деплой не должен перезаписывать накопленные записи. Реальные коммерческие данные хранятся в серверной SQLite, **не в публичном GitHub**. Публичные исходники не являются приватным хранилищем данных.

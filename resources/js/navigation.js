@@ -6,5 +6,6 @@ export const appLinks = [
     { href: '/stas', label: 'Стас', number: '4', auth: true, roles: ['admin'] },
     { href: '/design-system', label: 'Дизайн-система', number: '5', auth: true, roles: ['admin'] },
     { href: '/tests', label: 'Tests', number: '6', auth: true, roles: ['admin'] },
+    { href: '/projects/irlix-sales', label: 'IRLIX Sales', number: '7', auth: true },
     { href: '/login', label: 'Войти', number: '→', guest: true },
 ];

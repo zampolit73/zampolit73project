@@ -270,6 +270,11 @@ onBeforeUnmount(() => {
                                     </div>
                                     <small>{{ candidateTypeLabel(candidate.candidate_type) }}</small>
                                     <p>{{ candidate.explanation }}</p>
+                                    <button
+                                        type="button"
+                                        class="vacancy-secondary"
+                                        @click="router.post('/projects/irlix-sales/import-candidate/' + candidate.id)"
+                                    >СОХРАНИТЬ ГИПОТЕЗУ В IRLIX SALES →</button>
                                 </article>
                             </div>
 
