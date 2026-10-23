@@ -168,13 +168,6 @@ function formattedDate(date) {
                         <p v-else class="research-muted">Публичные закупки за проверенный период не установлены.</p>
                     </section>
 
-                    <section v-if="selected.technologies.length" class="research-section">
-                        <h3>07 / СТЕК И ПОТЕНЦИАЛЬНЫЕ РОЛИ</h3>
-                        <div class="research-chips">
-                            <span v-for="tech in selected.technologies" :key="tech">{{ tech }}</span>
-                        </div>
-                    </section>
-
                     <section class="research-section">
                         <h3>05 / ПОДРЯДЧИКИ, ПРОДУКТЫ И ПРОЕКТЫ</h3>
                         <p v-if="!selected.contractors.length && !selected.projects.length" class="research-muted">Подрядчики и проекты пока не установлены.</p>
@@ -244,6 +237,13 @@ function formattedDate(date) {
                         <p v-else>Официальные деловые контакты пока не найдены.</p>
                     </section>
 
+
+                    <section v-if="selected.technologies.length" class="research-section">
+                        <h3>07 / СТЕК И ПОТЕНЦИАЛЬНЫЕ РОЛИ</h3>
+                        <div class="research-chips">
+                            <span v-for="tech in selected.technologies" :key="tech">{{ tech }}</span>
+                        </div>
+                    </section>
 
                     <section class="research-section">
                         <h3>08 / ЗАКУПОЧНЫЙ МАРШРУТ</h3>
