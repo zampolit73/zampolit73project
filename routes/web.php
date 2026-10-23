@@ -30,14 +30,16 @@ Route::middleware('auth')->group(function () {
         ->name('projects.cio-presentations');
     Route::get('/projects/kommersant-ranking', [KommersantRankingController::class, 'index'])
         ->name('projects.kommersant-ranking');
-    Route::get('/projects/irlix-sales', [SalesProspectController::class, 'index'])
-        ->name('projects.irlix-sales');
-    Route::post('/projects/irlix-sales/prospects', [SalesProspectController::class, 'store'])
-        ->name('projects.irlix-sales.prospects.store');
-    Route::patch('/projects/irlix-sales/prospects/{prospect}', [SalesProspectController::class, 'update'])
-        ->name('projects.irlix-sales.prospects.update');
-    Route::post('/projects/irlix-sales/import-candidate/{candidate}', [SalesProspectController::class, 'importCandidate'])
-        ->name('projects.irlix-sales.import-candidate');
+    Route::middleware(EnsureUserIsAdmin::class)->group(function () {
+        Route::get('/projects/irlix-sales', [SalesProspectController::class, 'index'])
+            ->name('projects.irlix-sales');
+        Route::post('/projects/irlix-sales/prospects', [SalesProspectController::class, 'store'])
+            ->name('projects.irlix-sales.prospects.store');
+        Route::patch('/projects/irlix-sales/prospects/{prospect}', [SalesProspectController::class, 'update'])
+            ->name('projects.irlix-sales.prospects.update');
+        Route::post('/projects/irlix-sales/import-candidate/{candidate}', [SalesProspectController::class, 'importCandidate'])
+            ->name('projects.irlix-sales.import-candidate');
+    });
     Route::get('/projects/vacancy-source', [VacancySourceController::class, 'index'])
         ->name('projects.vacancy-source');
     Route::post('/projects/vacancy-source/investigations', [VacancySourceController::class, 'store'])
