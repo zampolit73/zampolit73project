@@ -76,11 +76,15 @@ class CompanyResearchTest extends TestCase
         file_put_contents($this->directory.'/'.$filename, json_encode($data, JSON_UNESCAPED_UNICODE));
     }
 
-    public function test_guest_and_regular_user_cannot_view_research(): void
+    public function test_guest_cannot_view_research_but_authenticated_sales_manager_can(): void
     {
         $this->get('/projects/irlix-sales/research')->assertRedirect('/login');
         $this->actingAs($this->user('user'))
-            ->get('/projects/irlix-sales/research')->assertForbidden();
+            ->get('/projects/irlix-sales/research')
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('IrlixResearch')
+                ->has('reports', 0)
+            );
     }
 
     public function test_admin_can_view_published_reports(): void
