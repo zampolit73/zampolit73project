@@ -400,3 +400,13 @@ Route: `GET /projects/irlix-sales` (admin-only pilot), Inertia page `IrlixSales.
 - Site authorization restricts display to administrators; the underlying GitHub
   report source is openly readable to anyone because this repository is public.
   Never commit nonpublic personal data or confidential sales materials.
+
+## Expanded public buyer-intelligence report structure
+
+CompanyResearchRepository additionally normalizes `decision_makers` (ranked and
+sourced public professional contacts), `business_contacts` (published company
+contact channels), `legal_profile`, `financials`, `projects`, `buying_signals`,
+`tenders`, `procurement`, `sales_assessment`, `sales_plan`, and `crm_summary`.
+The UI renders the commercial 10-section buyer report. No migration is required,
+and existing v1 reports render with empty optional sections. Public repository
+history remains accessible outside site authentication.
