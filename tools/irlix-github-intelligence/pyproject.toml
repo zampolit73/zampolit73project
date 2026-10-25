@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "irlix-github-intelligence"
+version = "1.0.0"
+description = "Public GitHub evidence collector for Russian IT outstaff sales"
+requires-python = ">=3.10"
+dependencies = ["pypdf>=5,<7", "python-docx>=1.1,<2", "openpyxl>=3.1,<4"]
+
+[project.optional-dependencies]
+legacy = ["xlrd>=2,<3"]
+
+[project.scripts]
+irlix-intel = "irlix_intel.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["irlix_intel*"]

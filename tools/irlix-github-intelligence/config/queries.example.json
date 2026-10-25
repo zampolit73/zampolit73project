@@ -1,0 +1,8 @@
+[
+  {"kind": "code", "query": "аутстаффинг is:public"},
+  {"kind": "code", "query": "outstaff contract is:public"},
+  {"kind": "code", "query": "аутстафф ставка is:public"},
+  {"kind": "code", "query": "isOutstaff is:public"},
+  {"kind": "repositories", "query": "аутстафф in:name,description,readme is:public"},
+  {"kind": "issues", "query": "аутстафф in:title,body is:issue is:public"}
+]

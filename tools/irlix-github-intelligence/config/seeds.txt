@@ -1,0 +1,12 @@
+# Источники из предыдущего исследования; содержание проверяется заново.
+# Наличие в списке не означает подтверждённый договор или актуальный спрос.
+frylo0/frylo.org
+Consoooomer/portfolio
+TimSpektrov/mdh
+nightriver/Automation-of-Outstaffing-Requests
+smokbasi/OutstaffingBot
+strelov1/freehire
+CSSSR/csssr.blog
+Raiffeisen-DGTL/engineering-strategy
+Sag-Tech/company-policy
+vskuzmin28/ibs-website
