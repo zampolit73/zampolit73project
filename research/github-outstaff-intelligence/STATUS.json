@@ -1,0 +1,62 @@
+{
+  "project": "IRLIX GitHub Outstaff Intelligence РФ",
+  "checkpoint_date": "2026-10-25",
+  "storage_type": "public-safe context only, NOT full private data archive",
+  "progress": {
+    "numbered_series_total": 141,
+    "early_thematic_passes": 15,
+    "individual_passes_16_141": 126,
+    "unique_repositories_all_sections": 163,
+    "new_since_initial_65_report": 76,
+    "target_new_repositories": 50000,
+    "remaining_from_historical_counter": 49924,
+    "next_number": 142,
+    "verified_latest_spreadsheet_name": "github_outstaff_rf_progress_141_2026-10-25.xlsx",
+    "verified_latest_spreadsheet_tabs": 33,
+    "remote_binary_archive_uploaded": false,
+    "private_data_uploaded": false
+  },
+  "requirements": {
+    "source": "public GitHub only",
+    "uniqueness": "one unique repository owner/repo per individual pass; one GitHub repository can contain multiple files",
+    "data_quality": "A=official contract/procurement, B=direct witness, C=indirect, D=tool, X=exclude",
+    "goal": "Find buyers of Russian IT outstaff, vendor relationships, public rates, tenders, demand, tech stacks, verified evidence",
+    "not_crm": true,
+    "not_parser": true,
+    "no_budget": true,
+    "no_personal_contact_export": true,
+    "no_background_processing": true
+  },
+  "continuation": "Read PROJECT_CONTEXT.md and REPO_EXCLUSIONS.txt; get full workbook ZIP from user artifact; continue from 142, append to same workbook and update dedup.",
+  "evidence_examples": [
+    {
+      "buyer": "Альфа-Банк",
+      "vendor": "Selecty",
+      "role": "Python/SQL/Greenplum",
+      "date": "2026-10-19",
+      "class": "B",
+      "url": "https://github.com/Vilbert55/career/blob/main/interview/alfa/README.md"
+    },
+    {
+      "buyer": "Сбербанк",
+      "vendor": "Aston",
+      "class": "B/C",
+      "url": "https://github.com/boldlogic/backend-interview-questions"
+    },
+    {
+      "buyer": "Альфа-Банк",
+      "vendor": "Bell Integrator",
+      "class": "B/C",
+      "url": "https://github.com/boldlogic/backend-interview-questions"
+    },
+    {
+      "buyer": "Газпромбанк",
+      "vendor": "IT One/Luxoft",
+      "period": "2023 estimated",
+      "class": "B/C",
+      "url": "https://github.com/Bagaviev/Android"
+    }
+  ],
+  "local_package_filename": "IRLIX_GitHub_Intelligence_FULL_REPO_READY_2026-10-25.zip",
+  "private_repo_recommendation": "Store the full 38-file ZIP package in a new private GitHub repository once created and authorized. Never copy private commercial data to this public branch."
+}
