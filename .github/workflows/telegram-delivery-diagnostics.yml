@@ -18,6 +18,13 @@ jobs:
           result="$(curl -fsS --connect-timeout 8 --max-time 20 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo")"
           printf '%s' "$result" | jq -e '.ok == true' >/dev/null
           printf '%s' "$result" | jq '.result | {url,pending_update_count,last_error_date,last_error_message,allowed_updates}'
+          reported_ip="$(printf '%s' "$result" | jq -r '.result.ip_address // ""')"
+          resolved_ips="$(getent ahostsv4 zampolit73.duckdns.org | awk '{print $1}' | sort -u)"
+          if printf '%s\n' "$resolved_ips" | grep -Fxq "$reported_ip"; then
+            echo "telegram_webhook_ip_matches_dns=yes"
+          else
+            echo "telegram_webhook_ip_matches_dns=no"
+          fi
       - name: Read local bot state and webhook response statuses
         env:
           VPS_PWD: ${{ secrets.VPS_PWD }}
@@ -48,4 +55,8 @@ jobs:
             sudo -n tail -n 1000 /var/log/nginx/access.log | awk '$7 ~ /^\/api\/telegram\/bot\/webhook/ {print $4" "$5, "status="$9}' | tail -n 20
           fi
           systemctl is-active zampolit73project-telegram-bot.service
+          ipv6_routes="$(ip -6 route show default | wc -l)"
+          echo "ipv6_default_routes=$ipv6_routes"
+          curl -6 -sS --connect-timeout 5 --max-time 8 -o /dev/null -w 'telegram_ipv6_http=%{http_code}\n' https://api.telegram.org/ || true
+          curl -4 -sS --connect-timeout 5 --max-time 8 -o /dev/null -w 'telegram_ipv4_http=%{http_code}\n' https://api.telegram.org/ || true
           REMOTE
