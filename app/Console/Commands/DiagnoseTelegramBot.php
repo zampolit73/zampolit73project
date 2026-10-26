@@ -11,18 +11,23 @@ use Illuminate\Support\Facades\Http;
 
 class DiagnoseTelegramBot extends Command
 {
-    protected $signature = 'telegram:bot:diagnose';
+    protected $signature = 'telegram:bot:diagnose {--local-only : Print local state without network probes}';
 
     protected $description = 'Print safe Telegram Bot and network diagnostics without exposing secrets';
 
     public function handle(TelegramBotClient $bot): int
     {
         $this->line('Telegram Bot diagnostics');
+        $this->line('transport='.(string) config('services.telegram.transport', 'polling'));
         $this->line('token_configured='.(filled(config('services.telegram.token')) ? 'yes' : 'no'));
         $this->line('webhook_secret_configured='.(filled(config('services.telegram.webhook_secret')) ? 'yes' : 'no'));
         $this->line('linked_accounts='.UserTelegramAccount::query()->count());
         $this->line('used_invites='.TelegramInvite::query()->whereNotNull('used_at')->count());
         $this->line('unused_invites='.TelegramInvite::query()->whereNull('used_at')->count());
+
+        if ($this->option('local-only')) {
+            return self::SUCCESS;
+        }
 
         if (app()->environment('production')) {
             $this->newLine();

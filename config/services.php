@@ -6,6 +6,7 @@ return [
     ],
 
     'telegram' => [
+        'transport' => env('TELEGRAM_BOT_TRANSPORT', 'polling'),
         'token' => env('TELEGRAM_BOT_TOKEN'),
         'username' => env('TELEGRAM_BOT_USERNAME'),
         'webhook_secret' => env('TELEGRAM_BOT_WEBHOOK_SECRET'),

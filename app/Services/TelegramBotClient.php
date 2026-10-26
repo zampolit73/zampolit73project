@@ -246,7 +246,7 @@ class TelegramBotClient
                 ->post($this->apiUrl('setWebhook'), [
                     'url' => $url,
                     'secret_token' => $secretToken,
-                    'allowed_updates' => ['message'],
+                    'allowed_updates' => ['message', 'callback_query'],
                     'max_connections' => 5,
                     'drop_pending_updates' => $dropPendingUpdates,
                 ]);

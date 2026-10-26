@@ -489,3 +489,14 @@ Keyboard-removal errors are best-effort and do not revert SQLite writes.
 
 Tests verify save-v1/save-v2 replay versions, button removal, cancellation,
 failure to send acknowledgement, and original permission checks.
+
+## Telegram delivery during VPS outbound outages
+
+Production deploy explicitly selects `services.telegram.transport=webhook`.
+GitHub Actions registers message/callback delivery with the existing secret and
+verifies the HTTPS endpoint. Basic replies, including `/start CODE`, are sent
+as the webhook HTTP response; no outbound Bot API connection is needed.
+The existing systemd bot command runs only its stale-job watchdog in this mode,
+so restart cannot remove the webhook. Polling remains an explicit alternate mode.
+JSON downloads and the existing confirmed import/background-send paths still
+require outbound Telegram connectivity. See `docs/PRODUCTION.md`.

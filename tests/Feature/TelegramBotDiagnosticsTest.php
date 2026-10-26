@@ -14,6 +14,19 @@ class TelegramBotDiagnosticsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_local_diagnostics_do_not_need_telegram_connectivity(): void
+    {
+        config()->set('services.telegram.transport', 'webhook');
+        Http::preventStrayRequests();
+
+        $this->artisan('telegram:bot:diagnose --local-only')
+            ->expectsOutputToContain('transport=webhook')
+            ->expectsOutputToContain('linked_accounts=0')
+            ->assertExitCode(0);
+
+        Http::assertNothingSent();
+    }
+
     public function test_diagnostics_print_safe_state_and_probe_result(): void
     {
         config()->set('services.telegram.token', '123456:test-token');

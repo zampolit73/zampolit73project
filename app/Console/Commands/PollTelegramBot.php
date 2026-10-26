@@ -12,7 +12,7 @@ class PollTelegramBot extends Command
 {
     protected $signature = 'telegram:bot:poll {--once : Fetch one batch of updates and exit}';
 
-    protected $description = 'Receive Telegram Bot updates with long polling';
+    protected $description = 'Maintain the Telegram Bot watchdog; receive updates when polling transport is selected';
 
     private const CACHE_KEY = 'telegram_bot_poll:last_update_id';
 
@@ -24,17 +24,38 @@ class PollTelegramBot extends Command
             return self::FAILURE;
         }
 
-        if (! $bot->deleteWebhook(false)) {
+        $transport = (string) config('services.telegram.transport', 'polling');
+        if (! in_array($transport, ['polling', 'webhook'], true)) {
+            $this->error('TELEGRAM_BOT_TRANSPORT must be polling or webhook.');
+
+            return self::FAILURE;
+        }
+
+        $polling = $transport === 'polling';
+        if ($polling && ! $bot->deleteWebhook(false)) {
             $this->warn('Could not disable Telegram webhook before polling. Will keep retrying getUpdates.');
         }
 
         $lastUpdateId = $this->lastUpdateId();
         $once = (bool) $this->option('once');
 
-        $this->info('Telegram Bot long polling started.');
+        $this->info($polling
+            ? 'Telegram Bot long polling started.'
+            : 'Telegram Bot webhook mode: watchdog only; polling is disabled.');
 
         while (true) {
             $this->recoverStaleInvestigations($bot);
+
+            // Keep stale-job recovery running without deleting the webhook or
+            // competing with Telegram's inbound delivery after a service restart.
+            if (! $polling) {
+                if ($once) {
+                    return self::SUCCESS;
+                }
+                sleep(30);
+
+                continue;
+            }
 
             $updates = $bot->getUpdates(
                 $lastUpdateId === null ? null : $lastUpdateId + 1,

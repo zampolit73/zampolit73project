@@ -251,56 +251,46 @@ TELEGRAM_BOT_TOKEN=<fresh BotFather token>
 
 The deploy transfers the token to the VPS through a short-lived mode-600 file, writes it into the persistent shared `.env`, and removes the temporary file.
 
-Production currently uses **long polling** instead of Telegram webhooks.
+### Webhook delivery and outbound limitations
 
-### Why long polling is pinned to a Telegram IPv4
+Deploy selects `TELEGRAM_BOT_TRANSPORT=webhook` and registers
+`https://zampolit73.duckdns.org/api/telegram/bot/webhook` from GitHub Actions.
+The runner can contact Telegram independently of the VPS's outbound route.
+Both `message` and `callback_query` are enabled; `drop_pending_updates=false`
+preserves queued user commands. Laravel validates the existing secret header.
+The derived webhook secret is masked before any runner diagnostics.
 
-Network diagnostics established this VPS-specific route problem:
+Setup verifies unauthenticated requests return 403, an authenticated empty
+request returns `{"ok":true}`, and Telegram reports the expected webhook URL
+and callback delivery. Empty probes never impersonate a user or send a message.
+Registration, authentication or new delivery errors fail the deploy instead of
+silently leaving a green run with a nonresponsive bot.
 
-- DNS `api.telegram.org` → `149.154.166.110`: TCP 443 times out;
-- `149.154.167.220`: TCP 443 and TLS succeed;
-- GitHub and Cloudflare HTTPS from the VPS succeed;
-- UFW is inactive;
-- iptables INPUT and OUTPUT default policies are ACCEPT.
+The existing `zampolit73project-telegram-bot.service` still runs
+`php8.3 artisan telegram:bot:poll`. In webhook mode it only maintains the
+stale-investigation watchdog every 30 seconds. It must not call `deleteWebhook`
+or `getUpdates`, including after restarts. Explicit `polling` mode retains the
+previous poller implementation for hosts with working outbound connectivity.
 
-Therefore deploy writes:
+Diagnostics from 2026-10-25 showed TCP/TLS timeouts to both the DNS-selected
+Telegram API address and the previously working pin `149.154.167.220`.
+The pin remains an outbound configuration option, not proof of connectivity.
+`/start`, `/start CODE`, `/status` and basic text replies use the webhook HTTP
+response and do not require outbound Bot API access. Telegram provides no
+per-message success result for this response method: actual chat receipt remains
+the final user check.
 
-```text
-TELEGRAM_BOT_API_IP=149.154.167.220
-TELEGRAM_BOT_PUSH_ENABLED=true
-```
+JSON document downloads, delivered import confirmations, progress notifications
+and automatic final-result pushes still need outbound Bot API connectivity.
+Webhook activation does not resolve these separate limitations. Users can upload
+JSON through the website and request investigation results with `/status`.
+Do not use an untrusted public proxy or expose the bot token to a relay.
 
-Laravel keeps using the URL hostname `api.telegram.org` but resolves it to `TELEGRAM_BOT_API_IP` inside `TelegramBotClient`. TLS hostname verification/SNI still uses `api.telegram.org`.
-
-This is an operational workaround for the current provider/network route. Re-test before changing or removing the pinned IP.
-
-### Telegram long-polling service
-
-Production has a dedicated systemd unit:
-
-`zampolit73project-telegram-bot.service`
-
-It runs:
+For local state without slow network probes:
 
 ```bash
-php8.3 artisan telegram:bot:poll
+sudo -u www-data php8.3 artisan telegram:bot:diagnose --local-only
 ```
-
-The deploy writes/refreshes the unit, enables it and restarts it after the atomic release switch.
-
-The poller calls `deleteWebhook(drop_pending_updates=false)` on startup, then long-polls `getUpdates`. The last processed update ID is stored in Laravel's persistent file cache under shared storage, so atomic deploys do not intentionally replay already processed updates.
-
-Background Bot API replies are enabled because the client now uses the reachable pinned Telegram IPv4.
-
-### Webhook fallback
-
-The application still exposes:
-
-`POST /api/telegram/bot/webhook`
-
-Laravel validates `X-Telegram-Bot-Api-Secret-Token` there. The route remains useful as a fallback and for automated tests, but production Bot updates are not expected to arrive there while long polling is active.
-
-GitHub Actions calls Telegram `deleteWebhook` with `drop_pending_updates=false` after deployment and prints safe `getWebhookInfo` diagnostics to confirm the webhook URL is empty.
 
 ### Telegram diagnostics
 
@@ -308,7 +298,7 @@ Production deploy runs `php8.3 artisan telegram:bot:diagnose` when the bot token
 
 It reports, without exposing secrets or Telegram IDs:
 
-- token/webhook-secret presence;
+- selected transport and token/webhook-secret presence;
 - linked-account and invite aggregate counts;
 - default IPv4 route;
 - UFW / iptables policy;

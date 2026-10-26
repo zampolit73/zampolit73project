@@ -48,7 +48,7 @@
 - Web Push / VAPID;
 - GitHub Actions CI/CD;
 - Laravel database queue worker for Vacancy Source, managed by systemd;
-- Laravel Telegram Bot long poller for Vacancy Source, managed by systemd.
+- Telegram webhook delivery plus Laravel stale-job watchdog, managed by systemd.
 
 Production layout:
 
@@ -1030,7 +1030,7 @@ Implemented now:
 
 - authenticated web launcher;
 - private Telegram Bot input bound to existing site users;
-- Bot production transport via long polling and pinned reachable Telegram API IPv4;
+- Bot production transport via secret-protected webhook; basic replies do not require VPS outbound access;
 - Laravel database queue `vacancy-source` with one production worker;
 - live web status polling and history;
 - queued-only cancellation;
@@ -1050,7 +1050,7 @@ Implemented now:
 - investigation finalization is transactional and candidate/source linking reuses canonical company aliases, so `T-Bank` evidence correctly links to candidate `Т-Банк`;
 - Habr provider is bounded to a ~50-second budget (3 skill catalogs, 1 rare-phrase discovery query, 3 vacancy pages; 3s connect / 6s request);
 - generic web provider is bounded independently to ~40 seconds (max 3 Bing queries; 2s connect / 6s request), so web cannot consume the whole queue-job timeout;
-- Telegram `/status` still repairs a stale run on demand, and the long-polling bot now independently watches for any `running` investigation older than 6 minutes, atomically marks it failed/timed out and proactively notifies the user; orphaned worker state no longer requires a manual `/status`;
+- Telegram `/status` still repairs a stale run on demand, and the bot maintenance process independently watches for any `running` investigation older than 6 minutes, atomically marks it failed/timed out and proactively notifies the user; orphaned worker state no longer requires a manual `/status`;
 - up to three end-client candidates above the 60% threshold;
 - direct vs indirect hypothesis label;
 - intermediaries separated with `is_end_client=false`;
@@ -1088,9 +1088,9 @@ Implemented in the current Reader iteration:
 
 GitHub Reader secrets have already been added by the user. Do not ask for `api_hash`, login code or 2FA password in ChatGPT.
 
-**MTProto transport is now working in production.** Direct Telegram DC TCP is blackholed by the VPS route, so the Reader uses a **local-only MTProto→Telegram WSS bridge** on `127.0.0.1:1443`. The bridge is `Flowseal/tg-ws-proxy` pinned to commit `caa949bee0873d2b95dfb4fbeb1b7868b0ee3843` (MIT), runs as `zampolit-reader`, is never exposed publicly, and is started as `zampolit73project-telegram-ws-bridge.service`. Cloudflare proxy fallback is explicitly disabled (`--no-cfproxy`): the bridge targets Telegram-owned WSS endpoints, so this does not introduce Vercel or another hosted relay. Telethon connects to the local bridge with `ConnectionTcpMTProxyRandomizedIntermediate`.
+**Historical MTProto setup; current connectivity must be rechecked.** Direct Telegram DC TCP is blackholed by the VPS route, so the Reader uses a **local-only MTProto→Telegram WSS bridge** on `127.0.0.1:1443`. The bridge is `Flowseal/tg-ws-proxy` pinned to commit `caa949bee0873d2b95dfb4fbeb1b7868b0ee3843` (MIT), runs as `zampolit-reader`, is never exposed publicly, and is started as `zampolit73project-telegram-ws-bridge.service`. Cloudflare proxy fallback is explicitly disabled (`--no-cfproxy`): the bridge targets Telegram-owned WSS endpoints, so this does not introduce Vercel or another hosted relay. Telethon connects to the local bridge with `ConnectionTcpMTProxyRandomizedIntermediate`.
 
-Current production state is healthy and was re-verified after the Telegram-research integration:
+Earlier verified state after the Telegram-research integration (historical snapshot; 2026-10-25 diagnostics reported connection_error):
 
 ```text
 telegram_reader=ok
@@ -1104,7 +1104,7 @@ indexed_message_count=>0
 fts_enabled=yes
 ```
 
-Exact chat/message counts are dynamic and must be checked in current production diagnostics rather than trusted from this handoff. The transport blocker is cleared. The authorization UI is QR-first because Telegram may refuse phone login-code delivery for third-party MTProto clients even when transport is healthy. The admin page creates an in-memory one-time QR token, Reader waits for the scan asynchronously, and the 2FA password form stays available for the lifetime of the QR auth attempt even if Telegram/Telethon does not expose `password_required` to the next UI poll. Phone/code remains a fallback. Login codes and 2FA are entered only on the admin page and must not be pasted into ChatGPT.
+Exact chat/message counts are dynamic and must be checked in current production diagnostics rather than trusted from this handoff. Do not infer current transport health from the earlier snapshot. The authorization UI is QR-first because Telegram may refuse phone login-code delivery for third-party MTProto clients even when transport is healthy. The admin page creates an in-memory one-time QR token, Reader waits for the scan asynchronously, and the 2FA password form stays available for the lifetime of the QR auth attempt even if Telegram/Telethon does not expose `password_required` to the next UI poll. Phone/code remains a fallback. Login codes and 2FA are entered only on the admin page and must not be pasted into ChatGPT.
 
 Investigation integration is now active:
 
@@ -1119,5 +1119,13 @@ Investigation integration is now active:
 - admin review UI and quality metrics remain pending.
 ### Vacancy Source Telegram Bot networking
 
-The VPS route to the DNS-selected `api.telegram.org` address is unreliable, while `149.154.167.220` is reachable. Production therefore uses `TELEGRAM_BOT_API_IP=149.154.167.220` inside `TelegramBotClient`, preserving `api.telegram.org` for TLS/SNI. The Bot runs as `zampolit73project-telegram-bot.service` with `telegram:bot:poll`; existing webhook updates were preserved with `drop_pending_updates=false`.
+2026-10-25 deployment diagnostics showed timeouts to both the DNS-selected API
+address and the previously working `149.154.167.220` pin. The deployment now
+selects `TELEGRAM_BOT_TRANSPORT=webhook`, registered from GitHub Actions with
+pending updates preserved. Basic `/start`, binding and `/status` replies use
+HTTP webhook responses. The bot systemd process retains only the stale-job
+watchdog in this mode; it never deletes the webhook. Outbound file downloads,
+import confirmations, background pushes and Reader access remain separately
+limited by VPS networking. Earlier healthy Reader snapshots above are historical,
+not current health evidence. See `docs/PRODUCTION.md` for verification.
 

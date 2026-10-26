@@ -48,7 +48,7 @@ Admin review storage exists; review UI/actions remain a later iteration.
 - Forward metadata is ignored; only message text/caption is research input;
 - `/status` returns the latest investigation state or complete formatted result.
 
-Production Bot transport is long polling; see the Telegram section below.
+Production Bot transport is webhook delivery; see the Telegram section below.
 
 ## Routes
 
@@ -58,7 +58,7 @@ Production Bot transport is long polling; see the Telegram section below.
 - `POST /projects/vacancy-source/investigations/{id}/cancel`;
 - admin: `POST /admin/users/{user}/telegram-invite`;
 - admin: `DELETE /admin/users/{user}/telegram-binding`;
-- fallback/test webhook: `POST /api/telegram/bot/webhook`.
+- production webhook: `POST /api/telegram/bot/webhook`.
 
 Only a queued investigation can be cancelled.
 
@@ -266,39 +266,20 @@ Telegram hits are now merged into every Vacancy Source investigation:
 8. public Telegram message URLs remain clickable; private Telegram evidence is shown as a non-clickable source card rather than inventing a public URL.
 ## Telegram production transport
 
-Production uses **Bot API long polling**, not webhook delivery.
+Production deploy selects `TELEGRAM_BOT_TRANSPORT=webhook` and registers the
+existing secret-protected endpoint from GitHub Actions. The runner verifies
+registration/authentication and preserves pending updates, including `/start`.
+Basic command and binding replies are returned in the webhook response, so a
+VPS outbound Telegram outage does not prevent account linking.
 
-Why:
+`telegram:bot:poll` remains the systemd command. In webhook mode it only runs the
+stale-job watchdog; it must never disable the webhook or poll updates. Explicit
+`polling` remains supported. See `docs/PRODUCTION.md` for setup and verification.
 
-- the VPS DNS currently resolves `api.telegram.org` to `149.154.166.110`, and TCP/TLS to that address times out;
-- the same VPS can reach Telegram Bot API IPv4 `149.154.167.220` normally;
-- host firewall is not the cause: UFW is inactive and iptables INPUT/OUTPUT policies are ACCEPT;
-- GitHub/Cloudflare control HTTPS probes from the VPS succeed.
-
-The deploy therefore stores:
-
-```text
-TELEGRAM_BOT_API_IP=149.154.167.220
-TELEGRAM_BOT_PUSH_ENABLED=true
-```
-
-`TelegramBotClient` preserves the hostname `api.telegram.org` for TLS/SNI but pins the connection to `TELEGRAM_BOT_API_IP` with cURL resolve options.
-
-A dedicated systemd process runs:
-
-```bash
-php8.3 artisan telegram:bot:poll
-```
-
-The poller:
-
-- disables the Telegram webhook without dropping pending updates;
-- long-polls `getUpdates`;
-- persists the last processed update ID in Laravel's persistent cache;
-- routes each update through the same `TelegramUpdateHandler` used by the webhook fallback;
-- sends replies and progress/final messages through the Bot API on the working pinned IPv4.
-
-The stateless webhook route `POST /api/telegram/bot/webhook` remains in the application as a fallback/test transport, but production Telegram delivery is polling-based.
+The 2026-10-25 diagnostics found both Telegram Bot API IP routes unreachable.
+JSON downloads, confirmed import replies and background notifications still
+require outbound connectivity; use the website upload and `/status` while that
+route is unavailable. A configured token or active process is not a health check.
 
 ## Telegram production configuration
 
@@ -389,4 +370,4 @@ Candidate/source linking uses the same company-alias canonicalization as combine
 
 Generic web search is bounded like Habr: at most 3 Bing RSS queries, 2-second connect timeout, 6-second request timeout and an overall ~40-second provider budget. A web provider timeout degrades to partial evidence instead of owning the whole investigation job.
 
-The Telegram long-polling process also acts as an independent stale-job watchdog. On each polling cycle it atomically marks any investigation still `running` for more than 6 minutes as `failed`, stores `timed_out_at`, and proactively sends the user a retry message. This does not rely on the queue worker's timeout/failure callback, so a worker killed at OS/process level cannot leave the UI/bot saying “in progress” indefinitely.
+The Telegram maintenance process also acts as an independent stale-job watchdog. Every 30 seconds in webhook mode (or on each polling cycle) it atomically marks any investigation still `running` for more than 6 minutes as `failed`, stores `timed_out_at`, and proactively sends the user a retry message. This does not rely on the queue worker's timeout/failure callback, so a worker killed at OS/process level cannot leave the UI/bot saying “in progress” indefinitely.

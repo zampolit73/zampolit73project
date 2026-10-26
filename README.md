@@ -61,7 +61,7 @@ Vacancy Source. **Не строим CRM и не интегрируемся с т
 
 Push API находится под auth middleware: `/push/config`, `/push/subscriptions`, `/push/test`.
 
-Production Telegram Bot получает сообщения через отдельный Laravel long-polling systemd-процесс. Webhook `POST /api/telegram/bot/webhook` сохранён как fallback/test transport и по-прежнему проверяет `X-Telegram-Bot-Api-Secret-Token`.
+Production deploy настраивает Telegram webhook `POST /api/telegram/bot/webhook` с проверкой `X-Telegram-Bot-Api-Secret-Token`. `/start`, привязка и `/status` отвечают прямо в webhook response, без исходящего запроса с VPS. Systemd-процесс бота сохраняет watchdog зависших задач.
 
 ## Быстрый локальный запуск
 
@@ -111,7 +111,7 @@ Laravel 13
    +-- Inertia / Vue
    +-- Web Push (VAPID)
    +-- Database queue worker (Vacancy Source)
-   +-- Telegram Bot long poller (Vacancy Source)
+   +-- Telegram Bot webhook + stale-job watchdog (Vacancy Source)
 ```
 
 Persistent state:
@@ -260,19 +260,26 @@ tests/
 
 ## Telegram Bot for Vacancy Source
 
-Production Bot transport uses long polling on the VPS. The deploy runs `zampolit73project-telegram-bot.service`, which executes:
+The deploy selects `TELEGRAM_BOT_TRANSPORT=webhook`. GitHub Actions registers
+`POST /api/telegram/bot/webhook` directly with Telegram, preserving pending
+updates and enabling both `message` and `callback_query`. It verifies HTTPS,
+secret authentication and the registered URL; setup errors fail the deploy.
 
-```bash
-php8.3 artisan telegram:bot:poll
-```
+The existing `zampolit73project-telegram-bot.service` still runs
+`php8.3 artisan telegram:bot:poll`, but in webhook mode it only recovers stale
+investigations. It never deletes the webhook or calls `getUpdates` in this mode.
+Explicit `polling` remains available for environments with working outbound access.
 
-A VPS/provider route issue makes the DNS-selected Telegram address `149.154.166.110` unreachable, while `149.154.167.220` is reachable over TCP/TLS. The deploy therefore sets `TELEGRAM_BOT_API_IP=149.154.167.220`; the HTTP client keeps `api.telegram.org` as the TLS hostname but connects to the working IP.
+The 2026-10-25 deployment diagnostics showed timeouts to both the DNS-selected
+Telegram address and the previously working pinned `149.154.167.220` address.
+Basic commands and account linking use webhook-response replies and do not need
+that outbound route. JSON downloads, import confirmations and background pushes
+still require outbound Bot API access; webhook setup alone does not repair them.
+Use the website's JSON upload if Telegram downloads are unavailable.
 
-The only manual production secret remains `TELEGRAM_BOT_TOKEN` in GitHub Actions Secrets. It is not stored in Git.
-
-The poller preserves pending updates when disabling any old webhook. `/start CODE`, vacancy intake, `/status`, progress and final source-backed research messages all use the same Laravel Bot pipeline.
-
-
+Only the existing `TELEGRAM_BOT_TOKEN` secret is needed. No new bot, paid service
+or public proxy is introduced. Safe local state is available with
+`php8.3 artisan telegram:bot:diagnose --local-only`.
 
 The Bot is only the user interface. Reading the user's work-chat history requires a separate MTProto Telegram Reader. The setup/handoff runbook is `docs/TELEGRAM_READER_SETUP.md`.
 
@@ -377,9 +384,9 @@ JSON-схема и правила: `data/company-reports/README.md`.
 В Telegram, в отличие от локальной формы сайта, файл временно проходит через
 облачную инфраструктуру Telegram. Не пересылайте туда особо чувствительные данные.
 
-Транспорт — существующий long polling \`telegram:bot:poll\`; ни нового бота,
-ни нового API-токена, ни отдельного AI API не требуется. Webhook fallback
-также поддерживает callback_query. Подробности: \`docs/ARCHITECTURE.md\`.
+Транспорт production — webhook с message и callback_query; ни нового бота,
+ни нового API-токена, ни отдельного AI API не требуется. Скачивание JSON и
+подтверждения импорта по-прежнему требуют исходящего доступа VPS к Telegram. Подробности: \`docs/ARCHITECTURE.md\`.
 
 
 ### Подтверждения импорта Telegram и повторная отправка

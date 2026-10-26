@@ -128,3 +128,13 @@ Future work should add at least one independent search provider and safe page-le
 The current VPS route blackholes direct Telegram MTProto DC TCP. Reader connectivity therefore depends on a local WSS bridge using `Flowseal/tg-ws-proxy`, pinned to commit `caa949bee0873d2b95dfb4fbeb1b7868b0ee3843` and started with Cloudflare fallback disabled.
 
 This is an operational compatibility dependency, not application business logic. Re-test direct MTProto periodically; if provider routing is fixed, prefer removing the bridge and returning Telethon to direct MTProto. Any bridge upgrade must be reviewed/pinned explicitly rather than following upstream HEAD automatically.
+
+## Telegram outbound connectivity (2026-10-26)
+
+The last deployment on 2026-10-25 timed out to both the DNS-selected Bot API
+address and the pinned `149.154.167.220`; Reader connectivity also reported an
+error. Production webhook delivery restores basic commands and account linking
+without the VPS outbound route. This does not establish working JSON downloads,
+import confirmation delivery, background notifications or MTProto Reader access.
+Resolve the provider route or use a separately authorized trusted transport;
+never declare all Telegram functionality healthy from token presence alone.

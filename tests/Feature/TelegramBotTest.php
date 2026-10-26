@@ -60,6 +60,92 @@ class TelegramBotTest extends TestCase
         ], 'wrong-secret')->assertForbidden();
     }
 
+    public function test_unbound_start_replies_without_outbound_api_or_telegram_username(): void
+    {
+        Http::preventStrayRequests();
+
+        $response = $this->webhook([
+            'update_id' => 10001,
+            'message' => [
+                'message_id' => 1,
+                'from' => ['id' => 6000000001],
+                'chat' => ['id' => 6000000001, 'type' => 'private'],
+                'text' => '/start',
+            ],
+        ])->assertOk()->assertJsonPath('method', 'sendMessage')
+            ->assertJsonPath('chat_id', 6000000001);
+
+        $this->assertStringContainsString('одноразовый код', $response->json('text'));
+        $this->assertDatabaseCount('user_telegram_accounts', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_binding_and_replayed_start_work_when_outbound_api_is_unavailable(): void
+    {
+        Http::preventStrayRequests();
+        $user = $this->user('webhook-only-user');
+        TelegramInvite::query()->create([
+            'user_id' => $user->id,
+            'code_hash' => hash('sha256', 'WXYZ-2345'),
+        ]);
+        $update = [
+            'update_id' => 10002,
+            'message' => [
+                'message_id' => 2,
+                'from' => ['id' => 6000000002],
+                'chat' => ['id' => 6000000002, 'type' => 'private'],
+                'text' => '/start WXYZ-2345',
+            ],
+        ];
+
+        $first = $this->webhook($update)->assertOk()->assertJsonPath('method', 'sendMessage');
+        $this->assertStringContainsString('Telegram привязан', $first->json('text'));
+        $again = $this->webhook($update)->assertOk()->assertJsonPath('method', 'sendMessage');
+        $this->assertStringContainsString('уже привязан', $again->json('text'));
+        $this->assertDatabaseCount('user_telegram_accounts', 1);
+        $this->assertDatabaseHas('user_telegram_accounts', [
+            'user_id' => $user->id,
+            'telegram_user_id' => 6000000002,
+            'telegram_username' => null,
+        ]);
+        Http::assertNothingSent();
+    }
+
+    public function test_webhook_mode_preserves_webhook_and_still_recovers_stale_jobs(): void
+    {
+        config()->set('services.telegram.transport', 'webhook');
+        Http::preventStrayRequests();
+        $user = $this->user('watchdog-only');
+        $investigation = VacancyInvestigation::query()->create([
+            'user_id' => $user->id,
+            'input_source' => 'web',
+            'input_text' => 'Senior developer vacancy for a stalled background investigation.',
+            'status' => 'running',
+            'started_at' => now()->subMinutes(7),
+        ]);
+
+        $this->artisan('telegram:bot:poll --once')
+            ->expectsOutputToContain('watchdog only; polling is disabled')
+            ->assertExitCode(0);
+
+        $this->assertSame('failed', $investigation->fresh()->status);
+        $this->assertNotNull($investigation->fresh()->timed_out_at);
+        $this->assertNull(Cache::get('telegram_bot_poll:last_update_id'));
+        Http::assertNothingSent();
+    }
+
+    public function test_webhook_setup_keeps_research_confirmation_callbacks_enabled(): void
+    {
+        Http::fake(['https://api.telegram.org/*' => Http::response(['ok' => true, 'result' => true])]);
+        config()->set('app.url', 'https://example.test');
+
+        $this->artisan('telegram:bot:set-webhook')->assertExitCode(0);
+
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/setWebhook')
+            && $request['allowed_updates'] === ['message', 'callback_query']
+            && $request['drop_pending_updates'] === false);
+    }
+
     public function test_start_code_binds_telegram_and_replies_via_webhook_response(): void
     {
         $user = $this->user();
