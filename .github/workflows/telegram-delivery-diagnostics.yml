@@ -55,6 +55,31 @@ jobs:
             sudo -n tail -n 1000 /var/log/nginx/access.log | awk '$7 ~ /^\/api\/telegram\/bot\/webhook/ {print $4" "$5, "status="$9}' | tail -n 20
           fi
           systemctl is-active zampolit73project-telegram-bot.service
+          echo "virtualization=$(systemd-detect-virt || true)"
+          echo "Network interface names and states:"
+          ip -brief link | awk '{print $1, $2}'
+          echo "VPN-related active services:"
+          systemctl list-units --type=service --state=running --no-legend --no-pager | awk '{print $1}' | grep -Ei 'openvpn|wg-quick|wireguard|tailscale|zerotier|sing-box|xray|v2ray|amnezia|warp' || true
+          echo "Proxy environment variable names (values omitted):"
+          printenv | cut -d= -f1 | grep -Ei '^(HTTPS?|ALL|NO)_PROXY
+          ipv6_routes="$(ip -6 route show default | wc -l)"
+          echo "ipv6_default_routes=$ipv6_routes"
+          curl -6 -sS --connect-timeout 5 --max-time 8 -o /dev/null -w 'telegram_ipv6_http=%{http_code}\n' https://api.telegram.org/ || true
+          curl -4 -sS --connect-timeout 5 --max-time 8 -o /dev/null -w 'telegram_ipv4_http=%{http_code}\n' https://api.telegram.org/ || true
+          REMOTE
+ || true
+          echo "Network diagnostic commands available:"
+          command -v traceroute tracepath mtr nft iptables || true
+          if [ "$(id -u)" -eq 0 ]; then
+            iptables -S INPUT 2>/dev/null | awk '$1=="-P" {print} /-j (DROP|REJECT)/ {blocked++} END {print "input_drop_or_reject_rules=" blocked+0}'
+            iptables -S OUTPUT 2>/dev/null | awk '$1=="-P" {print} /-j (DROP|REJECT)/ {blocked++} END {print "output_drop_or_reject_rules=" blocked+0}'
+            nft -j list ruleset 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); items=d.get("nftables",[]); print("nft_drop_or_reject_items="+str(sum(any(k in json.dumps(x) for k in [chr(34)+"drop"+chr(34),chr(34)+"reject"+chr(34)]) for x in items)))' || true
+          fi
+          ip -j route get 149.154.167.220 | python3 -c 'import json,sys; d=json.load(sys.stdin); print("telegram_route="+json.dumps([{k:r.get(k) for k in ["type","dev","table"]} for r in d]))'
+          curl --noproxy '*' -4 -sS --connect-timeout 4 --max-time 6 -o /dev/null -w 'telegram_without_env_proxy=%{http_code}\n' https://api.telegram.org/ || true
+          curl -4 -sS --connect-timeout 4 --max-time 6 -o /dev/null -w 'github_control=%{http_code}\n' https://github.com/ || true
+          curl -4 -sS --connect-timeout 4 --max-time 6 -o /dev/null -w 'cloudflare_control=%{http_code}\n' https://www.cloudflare.com/ || true
+
           ipv6_routes="$(ip -6 route show default | wc -l)"
           echo "ipv6_default_routes=$ipv6_routes"
           curl -6 -sS --connect-timeout 5 --max-time 8 -o /dev/null -w 'telegram_ipv6_http=%{http_code}\n' https://api.telegram.org/ || true
