@@ -73,7 +73,7 @@ class CompanyResearchJsonRepairTest extends TestCase
     public function test_repairs_project_signals_and_financial_aliases_without_persistence(): void
     {
         $this->actingAs($this->user());
-        $response = $this->postJson('/projects/irlix-sales/research/repair', $this->upload($this->document()))
+        $response = $this->withHeaders(['Accept' => 'application/json'])->post('/projects/irlix-sales/research/repair', $this->upload($this->document()))
             ->assertOk()
             ->assertJsonPath('report.schema_version', 1)
             ->assertJsonPath('report.company.inn', '7715641372')
@@ -118,7 +118,7 @@ class CompanyResearchJsonRepairTest extends TestCase
         ]];
 
         $this->actingAs($this->user())
-            ->postJson('/projects/irlix-sales/research/repair', $this->upload($payload))
+            ->withHeaders(['Accept' => 'application/json'])->post('/projects/irlix-sales/research/repair', $this->upload($payload))
             ->assertOk()
             ->assertJsonPath('report.contractors.0.relationship', 'confirmed')
             ->assertJsonPath('report.contractors.0.note',
@@ -133,7 +133,7 @@ class CompanyResearchJsonRepairTest extends TestCase
         $payload = $this->document();
         $payload['projects'][0]['url'] = 'javascript:alert(1)';
         $this->actingAs($this->user())
-            ->postJson('/projects/irlix-sales/research/repair', $this->upload($payload))
+            ->withHeaders(['Accept' => 'application/json'])->post('/projects/irlix-sales/research/repair', $this->upload($payload))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('report_file');
         $this->assertDatabaseCount('company_research_imports', 0);
@@ -144,7 +144,7 @@ class CompanyResearchJsonRepairTest extends TestCase
         $payload = $this->document();
         $payload['projects'][0]['source_url'] = 'https://example.org/another';
         $this->actingAs($this->user())
-            ->postJson('/projects/irlix-sales/research/repair', $this->upload($payload))
+            ->withHeaders(['Accept' => 'application/json'])->post('/projects/irlix-sales/research/repair', $this->upload($payload))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('report_file');
     }
@@ -154,7 +154,7 @@ class CompanyResearchJsonRepairTest extends TestCase
         $payload = $this->document();
         $payload['financials'][0]['currency'] = 'USD';
         $this->actingAs($this->user())
-            ->postJson('/projects/irlix-sales/research/repair', $this->upload($payload))
+            ->withHeaders(['Accept' => 'application/json'])->post('/projects/irlix-sales/research/repair', $this->upload($payload))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('report_file');
     }
@@ -164,7 +164,7 @@ class CompanyResearchJsonRepairTest extends TestCase
         $payload = $this->document();
         $payload['company']['inn'] = '0000000000';
         $this->actingAs($this->user())
-            ->postJson('/projects/irlix-sales/research/repair', $this->upload($payload))
+            ->withHeaders(['Accept' => 'application/json'])->post('/projects/irlix-sales/research/repair', $this->upload($payload))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('report_file');
     }
@@ -176,7 +176,7 @@ class CompanyResearchJsonRepairTest extends TestCase
         $payload['buying_signals'] = [];
         $payload['financials'] = [];
         $this->actingAs($this->user())
-            ->postJson('/projects/irlix-sales/research/repair', $this->upload($payload))
+            ->withHeaders(['Accept' => 'application/json'])->post('/projects/irlix-sales/research/repair', $this->upload($payload))
             ->assertOk()
             ->assertJsonCount(0, 'changes')
             ->assertJsonCount(0, 'warnings');
