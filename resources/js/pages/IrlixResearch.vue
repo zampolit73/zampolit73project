@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '../layouts/AppLayout.vue';
+import { isResearchJsonFile } from '../lib/researchJsonFile.js';
 
 const props = defineProps({
     reports: { type: Array, required: true },
@@ -43,7 +44,7 @@ async function inspectFile(event) {
     upload.report_file = event.target.files?.[0] || null;
     const file = upload.report_file;
     if (!file) return;
-    if (!/\.json$/i.test(file.name) || file.size > 256 * 1024) {
+    if (!isResearchJsonFile(file)) {
         previewError.value = 'Выбери файл .json не больше 256 КБ.';
         return;
     }
@@ -65,13 +66,15 @@ async function inspectFile(event) {
 async function repairJson() {
     const file = upload.report_file;
     if (!file || repairBusy.value) return;
+    upload.clearErrors(); // A previous failed import must not leave stale errors during repair.
+    previewError.value = '';
     repairError.value = '';
     repairMessage.value = '';
     repairChanges.value = [];
     repairWarnings.value = [];
     repairedJson.value = '';
 
-    if (!/\\.json$/i.test(file.name) || file.size > 256 * 1024) {
+    if (!isResearchJsonFile(file)) {
         repairError.value = 'Выбери файл .json не больше 256 КБ.';
         return;
     }
