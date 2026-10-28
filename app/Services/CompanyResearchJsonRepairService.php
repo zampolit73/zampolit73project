@@ -29,7 +29,18 @@ class CompanyResearchJsonRepairService
         $changes = [];
         $warnings = [];
 
-        foreach ($document['projects'] ?? [] as $i => &$project) {
+        // Work on the actual arrays, not temporary null-coalescing copies.
+        foreach (['projects', 'buying_signals', 'financials', 'contractors', 'sales_plan'] as $section) {
+            if (! array_key_exists($section, $document)) {
+                $document[$section] = [];
+            } elseif (! is_array($document[$section])) {
+                throw ValidationException::withMessages([
+                    'report_file' => "$section: ожидается массив.",
+                ]);
+            }
+        }
+
+        foreach ($document['projects'] as $i => &$project) {
             if (! is_array($project)) {
                 continue;
             }
@@ -43,7 +54,7 @@ class CompanyResearchJsonRepairService
         }
         unset($project);
 
-        foreach ($document['buying_signals'] ?? [] as $i => &$signal) {
+        foreach ($document['buying_signals'] as $i => &$signal) {
             if (! is_array($signal)) {
                 continue;
             }
@@ -64,7 +75,7 @@ class CompanyResearchJsonRepairService
         }
         unset($signal);
 
-        foreach ($document['financials'] ?? [] as $i => &$item) {
+        foreach ($document['financials'] as $i => &$item) {
             if (! is_array($item)) {
                 continue;
             }
@@ -80,7 +91,7 @@ class CompanyResearchJsonRepairService
         }
         unset($item);
 
-        foreach ($document['contractors'] ?? [] as $i => &$contractor) {
+        foreach ($document['contractors'] as $i => &$contractor) {
             if (! is_array($contractor)) {
                 continue;
             }
@@ -97,7 +108,7 @@ class CompanyResearchJsonRepairService
         }
         unset($contractor);
 
-        foreach ($document['sales_plan'] ?? [] as $i => &$step) {
+        foreach ($document['sales_plan'] as $i => &$step) {
             if (! is_array($step)) {
                 continue;
             }
