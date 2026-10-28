@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test:quake-mip": "node tests/js/quake-mip.mjs"
+    "test:quake-mip": "node tests/js/quake-mip.mjs",
+    "test:research-json": "node tests/js/research-json-file.mjs"
   },
   "devDependencies": {
     "vite": "^7.0.0",
