@@ -36,6 +36,8 @@ Route::middleware('auth')->group(function () {
         ->name('projects.irlix-sales.research');
     Route::post('/projects/irlix-sales/research/import', [CompanyResearchController::class, 'store'])
         ->middleware('throttle:10,1')->name('projects.irlix-sales.research.import');
+    Route::post('/projects/irlix-sales/research/repair', [CompanyResearchController::class, 'repair'])
+        ->middleware('throttle:10,1')->name('projects.irlix-sales.research.repair');
 
     Route::middleware(EnsureUserIsAdmin::class)->group(function () {
         Route::get('/projects/irlix-sales', [SalesProspectController::class, 'index'])
