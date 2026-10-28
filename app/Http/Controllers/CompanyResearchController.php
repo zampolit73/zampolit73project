@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Services\CompanyResearchImportService;
+use App\Services\CompanyResearchJsonRepairService;
 use App\Services\CompanyResearchRepository;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +19,31 @@ class CompanyResearchController extends Controller
         return Inertia::render('IrlixResearch', [
             'reports' => $reports->all(),
             'importResult' => session('research_import_result'),
+        ]);
+    }
+
+    /**
+     * Preview only: repair known ChatGPT aliases and return a downloadable
+     * canonical document. Never store the uploaded file or any revisions.
+     */
+    public function repair(Request $request, CompanyResearchJsonRepairService $repairer): JsonResponse
+    {
+        $request->validate([
+            'report_file' => ['required', 'file', 'max:256'],
+        ]);
+
+        $file = $request->file('report_file');
+        if (! $file || strtolower($file->getClientOriginalExtension()) !== 'json') {
+            throw ValidationException::withMessages(['report_file' => 'Нужен файл .json.']);
+        }
+
+        $bytes = file_get_contents($file->getRealPath());
+        if (! is_string($bytes)) {
+            throw ValidationException::withMessages(['report_file' => 'Не удалось прочитать JSON.']);
+        }
+
+        return response()->json($repairer->repair($bytes), 200, [
+            'Cache-Control' => 'no-store, private',
         ]);
     }
 
