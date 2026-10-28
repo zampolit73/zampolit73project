@@ -120,6 +120,9 @@ jobs:
       - name: Test Quake MIP encoder
         run: npm run test:quake-mip
 
+      - name: Test research JSON file validation
+        run: npm run test:research-json
+
       - name: Build Vite assets
         run: npm run build
 
