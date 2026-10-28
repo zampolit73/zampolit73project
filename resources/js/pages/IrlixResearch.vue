@@ -14,6 +14,12 @@ const isAdmin = computed(() => page.props.auth?.user?.role === 'admin');
 const fileInput = ref(null);
 const preview = ref(null);
 const previewError = ref('');
+const repairBusy = ref(false);
+const repairError = ref('');
+const repairMessage = ref('');
+const repairChanges = ref([]);
+const repairWarnings = ref([]);
+const repairedJson = ref('');
 const upload = useForm({ report_file: null, reviewed: false, replace_existing: false });
 const duplicate = computed(() => {
     const doc = preview.value;
@@ -26,6 +32,11 @@ const duplicate = computed(() => {
 async function inspectFile(event) {
     preview.value = null;
     previewError.value = '';
+    repairError.value = '';
+    repairMessage.value = '';
+    repairChanges.value = [];
+    repairWarnings.value = [];
+    repairedJson.value = '';
     upload.clearErrors();
     upload.reviewed = false;
     upload.replace_existing = false;
@@ -49,6 +60,69 @@ async function inspectFile(event) {
     } catch (error) {
         previewError.value = error.message || 'Не удалось прочитать JSON.';
     }
+}
+
+async function repairJson() {
+    const file = upload.report_file;
+    if (!file || repairBusy.value) return;
+    repairError.value = '';
+    repairMessage.value = '';
+    repairChanges.value = [];
+    repairWarnings.value = [];
+    repairedJson.value = '';
+
+    if (!/\\.json$/i.test(file.name) || file.size > 256 * 1024) {
+        repairError.value = 'Выбери файл .json не больше 256 КБ.';
+        return;
+    }
+    repairBusy.value = true;
+    try {
+        const form = new FormData();
+        form.append('report_file', file, file.name);
+        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const response = await fetch('/projects/irlix-sales/research/repair', {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            body: form,
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            repairError.value = result.errors?.report_file?.[0]
+                || result.message || 'Не удалось исправить файл. Проверь его вручную.';
+            return;
+        }
+        const fixed = JSON.stringify(result.report, null, 2);
+        const fixedFile = new File([fixed], result.report.id + '.json', { type: 'application/json' });
+        upload.report_file = fixedFile;
+        upload.reviewed = false;
+        upload.replace_existing = false;
+        upload.clearErrors();
+        preview.value = result.report;
+        previewError.value = '';
+        repairedJson.value = fixed;
+        repairChanges.value = result.changes || [];
+        repairWarnings.value = result.warnings || [];
+        repairMessage.value = repairChanges.value.length
+            ? 'JSON исправлен и прошёл серверную проверку. Теперь используется исправленный файл.'
+            : 'JSON прошёл серверную проверку. Файл готов к импорту.';
+    } catch (error) {
+        repairError.value = 'Проверка недоступна. Проверь соединение и попробуй ещё раз.';
+    } finally {
+        repairBusy.value = false;
+    }
+}
+
+function downloadRepaired() {
+    if (!repairedJson.value || !preview.value) return;
+    const url = URL.createObjectURL(new Blob([repairedJson.value], { type: 'application/json;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = preview.value.id + '.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
 }
 
 function importReport() {
@@ -153,6 +227,26 @@ function formattedDate(date) {
                 <form @submit.prevent="importReport" class="research-import-form">
                     <label for="research-import-file">1 / Выбери JSON-файл (до 256 КБ)</label>
                     <input id="research-import-file" ref="fileInput" type="file" accept=".json,application/json" @change="inspectFile">
+                    <div v-if="upload.report_file" class="research-repair-tools">
+                        <button type="button" class="research-import-submit research-repair-button" :disabled="repairBusy || upload.processing" @click="repairJson">
+                            {{ repairBusy ? 'ПРОВЕРЯЕМ ФАЙЛ…' : '✓ ПРОВЕРИТЬ И ИСПРАВИТЬ JSON' }}
+                        </button>
+                        <p class="research-import-note">Проверка безопасна: ничего не сохраняет в базе. Исправляет известные названия полей, не придумывает источники или факты.</p>
+                    </div>
+                    <p v-if="repairError" class="research-import-error" role="alert">{{ repairError }}</p>
+                    <div v-if="repairMessage" class="research-repair-result" role="status">
+                        <b>{{ repairMessage }}</b>
+                        <button type="button" class="research-repair-download" @click="downloadRepaired">↓ СКАЧАТЬ ИСПРАВЛЕННЫЙ JSON</button>
+                        <div v-if="repairChanges.length" class="research-repair-list">
+                            <strong>Исправления ({{ repairChanges.length }}):</strong>
+                            <ul><li v-for="change in repairChanges" :key="change">{{ change }}</li></ul>
+                        </div>
+                        <div v-if="repairWarnings.length" class="research-repair-warnings">
+                            <strong>Внимание: данные, требующие ручной проверки ({{ repairWarnings.length }}):</strong>
+                            <ul><li v-for="warning in repairWarnings" :key="warning">{{ warning }}</li></ul>
+                        </div>
+                        <p class="research-import-note">Перед сохранением проверь правильность переноса сведений и источников. Исходный файл не изменяется.</p>
+                    </div>
                     <p v-if="previewError" class="research-import-error" role="alert">{{ previewError }}</p>
                     <p v-if="upload.errors.report_file" class="research-import-error" role="alert">{{ upload.errors.report_file }}</p>
                     <p v-if="upload.errors.replace_existing" class="research-import-error" role="alert">{{ upload.errors.replace_existing }}</p>
@@ -167,7 +261,7 @@ function formattedDate(date) {
                             <span><b>Закупок:</b> {{ preview.tenders?.length || 0 }}</span>
                             <span><b>Скоринг:</b> {{ preview.sales_assessment?.grade || '—' }}</span>
                         </div>
-                        <p class="research-import-note">Это быстрый просмотр файла. Полная серверная проверка структуры и ссылок выполняется при сохранении.</p>
+                        <p class="research-import-note">{{ repairMessage ? 'Файл прошёл серверную проверку. Перед сохранением проверь смысл и источники.' : 'Это быстрый просмотр файла. Полная серверная проверка структуры и ссылок выполняется при сохранении или нажатии «Проверить и исправить JSON».' }}</p>
                         <label v-if="duplicate" class="research-import-check">
                             <input v-model="upload.replace_existing" type="checkbox">
                             <span><b>Найдено совпадение:</b> {{ duplicate.company.name }} ({{ duplicate.origin === 'sqlite' ? 'SQLite' : 'GitHub' }}). Подтверждаю замену отображаемой карточки и сохранение новой версии в SQLite. Предыдущие версии SQLite остаются в истории.</span>
@@ -558,6 +652,14 @@ function formattedDate(date) {
 .research-import-result{border-left:4px solid #31613b;background:#e1eacb;padding:12px;margin:15px 0;font-size:13px;}
 .research-import-submit{border:2px solid #201b18;background:#a82a22;color:#fffaf0;font-size:13px;font-weight:900;cursor:pointer;padding:13px 17px;min-height:45px;justify-self:start;}
 .research-import-submit:disabled{opacity:.45;cursor:not-allowed;}
+.research-repair-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0;}
+.research-repair-tools .research-import-note{max-width:570px;}
+.research-repair-button{background:#272c32;}
+.research-repair-result{background:#e7efdf;border:2px solid #315a3d;padding:12px;display:grid;gap:10px;min-width:0;overflow-wrap:anywhere;}
+.research-repair-download{justify-self:start;padding:10px 14px;min-height:44px;background:#f7ebde;color:#201b18;border:2px solid #201b18;font-weight:900;cursor:pointer;}
+.research-repair-list ul,.research-repair-warnings ul{margin:7px 0 0;padding-left:22px;font-size:12px;line-height:1.6;max-height:200px;overflow-y:auto;}
+.research-repair-warnings{background:#fff2d7;border-left:4px solid #aa722a;padding:9px;}
+
 .research-report-actions{display:flex;flex-wrap:wrap;gap:10px;padding:10px 0 18px;}
 .research-history-row{font-size:13px;margin:6px 0;}
 @media(max-width:750px){.research-import-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
