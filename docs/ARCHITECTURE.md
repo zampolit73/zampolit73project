@@ -437,6 +437,21 @@ Direct chat-to-GitHub remains public-only; to ingest a private report prepared
 by a colleague, upload its JSON through the authenticated site.
 
 
+## JSON repair endpoint for ChatGPT-shaped research reports
+
+Authenticated, throttled `POST /projects/irlix-sales/research/repair`
+accepts the same size-limited JSON upload as the web importer. The new
+`CompanyResearchJsonRepairService` transforms only known field aliases and
+returns canonical report data plus `changes` / `warnings`. It delegates to
+`CompanyResearchImportService::prepare` after the translation so all identity,
+URL, date, evidence and array-limit checks remain shared with Telegram and web
+imports. The returned normalized report is not written to disk or SQLite.
+The Vue interface lets staff download the canonical JSON and stages it as the
+file to import, requiring existing human confirmation and collision confirmation.
+
+Never auto-save repaired data. Unsupported fields require manual review;
+no AI-based facts/contacts or new secret storage are introduced.
+
 ## Telegram JSON company research importer
 
 The existing TelegramUpdateHandler delegates incoming private-chat JSON
