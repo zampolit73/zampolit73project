@@ -182,7 +182,20 @@ jobs:
             exit 18
           fi
           $SUDO systemctl reload nginx
-          curl -fsS --max-time 12 --resolve zampolit73.duckdns.org:443:127.0.0.1 https://zampolit73.duckdns.org/svoe/ >/dev/null
+          # nginx reload is graceful; old workers may briefly return the old 404 route.
+          proxy_ready=0
+          for attempt in $(seq 1 25); do
+            if curl -fsS --max-time 8 --resolve zampolit73.duckdns.org:443:127.0.0.1 \
+              https://zampolit73.duckdns.org/svoe/ 2>/dev/null | grep -q 'СВОЁ'; then
+              proxy_ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$proxy_ready" != 1 ]; then
+            echo 'SVOE HTTPS proxy health check still failing'
+            exit 28
+          fi
           echo "SVOE production health check passed"
           REMOTE
 
