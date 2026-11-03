@@ -1,0 +1,54 @@
+name: SVOE nginx diagnostics (read-only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/svoe-diagnostics.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Connect to VPS and inspect SVOE routes
+        env:
+          VPS_PWD: ${{ secrets.VPS_PWD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          SSH_ASKPASS: /home/runner/.ssh/askpass.sh
+          SSH_ASKPASS_REQUIRE: force
+          DISPLAY: ':0'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat > ~/.ssh/askpass.sh <<'ASKPASS'
+          #!/usr/bin/env bash
+          printf '%s\n' "$VPS_PWD"
+          ASKPASS
+          chmod 700 ~/.ssh/askpass.sh
+          timeout 10s ssh-keyscan -T 5 -p 22 -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o StrictHostKeyChecking=yes -o ConnectTimeout=10 "$VPS_USER@$VPS_HOST" 'bash -se' </dev/null <<'REMOTE'
+          set -euo pipefail
+          if [ "$(id -u)" = 0 ]; then SUDO=""; elif sudo -n true >/dev/null 2>&1; then SUDO="sudo"; else SUDO=""; fi
+          echo '=== Service status ==='
+          systemctl is-active svoe || true
+          echo '=== Direct backend HTTP response ==='
+          curl -sS -o /dev/null -w 'backend_root=%{http_code}\n' http://127.0.0.1:8765/ || true
+          curl -sS -o /dev/null -w 'backend_bootstrap=%{http_code}\n' http://127.0.0.1:8765/api/bootstrap || true
+          echo '=== HTTPS proxy response ==='
+          curl -sS -o /dev/null -w 'public_root=%{http_code}\n' --resolve zampolit73.duckdns.org:443:127.0.0.1 https://zampolit73.duckdns.org/ || true
+          curl -sS -o /dev/null -w 'public_svoe=%{http_code}\n' --resolve zampolit73.duckdns.org:443:127.0.0.1 https://zampolit73.duckdns.org/svoe/ || true
+          echo '=== Enabled nginx sites ==='
+          ls -l /etc/nginx/sites-enabled || true
+          echo '=== SVOE proxy directive in active nginx configuration ==='
+          $SUDO nginx -T 2>/dev/null | grep -n -A16 -B4 'SVOE FAMILY FINANCE BEGIN' || true
+          echo '=== SVOE logs (max 15 lines) ==='
+          $SUDO journalctl -u svoe -n 15 --no-pager || true
+          REMOTE
