@@ -127,8 +127,21 @@ jobs:
           $SUDO systemctl daemon-reload
           $SUDO systemctl enable --now svoe
           $SUDO systemctl restart svoe
+          ready=0
+          for attempt in $(seq 1 25); do
+            if curl -fsS --max-time 3 http://127.0.0.1:8765/api/bootstrap >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != 1 ]; then
+            echo "SVOE failed to respond after startup:"
+            $SUDO systemctl status svoe --no-pager -l || true
+            $SUDO journalctl -u svoe -n 30 --no-pager || true
+            exit 19
+          fi
           $SUDO systemctl is-active --quiet svoe
-          curl -fsS --max-time 8 http://127.0.0.1:8765/api/bootstrap >/dev/null
 
           # Patch only the existing TLS vhost; preserve every other app and its paths.
           $SUDO cp -a /etc/nginx/sites-available/zampolit73project /etc/nginx/sites-available/zampolit73project.pre-svoe
