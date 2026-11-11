@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -38,6 +40,7 @@ class UserController extends Controller
                 ])
                 ->values(),
             'telegramInvite' => $request->session()->get('telegram_invite'),
+            'deletedUser' => $request->session()->get('user_deleted'),
             'telegramBot' => [
                 'configured' => $telegramBotConfigured,
                 'username' => filled(config('services.telegram.username'))
@@ -45,6 +48,41 @@ class UserController extends Controller
                     : null,
             ],
         ]);
+    }
+
+    public function destroy(Request $request, User $user): RedirectResponse
+    {
+        // Administrators must never be removable through this endpoint,
+        // including by changing the client-side request manually.
+        if ($user->role === 'admin' || $user->is($request->user())) {
+            throw ValidationException::withMessages([
+                'delete_user' => 'Учётные записи администраторов и собственный аккаунт удалять нельзя.',
+            ]);
+        }
+
+        $data = $request->validate([
+            'confirmation_username' => ['required', 'string', 'max:255'],
+        ]);
+
+        if (! hash_equals($user->username, $data['confirmation_username'])) {
+            throw ValidationException::withMessages([
+                'delete_user' => 'Для удаления необходимо точно ввести логин сотрудника.',
+            ]);
+        }
+
+        DB::transaction(function () use ($user) {
+            // Invalidate sessions and push endpoints explicitly. The deleted
+            // employee must not retain notifications or an active session.
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+            DB::table('push_subscriptions')->where('user_id', $user->id)->delete();
+
+            // Telegram accounts/invites and pending uploads cascade on delete.
+            // Research imports/revisions and ownership assignments use
+            // nullOnDelete. Vacancy Source history now uses nullOnDelete too.
+            $user->delete();
+        });
+
+        return redirect()->route('admin.users')->with('user_deleted', $user->username);
     }
 
     public function store(Request $request): RedirectResponse
