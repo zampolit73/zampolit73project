@@ -182,4 +182,44 @@ class CompanyResearchJsonRepairTest extends TestCase
             ->assertJsonCount(0, 'warnings');
         $this->assertDatabaseCount('company_research_imports', 0);
     }
+
+    public function test_repairs_logistics_research_aliases_without_losing_tender_and_profit_data(): void
+    {
+        $document = $this->document();
+        $document['evidence'] = [[
+            'title' => 'Реестр',
+            'description' => 'Данные юрлица',
+            'source_url' => 'https://example.org/registry',
+            'type' => 'legal',
+        ]];
+        $document['tenders'] = [[
+            'name' => '08/2026',
+            'title' => 'Установка BI',
+            'source_url' => 'https://example.org/tender',
+            'budget_rub' => 4582245,
+            'model' => 'Проектное внедрение',
+            'status' => 'unsuccessful',
+        ]];
+        $document['buying_signals'] = [[
+            'signal' => 'Покупка лицензий',
+            'level' => 'B',
+            'source_url' => 'https://example.org/signals',
+        ]];
+        $document['financials'] = [[
+            'year' => 2025,
+            'revenue_rub' => 1000000,
+            'net_profit_rub' => -200000,
+            'source_url' => 'https://example.org/financials',
+        ]];
+
+        $this->actingAs($this->user())
+            ->withHeaders(['Accept' => 'application/json'])
+            ->post('/projects/irlix-sales/research/repair', $this->upload($document))
+            ->assertOk()
+            ->assertJsonPath('report.evidence.0.finding', 'Данные юрлица')
+            ->assertJsonPath('report.tenders.0.title', 'Установка BI')
+            ->assertJsonPath('report.tenders.0.url', 'https://example.org/tender')
+            ->assertJsonPath('report.buying_signals.0.evidence_level', 'B')
+            ->assertJsonPath('report.financials.0.profit_rub', -200000);
+    }
 }

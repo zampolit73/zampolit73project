@@ -201,4 +201,122 @@ class CompanyResearchImportTest extends TestCase
         $this->assertStringNotContainsString('private_api_key', $saved->payload);
         $this->assertStringNotContainsString('should-not-be-saved', $saved->payload);
     }
+
+    private function archive(array $documents): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'irlix-zip-');
+        $zip = new \ZipArchive();
+        $this->assertTrue($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true);
+        foreach ($documents as $name => $document) {
+            $zip->addFromString($name, json_encode($document, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        }
+        $zip->close();
+
+        return new UploadedFile($path, 'research.zip', 'application/zip', null, true);
+    }
+
+    public function test_bulk_zip_repairs_aliases_and_imports_all_companies_into_sqlite(): void
+    {
+        $this->actingAs($this->user());
+        $first = $this->payload();
+        $first['evidence'][0] = [
+            'title' => 'Первичный источник',
+            'source_url' => 'https://example.org/source',
+            'description' => 'Подтверждённая информация',
+        ];
+        $first['tenders'] = [[
+            'title' => 'ИТ-тендер',
+            'source_url' => 'https://example.org/tender',
+            'description' => 'Проверенные условия',
+            'customer' => 'Тестовая компания',
+        ]];
+        $first['financials'] = [[
+            'year' => 2025,
+            'revenue_rub' => 1000000,
+            'net_profit_rub' => 120000,
+            'source_url' => 'https://example.org/finance',
+        ]];
+        $second = $this->payload('inn-7708730092');
+        $second['company']['inn'] = '7708730092';
+        $second['company']['name'] = 'Логистика тест';
+
+        $response = $this->post('/projects/irlix-sales/research/import-archive', [
+            'archive' => $this->archive([
+                'inn-7707083893.json' => $first,
+                'inn-7708730092.json' => $second,
+            ]),
+            'reviewed' => '1',
+        ])->assertRedirect('/projects/irlix-sales/research');
+
+        $response->assertSessionHas('research_batch_import_result.total', 2);
+        $this->assertDatabaseCount('company_research_imports', 2);
+        $this->assertDatabaseCount('company_research_import_revisions', 2);
+        $imported = CompanyResearchImport::query()->where('company_inn', '7707083893')->firstOrFail();
+        $data = json_decode($imported->payload, true);
+        $this->assertSame(120000, $data['financials'][0]['profit_rub']);
+        $this->assertSame('https://example.org/tender', $data['tenders'][0]['url']);
+        $this->assertStringContainsString('Заказчик: Тестовая компания', $data['tenders'][0]['terms']);
+        $this->assertSame('Подтверждённая информация', $data['evidence'][0]['finding']);
+    }
+
+    public function test_bulk_zip_invalid_second_report_rolls_back_entire_batch(): void
+    {
+        $this->actingAs($this->user());
+        $first = $this->payload();
+        $second = $this->payload('inn-7708730092');
+        $second['company']['inn'] = '7708730092';
+        $second['evidence'][0]['url'] = 'javascript:alert(1)';
+
+        $this->from('/projects/irlix-sales/research')
+            ->post('/projects/irlix-sales/research/import-archive', [
+                'archive' => $this->archive(['first.json' => $first, 'second.json' => $second]),
+                'reviewed' => '1',
+            ])
+            ->assertSessionHasErrors('archive');
+
+        $this->assertDatabaseCount('company_research_imports', 0);
+        $this->assertDatabaseCount('company_research_import_revisions', 0);
+    }
+
+    public function test_bulk_zip_does_not_replace_existing_company_without_consent(): void
+    {
+        $this->actingAs($this->user());
+        $first = $this->payload();
+        $this->post('/projects/irlix-sales/research/import', $this->upload($first))
+            ->assertRedirect('/projects/irlix-sales/research');
+
+        $first['summary'] = 'Исправленное исследование';
+        $this->from('/projects/irlix-sales/research')
+            ->post('/projects/irlix-sales/research/import-archive', [
+                'archive' => $this->archive(['first.json' => $first]),
+                'reviewed' => '1',
+            ])
+            ->assertSessionHasErrors('replace_existing');
+
+        $this->assertSame(1, CompanyResearchImport::firstOrFail()->revision);
+        $this->post('/projects/irlix-sales/research/import-archive', [
+            'archive' => $this->archive(['first.json' => $first]),
+            'reviewed' => '1',
+            'replace_existing' => '1',
+        ])->assertRedirect('/projects/irlix-sales/research');
+        $this->assertSame(2, CompanyResearchImport::firstOrFail()->revision);
+    }
+
+    public function test_bulk_zip_requires_authenticated_review(): void
+    {
+        $this->post('/projects/irlix-sales/research/import-archive', [
+            'archive' => $this->archive(['first.json' => $this->payload()]),
+            'reviewed' => '1',
+        ])->assertRedirect('/login');
+
+        $this->actingAs($this->user())
+            ->from('/projects/irlix-sales/research')
+            ->post('/projects/irlix-sales/research/import-archive', [
+                'archive' => $this->archive(['first.json' => $this->payload()]),
+                'reviewed' => '0',
+            ])->assertSessionHasErrors('reviewed');
+
+        $this->assertDatabaseCount('company_research_imports', 0);
+    }
+
 }

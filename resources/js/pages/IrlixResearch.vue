@@ -7,6 +7,7 @@ import { isResearchJsonFile } from '../lib/researchJsonFile.js';
 const props = defineProps({
     reports: { type: Array, required: true },
     importResult: { type: Object, default: null },
+    batchImportResult: { type: Object, default: null },
 });
 
 
@@ -22,6 +23,31 @@ const repairChanges = ref([]);
 const repairWarnings = ref([]);
 const repairedJson = ref('');
 const upload = useForm({ report_file: null, reviewed: false, replace_existing: false });
+const archiveUpload = useForm({ archive: null, reviewed: false, replace_existing: false });
+const archiveInput = ref(null);
+
+function inspectArchive(event) {
+    archiveUpload.clearErrors();
+    archiveUpload.archive = event.target.files?.[0] || null;
+    if (archiveUpload.archive
+        && (!/\.zip$/i.test(archiveUpload.archive.name) || archiveUpload.archive.size > 2 * 1024 * 1024)) {
+        archiveUpload.setError('archive', 'Нужен ZIP-архив до 2 МБ, содержащий не более 20 JSON-файлов.');
+        archiveUpload.archive = null;
+    }
+}
+
+function importArchive() {
+    if (!archiveUpload.archive || !archiveUpload.reviewed) return;
+    archiveUpload.post('/projects/irlix-sales/research/import-archive', {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            archiveUpload.reset();
+            if (archiveInput.value) archiveInput.value.value = '';
+        },
+    });
+}
+
 const duplicate = computed(() => {
     const doc = preview.value;
     if (!doc) return null;
@@ -227,6 +253,43 @@ function formattedDate(date) {
                     <b>{{ importResult.company }}</b>, версия {{ importResult.revision }}. Данные в SQLite, без публикации в GitHub.
                 </p>
 
+                <p v-if="batchImportResult" class="research-import-result" role="status">
+                    Пакет импортирован: {{ batchImportResult.total }} компаний,
+                    {{ batchImportResult.created_or_updated }} сохранено или обновлено в закрытой SQLite.
+                    <span v-if="batchImportResult.companies?.length">
+                        {{ batchImportResult.companies.join(' · ') }}
+                    </span>
+                </p>
+
+                <form @submit.prevent="importArchive" class="research-import-form">
+                    <label for="research-import-archive">ПАКЕТНЫЙ ИМПОРТ / ZIP (ДО 20 JSON)</label>
+                    <p class="research-import-note">
+                        Загрузи один ZIP с отдельными файлами .json. Система проверит и исправит известные
+                        названия полей. Если хотя бы один отчёт некорректен, ни одна компания из пакета не изменится.
+                    </p>
+                    <input id="research-import-archive" ref="archiveInput" type="file"
+                        accept=".zip,application/zip,application/x-zip-compressed" @change="inspectArchive">
+                    <p v-if="archiveUpload.errors.archive" class="research-import-error" role="alert">
+                        {{ archiveUpload.errors.archive }}
+                    </p>
+                    <p v-if="archiveUpload.errors.replace_existing" class="research-import-error" role="alert">
+                        {{ archiveUpload.errors.replace_existing }}
+                    </p>
+                    <label class="research-import-check">
+                        <input v-model="archiveUpload.replace_existing" type="checkbox">
+                        <span>Разрешить обновить совпадающие по ИНН/ID карточки (предыдущие ревизии сохранятся).</span>
+                    </label>
+                    <label class="research-import-check">
+                        <input v-model="archiveUpload.reviewed" type="checkbox">
+                        <span>Я проверил источники и компании и подтверждаю пакетный импорт в закрытую базу.</span>
+                    </label>
+                    <button type="submit" class="research-import-submit"
+                        :disabled="archiveUpload.processing || !archiveUpload.reviewed || !archiveUpload.archive">
+                        {{ archiveUpload.processing ? 'ЗАГРУЖАЕМ И ПРОВЕРЯЕМ…' : 'ИМПОРТИРОВАТЬ ВСЕ ИССЛЕДОВАНИЯ ИЗ ZIP' }}
+                    </button>
+                </form>
+
+                <div class="research-import-note">Один JSON также можно загрузить отдельно:</div>
                 <form @submit.prevent="importReport" class="research-import-form">
                     <label for="research-import-file">1 / Выбери JSON-файл (до 256 КБ)</label>
                     <input id="research-import-file" ref="fileInput" type="file" accept=".json,application/json" @change="inspectFile">

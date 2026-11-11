@@ -1128,3 +1128,22 @@ import confirmations, background pushes and Reader access remain separately
 limited by VPS networking. Earlier healthy Reader snapshots above are historical,
 not current health evidence. See `docs/PRODUCTION.md` for verification.
 
+
+
+## IRLIX Intelligence — пакетный импорт (2026-11-11)
+
+Реализован защищённый `POST /projects/irlix-sales/research/import-archive`:
+только авторизованные пользователи, rate limit, ZIP до 2 МБ, 1–20
+JSON-файлов без директорий (до 256 КБ каждый), проверка всей партии до записи,
+проверка внутренних дубликатов ID/ИНН и обязательное подтверждение замены.
+Изменения SQLite атомарны, история ревизий сохраняется; JSON исследований
+не коммитятся в Git. Раздел `/projects/irlix-sales/research` получил
+многокарточную загрузку ZIP, а одиночная загрузка автоматически использует
+`CompanyResearchJsonRepairService` до сохранения.
+
+Repair теперь покрывает несовпадающие варианты полей Habr/ChatGPT research:
+`evidence.description/source_url`, `tenders.source_url/description`, метаданные
+тендеров, `buying_signals.description/meaning/level`,
+`financials.net_profit_rub`, `sales_plan.owner_role/target_role`.
+Это устраняет массовый отказ импорта при сохранении доказательных ссылок
+и финансовых показателей без выдумывания новых фактов.

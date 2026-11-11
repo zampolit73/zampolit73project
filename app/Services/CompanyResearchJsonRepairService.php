@@ -30,7 +30,7 @@ class CompanyResearchJsonRepairService
         $warnings = [];
 
         // Work on the actual arrays, not temporary null-coalescing copies.
-        foreach (['projects', 'buying_signals', 'financials', 'contractors', 'sales_plan'] as $section) {
+        foreach (['evidence', 'tenders', 'projects', 'buying_signals', 'financials', 'contractors', 'sales_plan'] as $section) {
             if (! array_key_exists($section, $document)) {
                 $document[$section] = [];
             } elseif (! is_array($document[$section])) {
@@ -39,6 +39,49 @@ class CompanyResearchJsonRepairService
                 ]);
             }
         }
+
+        foreach ($document['evidence'] as $i => &$evidence) {
+            if (! is_array($evidence)) {
+                continue;
+            }
+            $path = "evidence[$i]";
+            $this->alias($evidence, 'source_url', 'url', $path, $changes);
+            $this->alias($evidence, 'description', 'finding', $path, $changes);
+            $this->warnExtras($evidence, ['title', 'url', 'finding'], $path, $warnings);
+        }
+        unset($evidence);
+
+        foreach ($document['tenders'] as $i => &$tender) {
+            if (! is_array($tender)) {
+                continue;
+            }
+            $path = "tenders[$i]";
+            $this->alias($tender, 'source_url', 'url', $path, $changes);
+            if (! isset($tender['title'])) {
+                $this->alias($tender, 'name', 'title', $path, $changes);
+            }
+            $this->alias($tender, 'description', 'terms', $path, $changes);
+            $this->appendMetadata($tender, 'terms', [
+                'name' => 'Обозначение процедуры',
+                'details' => 'Подробности',
+                'notes' => 'Примечание',
+                'model' => 'Договорная модель',
+                'scope' => 'Предмет',
+                'customer' => 'Заказчик',
+                'customer_inn' => 'ИНН заказчика',
+                'budget_rub' => 'Бюджет, руб.',
+                'budget' => 'Бюджет',
+                'award_price_rub' => 'Цена победителя, руб.',
+                'budget_vat' => 'НДС',
+                'deadline' => 'Дедлайн',
+                'it_outstaff' => 'ИТ-аутстаффинг',
+            ], $path, $changes, $warnings);
+            $this->warnExtras($tender, [
+                'title', 'url', 'terms', 'number', 'platform', 'published_at',
+                'closed_at', 'status', 'roles',
+            ], $path, $warnings);
+        }
+        unset($tender);
 
         foreach ($document['projects'] as $i => &$project) {
             if (! is_array($project)) {
@@ -62,6 +105,12 @@ class CompanyResearchJsonRepairService
             $this->alias($signal, 'url', 'source_url', $path, $changes);
             $this->alias($signal, 'title', 'signal', $path, $changes);
             $this->alias($signal, 'finding', 'details', $path, $changes);
+            $this->alias($signal, 'description', 'details', $path, $changes);
+            $this->alias($signal, 'meaning', 'details', $path, $changes);
+            if (! isset($signal['evidence_level']) && in_array($signal['level'] ?? '', ['A', 'B', 'C'], true)) {
+                $signal['evidence_level'] = $signal['level'];
+                $changes[] = "$path.level → evidence_level";
+            }
             if (! isset($signal['evidence_level'])) {
                 // A job opening or product announcement is not proof of outstaffing.
                 $signal['evidence_level'] = 'C';
@@ -69,8 +118,10 @@ class CompanyResearchJsonRepairService
             }
             $this->appendMetadata($signal, 'details', [
                 'signal_type' => 'Тип сигнала', 'category' => 'Категория',
-                'published_at' => 'Опубликовано',
+                'published_at' => 'Опубликовано', 'date' => 'Дата',
+                'strength' => 'Оценка источника',
             ], $path, $changes, $warnings);
+            unset($signal['level']);
             $this->warnExtras($signal, ['signal', 'details', 'source_url', 'evidence_level'], $path, $warnings);
         }
         unset($signal);
@@ -82,6 +133,7 @@ class CompanyResearchJsonRepairService
             $path = "financials[$i]";
             $this->alias($item, 'revenue', 'revenue_rub', $path, $changes);
             $this->alias($item, 'net_profit', 'profit_rub', $path, $changes);
+            $this->alias($item, 'net_profit_rub', 'profit_rub', $path, $changes);
             if (isset($item['currency']) && strtoupper((string) $item['currency']) !== 'RUB') {
                 throw ValidationException::withMessages([
                     'report_file' => "$path: валюта не RUB. Автоматический пересчёт финансов запрещён.",
@@ -102,7 +154,11 @@ class CompanyResearchJsonRepairService
             }
             $this->alias($contractor, 'notes', 'note', $path, $changes);
             $this->appendMetadata($contractor, 'note', [
-                'service' => 'Услуга', 'source_url' => 'Источник',
+                'service' => 'Услуга', 'role' => 'Роль',
+                'inn' => 'ИНН',
+                'description' => 'Описание', 'model' => 'Модель',
+                'status' => 'Статус', 'projects' => 'Проекты',
+                'source_url' => 'Источник',
             ], $path, $changes, $warnings);
             $this->warnExtras($contractor, ['name', 'relationship', 'note'], $path, $warnings);
         }
@@ -114,7 +170,16 @@ class CompanyResearchJsonRepairService
             }
             $path = "sales_plan[$i]";
             $this->alias($step, 'audience', 'target', $path, $changes);
-            $this->appendMetadata($step, 'action', ['goal' => 'Цель'], $path, $changes, $warnings);
+            $this->alias($step, 'owner_role', 'target', $path, $changes);
+            $this->alias($step, 'target_role', 'target', $path, $changes);
+            $this->appendMetadata($step, 'action', [
+                'goal' => 'Цель', 'trigger' => 'Основание',
+                'context' => 'Контекст', 'check' => 'Проверить',
+                'addressee' => 'Адресат', 'priority' => 'Приоритет',
+                'success_criterion' => 'Критерий успеха',
+                'source_url' => 'Источник',
+                'outcome' => 'Результат',
+            ], $path, $changes, $warnings);
             $this->warnExtras($step, ['step', 'action', 'target'], $path, $warnings);
         }
         unset($step);
@@ -178,6 +243,10 @@ class CompanyResearchJsonRepairService
                 || parse_url($value, PHP_URL_USER) !== null
                 || parse_url($value, PHP_URL_PASS) !== null)) {
                 throw ValidationException::withMessages(['report_file' => "$path.$key: недопустимая ссылка."]);
+            }
+            if (is_array($value) && array_is_list($value)
+                && count(array_filter($value, 'is_string')) === count($value)) {
+                $value = implode(', ', $value);
             }
             if (! is_scalar($value)) {
                 $warnings[] = "$path.$key: сложное значение не перенесено, требуется ручная проверка";
