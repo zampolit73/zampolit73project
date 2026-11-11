@@ -7,6 +7,7 @@ const props = defineProps({
     users: { type: Array, required: true },
     telegramInvite: { type: Object, default: null },
     telegramBot: { type: Object, required: true },
+    deletedUser: { type: String, default: null },
 });
 
 const createdMessage = ref('');
@@ -59,6 +60,26 @@ function unlinkTelegram(user) {
             onFinish: () => { actionBusy.value = null; },
         },
     );
+}
+
+function deleteUser(user) {
+    if (user.role === 'admin' || actionBusy.value) return;
+    const exact = window.prompt(
+        `Удалить пользователя «${user.username}»? Доступ к сайту и Telegram будет закрыт. Исследования сохранятся. Для подтверждения введи логин: ${user.username}`,
+        '',
+    );
+    if (exact === null) return;
+    if (exact !== user.username) {
+        window.alert('Логин не совпал. Пользователь не удалён.');
+        return;
+    }
+
+    actionBusy.value = `delete:${user.id}`;
+    router.delete(`/admin/users/${user.id}`, {
+        data: { confirmation_username: exact },
+        preserveScroll: true,
+        onFinish: () => { actionBusy.value = null; },
+    });
 }
 
 async function copyInvite(code) {
@@ -117,6 +138,7 @@ function formatDate(value) {
                     Создавай аккаунты для доступа к разделу «Проекты».
                     Новый аккаунт всегда получает роль <strong>user</strong>.
                     Здесь же можно связать сайт с личным Telegram пользователя.
+                    Удаление сотрудника закрывает ему доступ и сохраняет существующие исследования.
                 </p>
             </header>
 
@@ -219,6 +241,7 @@ function formatDate(value) {
                             <span>Роль</span>
                             <span>Telegram</span>
                             <span>Создан</span>
+                            <span>Действия</span>
                         </div>
 
                         <div
@@ -293,9 +316,28 @@ function formatDate(value) {
                             </div>
 
                             <time class="admin-users-row__created">{{ formatDate(user.created_at) }}</time>
+                            <div class="admin-users-row__actions">
+                                <span v-if="user.role === 'admin'" class="admin-users-row__protected">ЗАЩИЩЁН</span>
+                                <button
+                                    v-else
+                                    type="button"
+                                    class="admin-users-delete"
+                                    :disabled="actionBusy !== null || form.processing"
+                                    :aria-label="`Удалить пользователя ${user.username}`"
+                                    @click="deleteUser(user)"
+                                >
+                                    {{ actionBusy === `delete:${user.id}` ? 'УДАЛЯЮ…' : 'УДАЛИТЬ' }}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
+                    <p v-if="deletedUser" class="admin-users-delete-success" role="status">
+                        Пользователь «{{ deletedUser }}» удалён. Его доступ закрыт, исследования сохранены.
+                    </p>
+                    <p v-if="$page.props.errors?.delete_user" class="telegram-global-error" role="alert">
+                        {{ $page.props.errors.delete_user }}
+                    </p>
                     <p
                         v-if="$page.props.errors?.telegram"
                         class="telegram-global-error"
@@ -520,7 +562,7 @@ function formatDate(value) {
 .admin-users-list__header,
 .admin-users-row {
     display: grid;
-    grid-template-columns: minmax(90px, .8fr) 100px minmax(220px, 1.55fr) 92px;
+    grid-template-columns: minmax(90px, .8fr) 94px minmax(190px, 1.4fr) 86px minmax(86px, .65fr);
     gap: 12px;
     align-items: start;
     padding: 14px 16px;
@@ -603,6 +645,33 @@ function formatDate(value) {
     color: var(--ds-color-black);
 }
 
+.admin-users-row__actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+.admin-users-delete {
+    min-height: 36px;
+    padding: 7px 9px;
+    border: 2px solid #ac2924;
+    background: #fff4ee;
+    color: #92221d;
+    cursor: pointer;
+    font: inherit;
+    font-size: 9px;
+    font-weight: 900;
+}
+.admin-users-delete:hover:not(:disabled) { background: #efcfbf; }
+.admin-users-delete:disabled { cursor: not-allowed; opacity: .5; }
+.admin-users-row__protected { font-size: 9px; font-weight: 900; opacity: .6; }
+.admin-users-delete-success {
+    margin: 0;
+    padding: 12px 16px;
+    border-top: 3px solid var(--ds-color-black);
+    background: #dce2bd;
+    font-size: 11px;
+    font-weight: 850;
+}
 .telegram-invite {
     display: grid;
     gap: 7px;
@@ -697,6 +766,10 @@ function formatDate(value) {
         grid-column: 1 / -1;
         padding-top: 0;
     }
+    .admin-users-row__actions {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+    }
 }
 
 @media (max-width: 560px) {
@@ -732,6 +805,7 @@ function formatDate(value) {
         padding: 13px;
     }
 
+    .admin-users-delete,
     .telegram-action,
     .telegram-invite__actions button,
     .telegram-invite__actions a {
