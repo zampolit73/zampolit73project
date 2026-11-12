@@ -17,7 +17,7 @@ class CompanyResearchRepository
      * Merge bundled public GitHub research with private SQLite imports. A private
      * import takes precedence by identifier OR INN, without writing it to Git.
      */
-    public function all(): array
+    public function all(?int $viewerId = null, bool $viewerIsAdmin = false): array
     {
         $reports = [];
         foreach (glob($this->directory.'/*.json') ?: [] as $file) {
@@ -30,6 +30,8 @@ class CompanyResearchRepository
             }
             $normalized = $this->normalizePayload($record, pathinfo($file, PATHINFO_FILENAME));
             if ($normalized) {
+                $normalized['import_record_id'] = null;
+                $normalized['can_delete'] = false;
                 $normalized['origin'] = 'github';
                 $normalized['revision'] = 0;
                 $normalized['imported_by_name'] = null;
@@ -53,6 +55,14 @@ class CompanyResearchRepository
                     }
                 }
             }
+
+            // Only the original uploader may delete this company's entire
+            // revision history. Later collaborators cannot delete another
+            // employee's original work; admins can delete any private import.
+            $firstUploaderId = $item->revisions()->where('revision', 1)->value('imported_by');
+            $normalized['import_record_id'] = $item->id;
+            $normalized['can_delete'] = $viewerIsAdmin
+                || ($viewerId !== null && $firstUploaderId !== null && (int) $firstUploaderId === $viewerId);
             $normalized['origin'] = 'sqlite';
             $normalized['revision'] = $item->revision;
             $normalized['imported_by_name'] = $item->importer?->username;
