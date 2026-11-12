@@ -176,9 +176,9 @@ function deleteImportedReport(report) {
         || !report.import_record_id || deletingReportId.value !== null) return;
 
     const answer = window.prompt(
-        `Удалить исследование «${report.company.name}» (ИНН ${report.company.inn || 'не указан'})?\\n\\n`
+        `Удалить исследование «${report.company.name}» (ИНН ${report.company.inn || 'не указан'})?\n\n`
         + 'Будут безвозвратно удалены загруженная карточка и ВСЯ история её версий. '
-        + 'Если в GitHub была публичная версия компании, после удаления она снова появится.\\n\\n'
+        + 'Если в GitHub была публичная версия компании, после удаления она снова появится.\n\n'
         + `Для подтверждения введи полное название компании: ${report.company.name}`,
         '',
     );
