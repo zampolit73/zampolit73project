@@ -36,6 +36,8 @@ Route::middleware('auth')->group(function () {
         ->name('projects.irlix-sales.research');
     Route::post('/projects/irlix-sales/research/import', [CompanyResearchController::class, 'store'])
         ->middleware('throttle:10,1')->name('projects.irlix-sales.research.import');
+    Route::delete('/projects/irlix-sales/research/imports/{researchImport}', [CompanyResearchController::class, 'destroy'])
+        ->middleware('throttle:10,1')->name('projects.irlix-sales.research.destroy');
     Route::post('/projects/irlix-sales/research/import-archive', [CompanyResearchController::class, 'importArchive'])
         ->middleware('throttle:5,1')->name('projects.irlix-sales.research.import-archive');
     Route::post('/projects/irlix-sales/research/repair', [CompanyResearchController::class, 'repair'])
