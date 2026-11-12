@@ -452,6 +452,19 @@ file to import, requiring existing human confirmation and collision confirmation
 Never auto-save repaired data. Unsupported fields require manual review;
 no AI-based facts/contacts or new secret storage are introduced.
 
+## Employee-owned research deletion (SQLite-only)
+
+The authenticated route `DELETE /projects/irlix-sales/research/imports/{researchImport}`
+deletes one private SQLite `company_research_imports` record and cascades its
+`company_research_import_revisions` only after an exact company-name
+confirmation. The original creator is defined by revision 1 `imported_by`,
+not the latest importer; only that person or a site admin can delete it.
+Deleted creators' imports are admin-only. Public `data/company-reports/*.json`
+remain on disk and may become visible again after their SQLite override is
+removed. The UI exposes a delete button only with server-derived `can_delete`,
+while the backend independently authorizes and checks the confirmation in a
+transaction. No archive, external CRM, other import or Git file is deleted.
+
 ## Telegram JSON company research importer
 
 The existing TelegramUpdateHandler delegates incoming private-chat JSON

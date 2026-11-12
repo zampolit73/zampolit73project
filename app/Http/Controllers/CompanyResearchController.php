@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\CompanyResearchImportService;
 use App\Services\CompanyResearchJsonRepairService;
+use App\Models\CompanyResearchImport;
 use App\Services\CompanyResearchRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -16,13 +17,62 @@ use Inertia\Response;
 
 class CompanyResearchController extends Controller
 {
-    public function index(CompanyResearchRepository $reports): Response
+    public function index(Request $request, CompanyResearchRepository $reports): Response
     {
         return Inertia::render('IrlixResearch', [
-            'reports' => $reports->all(),
+            'reports' => $reports->all(
+                (int) $request->user()->id,
+                $request->user()->role === 'admin',
+            ),
             'importResult' => session('research_import_result'),
             'batchImportResult' => session('research_batch_import_result'),
+            'deletedReport' => session('research_deleted_result'),
         ]);
+    }
+
+    /**
+     * Permanently remove only a privately uploaded SQLite report and its
+     * revisions. Public GitHub reports cannot be deleted from this interface.
+     *
+     * Managers may delete reports originally uploaded by themselves;
+     * administrators may delete any privately uploaded report.
+     */
+    public function destroy(Request $request, CompanyResearchImport $researchImport): RedirectResponse
+    {
+        $name = DB::transaction(function () use ($request, $researchImport): string {
+            $record = CompanyResearchImport::query()
+                ->whereKey($researchImport->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $originalUploaderId = $record->revisions()
+                ->where('revision', 1)
+                ->value('imported_by');
+            $allowed = $request->user()->role === 'admin'
+                || ($originalUploaderId !== null
+                    && (int) $originalUploaderId === (int) $request->user()->id);
+
+            abort_unless($allowed, 403, 'Удаление доступно автору первоначальной загрузки или администратору.');
+
+            $data = $request->validate([
+                'confirmation_name' => ['required', 'string', 'max:200'],
+            ]);
+
+            if (! hash_equals($record->company_name, $data['confirmation_name'])) {
+                throw ValidationException::withMessages([
+                    'confirmation_name' => 'Название компании не совпадает. Удаление отменено.',
+                ]);
+            }
+
+            $name = $record->company_name;
+            // The existing FK cascades only to this report's revisions.
+            $record->delete();
+
+            return $name;
+        });
+
+        return redirect()->route('projects.irlix-sales.research')
+            ->with('research_deleted_result', ['company' => $name]);
     }
 
     /**

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '../layouts/AppLayout.vue';
 import { isResearchJsonFile } from '../lib/researchJsonFile.js';
 
@@ -8,6 +8,7 @@ const props = defineProps({
     reports: { type: Array, required: true },
     importResult: { type: Object, default: null },
     batchImportResult: { type: Object, default: null },
+    deletedReport: { type: Object, default: null },
 });
 
 
@@ -25,6 +26,7 @@ const repairedJson = ref('');
 const upload = useForm({ report_file: null, reviewed: false, replace_existing: false });
 const archiveUpload = useForm({ archive: null, reviewed: false, replace_existing: false });
 const archiveInput = ref(null);
+const deletingReportId = ref(null);
 
 function inspectArchive(event) {
     archiveUpload.clearErrors();
@@ -169,9 +171,35 @@ function importReport() {
     });
 }
 
+function deleteImportedReport(report) {
+    if (report.origin !== 'sqlite' || !report.can_delete
+        || !report.import_record_id || deletingReportId.value !== null) return;
+
+    const answer = window.prompt(
+        `Удалить исследование «${report.company.name}» (ИНН ${report.company.inn || 'не указан'})?\n\n`
+        + 'Будут безвозвратно удалены загруженная карточка и ВСЯ история её версий. '
+        + 'Если в GitHub была публичная версия компании, после удаления она снова появится.\n\n'
+        + `Для подтверждения введи полное название компании: ${report.company.name}`,
+        '',
+    );
+    if (answer === null) return;
+    if (answer !== report.company.name) {
+        window.alert('Название не совпадает. Исследование не удалено.');
+        return;
+    }
+
+    deletingReportId.value = report.import_record_id;
+    router.delete(`/projects/irlix-sales/research/imports/${report.import_record_id}`, {
+        data: { confirmation_name: answer },
+        preserveScroll: true,
+        onSuccess: () => { selectedId.value = ''; },
+        onFinish: () => { deletingReportId.value = null; },
+    });
+}
+
 function downloadReport(report) {
     const clone = JSON.parse(JSON.stringify(report));
-    ['origin', 'revision', 'imported_by_name', 'imported_at', 'history'].forEach((key) => delete clone[key]);
+    ['origin', 'revision', 'imported_by_name', 'imported_at', 'history', 'import_record_id', 'can_delete'].forEach((key) => delete clone[key]);
     const content = JSON.stringify({ schema_version: 1, ...clone }, null, 2);
     const url = URL.createObjectURL(new Blob([content], { type: 'application/json;charset=utf-8' }));
     const link = document.createElement('a');
@@ -343,6 +371,13 @@ function formattedDate(date) {
                 </form>
             </section>
 
+            <p v-if="deletedReport?.company" class="research-deleted-result" role="status">
+                Исследование «{{ deletedReport.company }}» удалено из SQLite вместе с версиями. Если была публичная версия из GitHub, она снова может отображаться.
+            </p>
+            <p v-if="$page.props.errors?.confirmation_name" class="research-import-error" role="alert">
+                {{ $page.props.errors.confirmation_name }}
+            </p>
+
             <section class="research-workspace" aria-label="Исследования компаний">
                 <aside class="research-index">
                     <label for="research-search">ПОИСК ПО ИССЛЕДОВАНИЯМ</label>
@@ -385,6 +420,16 @@ function formattedDate(date) {
 
                     <div class="research-report-actions">
                         <button type="button" class="research-import-submit" @click="downloadReport(selected)">↓ ЭКСПОРТ JSON</button>
+                        <button v-if="selected.origin === 'sqlite' && selected.can_delete"
+                            type="button"
+                            class="research-delete-button"
+                            :disabled="deletingReportId !== null"
+                            @click="deleteImportedReport(selected)">
+                            {{ deletingReportId === selected.import_record_id ? 'УДАЛЯЕМ…' : 'УДАЛИТЬ ИССЛЕДОВАНИЕ' }}
+                        </button>
+                        <p v-if="selected.origin === 'sqlite' && !selected.can_delete" class="research-delete-note">
+                            Удалить это исследование может сотрудник, который загрузил его первым, или администратор.
+                        </p>
                     </div>
                     <section v-if="selected.origin === 'sqlite' && selected.history?.length" class="research-section">
                         <h3>ИСТОРИЯ ИМПОРТА</h3>
@@ -727,6 +772,12 @@ function formattedDate(date) {
 .research-repair-warnings{background:#fff2d7;border-left:4px solid #aa722a;padding:9px;}
 
 .research-report-actions{display:flex;flex-wrap:wrap;gap:10px;padding:10px 0 18px;}
+.research-delete-button{min-height:45px;padding:12px 16px;border:2px solid #a82a22;background:#fff4ec;color:#a82a22;font-size:12px;font-weight:900;cursor:pointer;}
+.research-delete-button:hover:not(:disabled){background:#f0c9bd;}
+.research-delete-button:disabled{opacity:.5;cursor:wait;}
+.research-delete-note{font-size:12px;color:#786357;flex-basis:100%;line-height:1.4;margin:0;}
+.research-deleted-result{padding:12px 15px;border:2px solid #31613b;background:#e1eacb;font-size:13px;font-weight:750;line-height:1.5;}
+
 .research-history-row{font-size:13px;margin:6px 0;}
 @media(max-width:750px){.research-import-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:360px){.research-import-preview-grid{grid-template-columns:minmax(0,1fr);}.research-import-submit{width:100%;}}
