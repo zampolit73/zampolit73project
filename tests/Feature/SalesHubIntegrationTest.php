@@ -61,6 +61,26 @@ class SalesHubIntegrationTest extends TestCase {
    $this->get('/projects/sales-hub/analytics')->assertOk();
   }finally{unlink($file);}
  }
+ public function test_quick_assignment_and_export_roles(): void {
+  $a=$this->user('sales-a');$b=$this->user('sales-b');$no=$this->user('no-access');$admin=$this->user('sales-admin','admin');
+  foreach([$a,$b] as $u)DB::table('saleshub_access')->insert(['user_id'=>$u->id,'created_at'=>now(),'updated_at'=>now()]);
+  $id=DB::table('saleshub_contacts')->insertGetId(['full_name'=>'Synthetic','groups'=>'[]','raw'=>'{}','comment'=>'Preserve me','created_at'=>now(),'updated_at'=>now()]);
+  $url='/projects/sales-hub/leads/'.$id.'/owner';
+  $this->actingAs($no)->patchJson($url,['version'=>1,'owner_id'=>$a->id])->assertForbidden();
+  $this->actingAs($a)->patchJson($url,['version'=>1,'owner_id'=>$no->id])->assertUnprocessable();
+  $this->patchJson($url,['version'=>1,'owner_id'=>$b->id])->assertOk();
+  $this->assertDatabaseHas('saleshub_contacts',['id'=>$id,'owner_id'=>$b->id,'status'=>'В работе','comment'=>'Preserve me','version'=>2]);
+  $this->patchJson($url,['version'=>1,'owner_id'=>$a->id])->assertConflict();
+  $this->patchJson($url,['version'=>2,'owner_id'=>$a->id])->assertForbidden();
+  $this->actingAs($b)->patchJson($url,['version'=>2,'owner_id'=>null])->assertForbidden();
+  $this->get('/projects/sales-hub/export')->assertForbidden();
+  $this->actingAs($admin)->patchJson($url,['version'=>2,'owner_id'=>$a->id])->assertOk();
+  $this->patchJson($url,['version'=>3,'owner_id'=>null])->assertOk();
+  $this->get('/projects/sales-hub/export')->assertOk();
+  $this->actingAs($a)->patchJson($url,['version'=>4,'owner_id'=>$a->id])->assertOk();
+  $this->assertDatabaseHas('saleshub_contacts',['id'=>$id,'owner_id'=>$a->id,'version'=>5]);
+  $this->assertDatabaseCount('saleshub_history',4);
+ }
  public function test_manager_cannot_steal_contact_and_user_deletion_keeps_records(): void {
   $a=$this->user('a-manager');$b=$this->user('b-manager');
   foreach([$a,$b] as $u)DB::table('saleshub_access')->insert(['user_id'=>$u->id,'created_at'=>now(),'updated_at'=>now()]);

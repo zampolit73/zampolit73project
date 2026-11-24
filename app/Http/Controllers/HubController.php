@@ -43,6 +43,26 @@ class HubController {
   });
   return response()->json(['ok'=>true]);
  }
+ public function assign(Request $r,int $id){
+  $v=$r->validate(['version'=>'required|integer|min:1','owner_id'=>'present|nullable|integer|exists:users,id']);
+  $uid=$r->user()->id;$admin=$r->user()->role==='admin';
+  return DB::transaction(function()use($uid,$admin,$id,$v){
+   DB::statement('UPDATE saleshub_contacts SET version=version WHERE id=?',[$id]);
+   $old=DB::table('saleshub_contacts')->find($id);abort_unless($old,404);
+   abort_unless((int)$old->version===(int)$v['version'],409,'Контакт уже изменён. Обновите список.');
+   $free=$old->owner_id===null&&in_array($old->owner_raw,['','Не назначен'],true);
+   $owner=$v['owner_id']===null?null:(int)$v['owner_id'];
+   abort_unless($admin||($free&&$owner!==null),403,'Переназначить или освободить контакт может только администратор');
+   if($owner!==null)abort_unless(DB::table('users')->where('id',$owner)->where(fn($q)=>$q->where('role','admin')->orWhereIn('id',DB::table('saleshub_access')->select('user_id')))->exists(),422,'У сотрудника нет доступа к Sales Hub');
+   if($old->owner_id==$owner&&$old->owner_raw==='')return response()->json(['ok'=>true,'version'=>$old->version]);
+   $change=['owner_id'=>$owner,'owner_raw'=>''];
+   if($owner!==null&&$old->status==='Новый')$change['status']='В работе';
+   $updated=DB::table('saleshub_contacts')->where('id',$id)->where('version',$v['version'])->update($change+['version'=>DB::raw('version+1'),'updated_at'=>now()]);
+   abort_unless($updated===1,409,'Контакт уже изменён. Обновите список.');
+   DB::table('saleshub_history')->insert(['contact_id'=>$id,'actor_id'=>$uid,'changes'=>json_encode(['assignment'=>['from'=>$old->owner_id,'from_raw'=>$old->owner_raw,'to'=>$owner]]+$change,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'created_at'=>now()]);
+   return response()->json(['ok'=>true,'version'=>$old->version+1]);
+  });
+ }
  public function store(Request $r){
   $v=$r->validate(['full_name'=>'required|string|max:255','company_raw'=>'nullable|string|max:255','title'=>'nullable|string|max:500','email'=>'nullable|string|max:5000','phone'=>'nullable|string|max:5000','messenger'=>'nullable|string|max:5000','social'=>'nullable|string|max:5000']);
   $id=DB::transaction(function()use($v){
@@ -74,6 +94,7 @@ class HubController {
   return response()->json(['ok'=>true]);
  }
  public function export(Request $r){
+  abort_unless($r->user()?->role==='admin',403);
   $q=Leads::rows(Leads::filters($this->filters($r),$r->user()->id))->orderBy('c.id');
   return response()->streamDownload(function()use($q){
    $out=fopen('php://output','wb');fwrite($out,"\xEF\xBB\xBF");
