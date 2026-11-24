@@ -428,4 +428,4 @@ database restoration with an appropriate release.
 
 
 ## IRLIX Sales Hub module
-Closed contact workspace under `/projects/sales-hub`, explicitly granted managers and admins only. Admin XLSX import and filtered export. See [Sales Hub design and acceptance]( SALES_HUB.md). Code only; production data must never be committed. Deployment status is verified separately.
+Closed contact workspace under `/projects/sales-hub`, explicitly granted managers and admins only. Admin XLSX import and filtered export. See [Sales Hub design and acceptance](SALES_HUB.md). Code only; production data must never be committed. Deployment status is verified separately.

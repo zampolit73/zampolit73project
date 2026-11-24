@@ -1,7 +1,6 @@
 <?php
 namespace App\Services;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 final class SalesHubImport {
  private static function get(array $r,string $k): string{return LeadRules::clean($r[$k]??'');}
@@ -27,7 +26,7 @@ final class SalesHubImport {
   foreach($data['contacts'] as $i=>$r){
    $get=fn($k)=>self::get($r,$k);
    $status=$get('Статус обработки')?:'Новый';$priority=$get('Приоритет')?:'Не назначен';$date=$get('Дата следующего касания');
-   if(!in_array($status,LeadRules::STATUSES,true)||!in_array($priority,LeadRules::PRIORITIES,true)||($date!==''&&!LeadRules::date($date)))throw new RuntimeException('Неверный статус, приоритет или дата в записи '.($i+1));
+   if(!in_array($status,LeadRules::STATUSES,true)||!in_array($priority,LeadRules::PRIORITIES,true)||($date!==''&&!LeadRules::date($date)))throw new SalesHubImportError('Неверный статус, приоритет или дата в записи '.($i+1));
    if($get('Почта')!==''||$get('Телефон')!==''||$get('Мессенджер')!==''||$get('Соцсети')!=='')$reachable++;
    $ch=LeadRules::channels($get('Почта'),$get('Телефон'),$get('Мессенджер'));$overlap=false;
    foreach($ch as $c){$k=$c['kind'].':'.$c['value'];if(isset($seen[$k])){$dups[$i]=true;$dups[$seen[$k]]=true;}else $seen[$k]=$i;if(isset($channels[$k]))$overlap=true;}
@@ -43,8 +42,8 @@ final class SalesHubImport {
  public static function commit(array $data,string $digest,array $expected,int $actor): array {
   return DB::transaction(function()use($data,$digest,$expected,$actor){
    DB::statement('UPDATE saleshub_contacts SET version=version WHERE 0');
-   if(DB::table('saleshub_imports')->where('digest',$digest)->exists())throw new RuntimeException('Этот файл уже импортирован');
-   $p=self::plan($data);if($p['stats']!==$expected)throw new RuntimeException('База изменилась. Повторите предварительную проверку.');
+   if(DB::table('saleshub_imports')->where('digest',$digest)->exists())throw new SalesHubImportError('Этот файл уже импортирован');
+   $p=self::plan($data);if($p['stats']!==$expected)throw new SalesHubImportError('База изменилась. Повторите предварительную проверку.');
    $now=now();$cache=[];$owners=[];
    foreach(DB::table('users')->where(fn($q)=>$q->where('role','admin')->orWhereIn('id',DB::table('saleshub_access')->select('user_id')))->get(['id','username']) as $u)$owners[LeadRules::key($u->username)]=$u->id;
    foreach($p['companies'] as $key=>$r){

@@ -20,7 +20,9 @@ class HubController {
  public function show(Request $r,int $id){
   $row=Leads::rows(Leads::base()->where('c.id',$id))->first();abort_unless($row,404);
   $history=DB::table('saleshub_history as h')->leftJoin('users as u','u.id','=','h.actor_id')->where('h.contact_id',$id)->orderByDesc('h.id')->limit(30)->get(['h.created_at','h.changes','u.username as name']);
-  return response()->json(Leads::serialize($row)+['history'=>$history]);
+  $raw=json_decode(DB::table('saleshub_contacts')->where('id',$id)->value('raw'),true)?:[];
+  $source=array_intersect_key($raw,array_flip(['Таблица-источник','Вкладка-источник','Ссылка на источник','Другие ссылки','Разночтения в компаниях']));
+  return response()->json(Leads::serialize($row)+['history'=>$history,'source'=>$source]);
  }
  public function update(Request $r,int $id){
   $v=$r->validate(['version'=>'required|integer|min:1','status'=>['required',Rule::in(Rules::STATUSES)],'priority'=>['required',Rule::in(Rules::PRIORITIES)],'next_action'=>'nullable|string|max:2000','next_at'=>'nullable|date_format:Y-m-d','comment'=>'nullable|string|max:10000','take'=>'nullable|boolean','owner_id'=>'nullable|integer|exists:users,id']);
