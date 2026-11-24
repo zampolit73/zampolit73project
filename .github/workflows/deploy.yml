@@ -774,6 +774,19 @@ jobs:
                   try_files \$uri \$uri/ /index.php?\$query_string;
               }
 
+              # Closed contact workspace: allow a bounded XLSX upload and avoid logging search terms.
+              location ~ ^/projects/sales-hub(/|\$) {
+                  client_max_body_size 16m;
+                  access_log off;
+                  fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+                  include fastcgi_params;
+                  fastcgi_param SCRIPT_FILENAME \$realpath_root/index.php;
+                  fastcgi_param SCRIPT_NAME /index.php;
+                  fastcgi_param PHP_VALUE "upload_max_filesize=15M\npost_max_size=18M\nmemory_limit=256M\nmax_execution_time=90";
+                  fastcgi_read_timeout 120s;
+                  fastcgi_hide_header X-Powered-By;
+              }
+
               location = /favicon.ico { access_log off; log_not_found off; }
               location = /robots.txt  { access_log off; log_not_found off; }
 

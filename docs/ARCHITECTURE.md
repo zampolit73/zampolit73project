@@ -528,3 +528,7 @@ The existing systemd bot command runs only its stale-job watchdog in this mode,
 so restart cannot remove the webhook. Polling remains an explicit alternate mode.
 JSON downloads and the existing confirmed import/background-send paths still
 require outbound Telegram connectivity. See `docs/PRODUCTION.md`.
+
+
+## IRLIX Sales Hub module
+Closed contact workspace under `/projects/sales-hub`, explicitly granted managers and admins only. Admin XLSX import and filtered export. See [Sales Hub design and acceptance](SALES_HUB.md). Code only; production data must never be committed. Deployment status is verified separately.

@@ -1147,3 +1147,7 @@ Repair теперь покрывает несовпадающие вариант
 `financials.net_profit_rub`, `sales_plan.owner_role/target_role`.
 Это устраняет массовый отказ импорта при сохранении доказательных ссылок
 и финансовых показателей без выдумывания новых фактов.
+
+
+## IRLIX Sales Hub module
+Closed contact workspace under `/projects/sales-hub`, explicitly granted managers and admins only. Admin XLSX import and filtered export. See [Sales Hub design and acceptance](SALES_HUB.md). Code only; production data must never be committed. Deployment status is verified separately.

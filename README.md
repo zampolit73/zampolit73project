@@ -459,3 +459,7 @@ SQLite создать вторую ревизию. История v1 сохра�
 атомарно в закрытой SQLite. Замена ранее существующих карточек требует
 отдельного подтверждения, история ревизий сохраняется.
 Одиночный JSON-импорт также автоматически нормализует поддерживаемые алиасы.
+
+
+## IRLIX Sales Hub module
+Closed contact workspace under `/projects/sales-hub`, explicitly granted managers and admins only. Admin XLSX import and filtered export. See [Sales Hub design and acceptance](docs/SALES_HUB.md). Code only; production data must never be committed. Deployment status is verified separately.
