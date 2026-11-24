@@ -1,4 +1,4 @@
-const CACHE = 'zampolit73-shell-v1';
+const CACHE = 'zampolit73-shell-v2';
 const OFFLINE = '/offline.html';
 const SHELL = ['/', '/login', OFFLINE];
 
@@ -19,11 +19,16 @@ self.addEventListener('activate', event => event.waitUntil(
 self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
 
+    // Never store the private contact workspace or its JSON/export responses.
+    if (new URL(event.request.url).pathname.startsWith('/projects/sales-hub')) {
+        event.respondWith(fetch(event.request, {cache: 'no-store'}));
+        return;
+    }
     if (event.request.mode === 'navigate') {
         event.respondWith(
             fetch(event.request)
                 .then(response => {
-                    if (response.ok) {
+                    if (response.ok && !/no-store|private/i.test(response.headers.get('Cache-Control') || '')) {
                         const copy = response.clone();
                         caches.open(CACHE).then(cache => cache.put(event.request, copy));
                     }
@@ -37,7 +42,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         fetch(event.request)
             .then(response => {
-                if (response.ok) {
+                if (response.ok && !/no-store|private/i.test(response.headers.get('Cache-Control') || '')) {
                     const copy = response.clone();
                     caches.open(CACHE).then(cache => cache.put(event.request, copy));
                 }

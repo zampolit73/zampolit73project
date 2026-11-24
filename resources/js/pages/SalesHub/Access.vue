@@ -1,0 +1,5 @@
+<script setup>
+import {Head,router} from '@inertiajs/vue3';import AppLayout from '../../layouts/AppLayout.vue';import HubNav from './HubNav.vue';import './hub.css';
+defineProps({users:Array});
+function toggle(u){router.post('/projects/sales-hub/access',{user_id:u.id,allowed:!u.allowed},{preserveScroll:true});}
+</script><template><Head title="Sales Hub — доступ"/><AppLayout><div class="saleshub"><HubNav/><h1>Доступ к базе ЛПР</h1><p>Администраторы имеют доступ автоматически. Остальным сотрудникам его необходимо выдать отдельно.</p><section class="panel"><div v-for="u in users" :key="u.id" class="analytics-row"><span>{{u.username}} · {{u.role}}</span><button v-if="u.role!=='admin'" @click="toggle(u)">{{u.allowed?'Отозвать доступ':'Разрешить доступ'}}</button><span v-else>Администратор</span></div></section></div></AppLayout></template>

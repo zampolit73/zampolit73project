@@ -425,3 +425,7 @@ database restoration with an appropriate release.
 - **Private imported research is not in GitHub.** Restore from production
   SQLite backups only. The pre-migration backups are stored on the VPS and
   do not replace secure encrypted/off-site backups.
+
+
+## IRLIX Sales Hub module
+Closed contact workspace under `/projects/sales-hub`, explicitly granted managers and admins only. Admin XLSX import and filtered export. See [Sales Hub design and acceptance]( SALES_HUB.md). Code only; production data must never be committed. Deployment status is verified separately.

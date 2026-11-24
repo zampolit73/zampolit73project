@@ -109,3 +109,23 @@ Route::middleware('auth')->group(function () {
     Route::delete('/push/subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push.subscriptions.destroy');
     Route::post('/logout', LogoutController::class)->name('logout');
 });
+
+// Sales Hub: only admins and explicitly authorized managers.
+Route::prefix('/projects/sales-hub')->middleware(['auth',\App\Http\Middleware\EnsureSalesHubAccess::class,\App\Http\Middleware\PrivateResponses::class])->group(function(){
+ Route::get('/',[\App\Http\Controllers\HubController::class,'index']);
+ Route::get('/leads/{id}',[\App\Http\Controllers\HubController::class,'show'])->whereNumber('id');
+ Route::patch('/leads/{id}',[\App\Http\Controllers\HubController::class,'update'])->whereNumber('id');
+ Route::patch('/leads/{id}/identity',[\App\Http\Controllers\HubController::class,'identity'])->whereNumber('id');
+ Route::post('/leads',[\App\Http\Controllers\HubController::class,'store']);
+ Route::get('/companies',[\App\Http\Controllers\CompanyController::class,'index']);
+ Route::get('/analytics',[\App\Http\Controllers\HubController::class,'analytics']);
+ Route::middleware(EnsureUserIsAdmin::class)->group(function(){
+  Route::patch('/companies/{id}',[\App\Http\Controllers\CompanyController::class,'update'])->whereNumber('id');
+  Route::get('/export',[\App\Http\Controllers\HubController::class,'export']);
+  Route::get('/import',[\App\Http\Controllers\SalesHubImportController::class,'index']);
+  Route::post('/import/preview',[\App\Http\Controllers\SalesHubImportController::class,'preview'])->middleware('throttle:8,1');
+  Route::post('/import/commit',[\App\Http\Controllers\SalesHubImportController::class,'commit'])->middleware('throttle:4,1');
+  Route::get('/access',[\App\Http\Controllers\SalesHubAccessController::class,'index']);
+  Route::post('/access',[\App\Http\Controllers\SalesHubAccessController::class,'update']);
+ });
+});

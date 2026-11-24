@@ -15,6 +15,7 @@ class HandleInertiaRequests extends Middleware
             'csrfToken' => csrf_token(),
             'auth' => [
                 'user' => $request->user()?->only('id', 'username', 'role'),
+                'salesHub' => fn () => $request->user() && ($request->user()->role === 'admin' || \Illuminate\Support\Facades\DB::table('saleshub_access')->where('user_id',$request->user()->id)->exists()),
             ],
             'flash' => [
                 'readerMessage' => fn () => $request->session()->get('reader_message'),
